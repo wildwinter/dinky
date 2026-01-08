@@ -138,7 +138,7 @@ function debounce(func, wait) {
 }
 
 async function checkSyntax() {
-    window.electronAPI.log('checkSyntax running. Root:', rootFilePath)
+    // window.electronAPI.log('checkSyntax running. Root:', rootFilePath)
     if (!rootFilePath) return;
 
     try {
@@ -156,17 +156,17 @@ async function checkSyntax() {
 
         // Always compile the ROOT file, but pass the full project context
         const rootContent = rootFileObj.content;
-        window.electronAPI.log('Compiling root content length:', rootContent.length)
+
 
         const errors = await window.electronAPI.compileInk(rootContent, rootFilePath, projectFiles);
-        window.electronAPI.log('Compile complete. Errors:', errors ? errors.length : 0);
+
 
         const model = editor.getModel();
         if (model) {
             // Debug: Log first error to see path format
-            if (errors && errors.length > 0) {
+            /* if (errors && errors.length > 0) {
                 window.electronAPI.log('First error sample:', JSON.stringify(errors[0]))
-            }
+            } */
 
             // Filter errors to display only those relevant to the current file
             const visibleErrors = errors.filter(e => {

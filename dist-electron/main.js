@@ -172,32 +172,25 @@ ipcMain.handle("compile-ink", async (event, content, filePath, projectFiles = {}
   if (content && typeof content === "string" && content.charCodeAt(0) === 65279) {
     content = content.slice(1);
   }
-  console.log("IPC Handler: Compiling", filePath);
-  console.log("Project files keys:", Object.keys(projectFiles));
   const collectedErrors = [];
   let parseError = null;
   try {
     const inkjs = require("inkjs/full");
     const fsSync = require("fs");
-    console.log("Using inkjs.CompilerOptions:", !!inkjs.CompilerOptions);
     const fileHandler = {
       ResolveInkFilename: (filename) => {
         const baseDir = filePath ? path.dirname(filePath) : process.cwd();
         const resolved = path.resolve(baseDir, filename);
-        console.log("Resolving:", filename, "->", resolved);
         return resolved;
       },
       LoadInkFileContents: (filename) => {
         if (projectFiles && projectFiles[filename]) {
-          console.log(`Loaded memory: ${filename}`);
           let val = projectFiles[filename];
           if (val && typeof val === "string" && val.charCodeAt(0) === 65279) {
             val = val.slice(1);
           }
           return val;
         }
-        console.log("Memory miss for:", filename);
-        console.log("Available in memory:", Object.keys(projectFiles));
         try {
           return fsSync.readFileSync(filename, "utf-8");
         } catch (e) {
@@ -211,7 +204,6 @@ ipcMain.handle("compile-ink", async (event, content, filePath, projectFiles = {}
     };
     let options;
     if (inkjs.CompilerOptions) {
-      console.log("CompilerOptions ctor:", inkjs.CompilerOptions.toString().substring(0, 100));
       options = new inkjs.CompilerOptions(
         filePath,
         // sourceFilename passed for better context
@@ -229,8 +221,6 @@ ipcMain.handle("compile-ink", async (event, content, filePath, projectFiles = {}
         errorHandler
       };
     }
-    console.log("Compiler Content Start:", content.substring(0, 100).replace(/\n/g, "\\n"));
-    console.log("Content Char Codes:", content.substring(0, 20).split("").map((c) => c.charCodeAt(0)));
     const compiler = new inkjs.Compiler(content, options);
     compiler.Compile();
   } catch (error) {

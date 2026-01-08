@@ -203,9 +203,7 @@ ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}
         content = content.slice(1);
     }
 
-    console.log('IPC Handler: Compiling', filePath)
-    console.log('Project files keys:', Object.keys(projectFiles))
-
+    // console.log('IPC Handler: Compiling', filePath)
     const collectedErrors = []
     let parseError = null
 
@@ -214,19 +212,19 @@ ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}
         const inkjs = require('inkjs/full')
         const fsSync = require('fs')
 
-        console.log('Using inkjs.CompilerOptions:', !!inkjs.CompilerOptions)
+        // console.log('Using inkjs.CompilerOptions:', !!inkjs.CompilerOptions)
 
         const fileHandler = {
             ResolveInkFilename: (filename) => {
                 const baseDir = filePath ? path.dirname(filePath) : process.cwd()
                 const resolved = path.resolve(baseDir, filename)
-                console.log('Resolving:', filename, '->', resolved)
+                // console.log('Resolving:', filename, '->', resolved)
                 return resolved
             },
             LoadInkFileContents: (filename) => {
                 // Check memory cache first (supports unsaved changes)
                 if (projectFiles && projectFiles[filename]) {
-                    console.log(`Loaded memory: ${filename}`)
+                    // console.log(`Loaded memory: ${filename}`)
 
                     let val = projectFiles[filename]
                     if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
@@ -235,8 +233,7 @@ ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}
                     return val
                 }
 
-                console.log('Memory miss for:', filename)
-                console.log('Available in memory:', Object.keys(projectFiles))
+                // console.log('Memory miss for:', filename)
 
                 try {
                     return fsSync.readFileSync(filename, 'utf-8')
@@ -254,7 +251,7 @@ ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}
         // Use CompilerOptions class if available to ensure correct structure
         let options
         if (inkjs.CompilerOptions) {
-            console.log('CompilerOptions ctor:', inkjs.CompilerOptions.toString().substring(0, 100))
+
             options = new inkjs.CompilerOptions(
                 filePath, // sourceFilename passed for better context
                 [],   // pluginNames
@@ -271,8 +268,7 @@ ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}
         }
 
         // Basic InkJS compiler usage with file handler and custom error handler
-        console.log('Compiler Content Start:', content.substring(0, 100).replace(/\n/g, '\\n'))
-        console.log('Content Char Codes:', content.substring(0, 20).split('').map(c => c.charCodeAt(0)))
+        // console.log('Compiler Content Start:', content.substring(0, 100).replace(/\n/g, '\\n'))
 
         const compiler = new inkjs.Compiler(content, options)
         compiler.Compile()
