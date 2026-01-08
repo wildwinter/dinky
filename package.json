@@ -1,0 +1,41 @@
+{
+    "name": "dinky2",
+    "productName": "Dinky",
+    "version": "1.0.0",
+    "main": "dist-electron/main.js",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "dist-mac": "npm run build && electron-builder --mac",
+        "dist-win": "npm run build && electron-builder --win"
+    },
+    "build": {
+        "appId": "net.wildwinter.dinky",
+        "productName": "Dinky",
+        "mac": {
+            "category": "public.app-category.productivity"
+        },
+        "files": [
+            "dist-electron/**/*",
+            "dist/**/*"
+        ],
+        "directories": {
+            "output": "dist"
+        }
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "dependencies": {
+        "monaco-editor": "^0.50.0"
+    },
+    "devDependencies": {
+        "electron": "^31.0.0",
+        "electron-builder": "^26.4.0",
+        "vite": "^5.0.0",
+        "vite-plugin-electron": "^0.28.0",
+        "vite-plugin-electron-renderer": "^0.14.5"
+    }
+}
