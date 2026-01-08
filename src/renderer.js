@@ -23,9 +23,47 @@ self.MonacoEnvironment = {
     },
 };
 
+monaco.languages.register({ id: 'ink' });
+
+monaco.languages.setMonarchTokensProvider('ink', {
+    tokenizer: {
+        root: [
+            // Comments
+            [/\/\/.*$/, 'comment'],
+            [/\/\*/, 'comment', '@comment'],
+
+            // Knots and Stitches
+            [/^(={2,})\s*\w+/, 'keyword'], // Knot === Name
+            [/^=\s*\w+/, 'type'],         // Stitch = Name
+
+            // Diverts
+            [/->\s*\w+/, 'operators'],
+
+            // Choices
+            [/^[\*\+]\s?/, 'string'],
+
+            // Gather points
+            [/^\-\s?/, 'delimiter'],
+
+            // Tags
+            [/#\s*.*$/, 'annotation'],
+
+            // Logic and Variables
+            [/{/, 'delimiter.bracket'],
+            [/}/, 'delimiter.bracket'],
+            [/\w+(?=\()/, 'function'], // Function calls
+        ],
+        comment: [
+            [/[^\/*]+/, 'comment'],
+            [/\*\//, 'comment', '@pop'],
+            [/[\/*]/, 'comment']
+        ]
+    }
+});
+
 const editor = monaco.editor.create(document.getElementById('app'), {
-    value: '// Type some code here\nfunction hello() {\n\tconsole.log("Hello world!");\n}',
-    language: 'javascript',
+    value: '// Type some Ink code here\n=== start ===\nHello world!\n* [Choice 1]\n    -> end\n\n=== end ===\n-> END',
+    language: 'ink',
     theme: 'vs-dark',
     automaticLayout: true,
 });
