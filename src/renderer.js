@@ -61,13 +61,24 @@ monaco.languages.setMonarchTokensProvider('ink', {
     }
 });
 
-const editor = monaco.editor.create(document.getElementById('app'), {
+const editor = monaco.editor.create(document.getElementById('editor-container'), {
     value: '// Type some Ink code here\n=== start ===\nHello world!\n* [Choice 1]\n    -> end\n\n=== end ===\n-> END',
     language: 'ink',
     theme: 'vs-dark',
     automaticLayout: true,
 });
 
-window.electronAPI.onFileOpened((content) => {
+window.electronAPI.onFileOpened((data) => {
+    // Handle both legacy string (if any cache) and new object format
+    const content = typeof data === 'string' ? data : data.content;
+    const name = typeof data === 'string' ? 'Untitled' : data.name;
+
     editor.setValue(content);
+
+    // Update sidebar list
+    const fileList = document.getElementById('file-list');
+    fileList.innerHTML = ''; // Start fresh for now
+    const li = document.createElement('li');
+    li.textContent = name;
+    fileList.appendChild(li);
 });

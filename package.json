@@ -1,5 +1,5 @@
 {
-    "name": "dinky2",
+    "name": "dinky",
     "productName": "Dinky",
     "version": "1.0.0",
     "main": "dist-electron/main.js",

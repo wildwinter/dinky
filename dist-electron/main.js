@@ -44,7 +44,8 @@ function createWindow() {
             if (!canceled && filePaths.length > 0) {
               try {
                 const content = await fs.readFile(filePaths[0], { encoding: "utf-8" });
-                win.webContents.send("file-opened", content);
+                const name = path.basename(filePaths[0]);
+                win.webContents.send("file-opened", { name, content });
               } catch (error) {
                 console.error("Failed to read file:", error);
               }
