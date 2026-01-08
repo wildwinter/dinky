@@ -138,27 +138,29 @@ function debounce(func, wait) {
 }
 
 async function checkSyntax() {
-    // window.electronAPI.log('checkSyntax running. Root:', rootFilePath)
-    if (!rootFilePath) return;
+    let contentToCompile = '';
+    let compilePath = 'untitled.ink';
+    let projectFiles = {};
 
-    try {
+    if (rootFilePath) {
         // Serialize project files for IPC (absolute path -> content)
-        const projectFiles = {};
         for (const [path, file] of currentProjectFiles) {
             projectFiles[path] = file.content;
         }
 
         const rootFileObj = currentProjectFiles.get(rootFilePath);
         if (!rootFileObj) {
-            window.electronAPI.log('Error: Root file missing from projectFiles!', rootFilePath)
             return;
         }
+        contentToCompile = rootFileObj.content;
+        compilePath = rootFilePath;
+    } else {
+        // Single file mode (unsaved)
+        contentToCompile = editor.getValue();
+    }
 
-        // Always compile the ROOT file, but pass the full project context
-        const rootContent = rootFileObj.content;
-
-
-        const errors = await window.electronAPI.compileInk(rootContent, rootFilePath, projectFiles);
+    try {
+        const errors = await window.electronAPI.compileInk(contentToCompile, compilePath, projectFiles);
 
 
         const model = editor.getModel();
@@ -173,17 +175,22 @@ async function checkSyntax() {
                 // If no path is associated, assume it's relevant (or global)
                 if (!e.filePath) return true;
 
+                const activePath = currentFilePath || compilePath;
+
                 // Exact match
-                if (e.filePath === currentFilePath) return true;
+                if (e.filePath === activePath) return true;
 
                 // Loose match: check if filename matches
                 // currentFilePath is absolute, e.filePath might be relative
                 // Simple heuristic: does one end with the other?
                 // Or just match basenames
-                const currentFileName = currentFilePath.replace(/^.*[\\\/]/, '');
-                const errorFileName = e.filePath.replace(/^.*[\\\/]/, '');
+                if (activePath) {
+                    const currentFileName = activePath.replace(/^.*[\\\/]/, '');
+                    const errorFileName = e.filePath.replace(/^.*[\\\/]/, '');
+                    return currentFileName === errorFileName;
+                }
 
-                return currentFileName === errorFileName;
+                return false;
             });
 
             monaco.editor.setModelMarkers(model, 'ink', visibleErrors || []);
