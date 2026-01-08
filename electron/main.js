@@ -191,41 +191,105 @@ async function createWindow() {
     }
 }
 
+// Renderer logging
+ipcMain.on('renderer-log', (event, ...args) => {
+    console.log('[Renderer]', ...args)
+})
+
 // Compile handling
-ipcMain.handle('compile-ink', async (event, content) => {
-    let compiler = null
+ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}) => {
+    console.log('IPC Handler: Compiling', filePath)
+    console.log('Project files keys:', Object.keys(projectFiles))
+
+    const collectedErrors = []
     let parseError = null
 
     try {
-        // console.log('Compiling ink content, length:', content.length); // Optional: keep or remove debug
-
         // inkjs.Compiler is available in the library (requires /full export)
         const inkjs = require('inkjs/full')
+        const fsSync = require('fs')
 
-        // Basic InkJS compiler usage for single file content:
-        compiler = new inkjs.Compiler(content)
+        const fileHandler = {
+            ResolveInkFilename: (filename) => {
+                const baseDir = filePath ? path.dirname(filePath) : process.cwd()
+                return path.resolve(baseDir, filename)
+            },
+            LoadInkFileContents: (filename) => {
+                // Check memory cache first (supports unsaved changes)
+                if (projectFiles && projectFiles[filename]) {
+                    console.log(`Loaded memory: ${filename}`)
+                    console.log(`Content peek: ${projectFiles[filename].substring(0, 100).replace(/\n/g, '\\n')}`)
+                    return projectFiles[filename]
+                }
+
+                console.log('Memory miss for:', filename)
+                console.log('Available in memory:', Object.keys(projectFiles))
+
+                try {
+                    return fsSync.readFileSync(filename, 'utf-8')
+                } catch (e) {
+                    console.error('Failed to load included file:', filename, e)
+                    return ''
+                }
+            }
+        }
+
+        const errorHandler = (message, errorType) => {
+            collectedErrors.push(message)
+        }
+
+        // Use CompilerOptions class if available to ensure correct structure
+        let options
+        if (inkjs.CompilerOptions) {
+            options = new inkjs.CompilerOptions(
+                filePath, // sourceFilename passed for better context
+                [],   // pluginNames
+                false, // countAllVisits
+                errorHandler,
+                fileHandler
+            )
+        } else {
+            options = {
+                sourceFilename: filePath,
+                fileHandler,
+                errorHandler
+            }
+        }
+
+        // Basic InkJS compiler usage with file handler and custom error handler
+        const compiler = new inkjs.Compiler(content, options)
         compiler.Compile()
     } catch (error) {
-        console.error('Compilation failed:', error)
+        if (collectedErrors.length === 0) {
+            console.error('Compilation failed (unexpected):', error)
+        }
         parseError = error
     }
 
     const errors = []
 
-    // 1. Try to get standard internal errors from the compiler instance
-    if (compiler && compiler.errors && compiler.errors.length > 0) {
-        compiler.errors.forEach(errStr => {
-            const lineMatch = errStr.match(/Line (\d+): (.+)/i)
-            if (lineMatch) {
-                const line = parseInt(lineMatch[1])
-                const msg = lineMatch[2]
+    // Process explicitly collected errors
+    if (collectedErrors.length > 0) {
+        collectedErrors.forEach(errStr => {
+            // Determine severity (simple heuristic or default to Error)
+            const severity = errStr.includes('WARNING') ? 4 : 8 // 4=Warning, 8=Error
+
+            // Parse error string: "ERROR: 'path' line X: message" or "Line X: message"
+            const parts = errStr.match(/^(?:ERROR: )?(?:'([^']+)' )?line (\d+): (.+)/i)
+
+            if (parts) {
+                const errFilePath = parts[1] || null // Capture file path if present
+                const line = parseInt(parts[2])
+                const msg = parts[3]
+
                 errors.push({
                     startLineNumber: line,
                     endLineNumber: line,
                     startColumn: 1,
                     endColumn: 1000,
                     message: msg,
-                    severity: 8 // MarkerSeverity.Error
+                    severity: severity,
+                    filePath: errFilePath
                 })
             } else {
                 errors.push({
@@ -234,18 +298,19 @@ ipcMain.handle('compile-ink', async (event, content) => {
                     startColumn: 1,
                     endColumn: 1000,
                     message: errStr,
-                    severity: 8
+                    severity: severity,
+                    filePath: null
                 })
             }
         })
     }
 
-    // 2. If we found explicit compiler errors, return them (they usually contain the true syntax error)
+    // If we found explicit compiler errors, return them
     if (errors.length > 0) {
         return errors
     }
 
-    // 3. If no internal errors were recorded but usage threw an exception (e.g. crash), use heuristics
+    // Fallback if no errors collected but crashed
     if (parseError) {
         // Heuristic: Check for common crash causes
         let errorLine = 1

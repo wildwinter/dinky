@@ -71,14 +71,21 @@ const editor = monaco.editor.create(document.getElementById('editor-container'),
 });
 
 let currentProjectFiles = new Map();
+let currentFilePath = null; // Added: To store the absolute path of the currently open file
+let rootFilePath = null; // Added: To track the project root for compilation
+let isUpdatingContent = false; // Added: To prevent recursive updates during file switching
 
 window.electronAPI.onProjectLoaded((files) => {
     currentProjectFiles.clear();
     const fileList = document.getElementById('file-list');
     fileList.innerHTML = '';
 
+    if (files.length > 0) {
+        rootFilePath = files[0].absolutePath;
+    }
+
     files.forEach((file, index) => {
-        currentProjectFiles.set(file.relativePath, file);
+        currentProjectFiles.set(file.absolutePath, file);
 
         const li = document.createElement('li');
         li.textContent = file.relativePath;
@@ -88,17 +95,33 @@ window.electronAPI.onProjectLoaded((files) => {
         li.onclick = () => {
             // Remove active class from all
             Array.from(fileList.children).forEach(c => c.classList.remove('active'));
+
+            isUpdatingContent = true;
+            currentFilePath = file.absolutePath;
             editor.setValue(file.content);
+            isUpdatingContent = false;
+
             li.classList.add('active');
+            checkSyntax(); // Added: Trigger syntax check on file switch
         };
         fileList.appendChild(li);
 
         // Load root file (first one)
         if (index === 0) {
+            isUpdatingContent = true;
+            currentFilePath = file.absolutePath;
             editor.setValue(file.content);
+            isUpdatingContent = false;
+
             li.classList.add('active');
+            // checkSyntax call is handled by initial load or manual call below
         }
     });
+
+    // Initial syntax check after loading project
+    if (rootFilePath) {
+        checkSyntax();
+    }
 });
 
 // Debounce helper
@@ -115,17 +138,53 @@ function debounce(func, wait) {
 }
 
 async function checkSyntax() {
-    const content = editor.getValue();
-    const errors = await window.electronAPI.compileInk(content);
-    const model = editor.getModel();
-    if (model) {
-        monaco.editor.setModelMarkers(model, 'ink', errors || []);
+    window.electronAPI.log('checkSyntax running. Root:', rootFilePath)
+    if (!rootFilePath) return;
+
+    try {
+        // Serialize project files for IPC (absolute path -> content)
+        const projectFiles = {};
+        for (const [path, file] of currentProjectFiles) {
+            projectFiles[path] = file.content;
+        }
+
+        const rootFileObj = currentProjectFiles.get(rootFilePath);
+        if (!rootFileObj) {
+            window.electronAPI.log('Error: Root file missing from projectFiles!', rootFilePath)
+            return;
+        }
+
+        // Always compile the ROOT file, but pass the full project context
+        const rootContent = rootFileObj.content;
+        window.electronAPI.log('Compiling root content length:', rootContent.length)
+
+        const errors = await window.electronAPI.compileInk(rootContent, rootFilePath, projectFiles);
+        window.electronAPI.log('Compile complete. Errors:', errors ? errors.length : 0);
+
+        const model = editor.getModel();
+        if (model) {
+            // Filter errors to display only those relevant to the current file
+            const visibleErrors = errors.filter(e => {
+                // If no path is associated, assume it's relevant (or global)
+                // If path is provided, it must match the current file
+                return !e.filePath || e.filePath === currentFilePath;
+            });
+            monaco.editor.setModelMarkers(model, 'ink', visibleErrors || []);
+        }
+    } catch (e) {
+        window.electronAPI.log('checkSyntax failed:', e.toString())
     }
 }
 
 const debouncedCheck = debounce(checkSyntax, 1000);
 
 editor.onDidChangeModelContent(() => {
+    if (isUpdatingContent) return;
+
+    // Keep the file model in sync with editor content immediately
+    if (currentFilePath && currentProjectFiles.has(currentFilePath)) {
+        currentProjectFiles.get(currentFilePath).content = editor.getValue();
+    }
     debouncedCheck();
 });
 

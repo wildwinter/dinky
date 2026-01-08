@@ -165,32 +165,85 @@ async function createWindow() {
     win.loadFile(indexPath).catch((e) => console.error("Failed to load index.html:", e));
   }
 }
-ipcMain.handle("compile-ink", async (event, content) => {
-  let compiler = null;
+ipcMain.on("renderer-log", (event, ...args) => {
+  console.log("[Renderer]", ...args);
+});
+ipcMain.handle("compile-ink", async (event, content, filePath, projectFiles = {}) => {
+  console.log("IPC Handler: Compiling", filePath);
+  console.log("Project files keys:", Object.keys(projectFiles));
+  const collectedErrors = [];
   let parseError = null;
   try {
     const inkjs = require("inkjs/full");
-    compiler = new inkjs.Compiler(content);
+    const fsSync = require("fs");
+    const fileHandler = {
+      ResolveInkFilename: (filename) => {
+        const baseDir = filePath ? path.dirname(filePath) : process.cwd();
+        return path.resolve(baseDir, filename);
+      },
+      LoadInkFileContents: (filename) => {
+        if (projectFiles && projectFiles[filename]) {
+          console.log(`Loaded memory: ${filename}`);
+          console.log(`Content peek: ${projectFiles[filename].substring(0, 100).replace(/\n/g, "\\n")}`);
+          return projectFiles[filename];
+        }
+        console.log("Memory miss for:", filename);
+        console.log("Available in memory:", Object.keys(projectFiles));
+        try {
+          return fsSync.readFileSync(filename, "utf-8");
+        } catch (e) {
+          console.error("Failed to load included file:", filename, e);
+          return "";
+        }
+      }
+    };
+    const errorHandler = (message, errorType) => {
+      collectedErrors.push(message);
+    };
+    let options;
+    if (inkjs.CompilerOptions) {
+      options = new inkjs.CompilerOptions(
+        filePath,
+        // sourceFilename passed for better context
+        [],
+        // pluginNames
+        false,
+        // countAllVisits
+        errorHandler,
+        fileHandler
+      );
+    } else {
+      options = {
+        sourceFilename: filePath,
+        fileHandler,
+        errorHandler
+      };
+    }
+    const compiler = new inkjs.Compiler(content, options);
     compiler.Compile();
   } catch (error) {
-    console.error("Compilation failed:", error);
+    if (collectedErrors.length === 0) {
+      console.error("Compilation failed (unexpected):", error);
+    }
     parseError = error;
   }
   const errors = [];
-  if (compiler && compiler.errors && compiler.errors.length > 0) {
-    compiler.errors.forEach((errStr) => {
-      const lineMatch = errStr.match(/Line (\d+): (.+)/i);
-      if (lineMatch) {
-        const line = parseInt(lineMatch[1]);
-        const msg = lineMatch[2];
+  if (collectedErrors.length > 0) {
+    collectedErrors.forEach((errStr) => {
+      const severity = errStr.includes("WARNING") ? 4 : 8;
+      const parts = errStr.match(/^(?:ERROR: )?(?:'([^']+)' )?line (\d+): (.+)/i);
+      if (parts) {
+        const errFilePath = parts[1] || null;
+        const line = parseInt(parts[2]);
+        const msg = parts[3];
         errors.push({
           startLineNumber: line,
           endLineNumber: line,
           startColumn: 1,
           endColumn: 1e3,
           message: msg,
-          severity: 8
-          // MarkerSeverity.Error
+          severity,
+          filePath: errFilePath
         });
       } else {
         errors.push({
@@ -199,7 +252,8 @@ ipcMain.handle("compile-ink", async (event, content) => {
           startColumn: 1,
           endColumn: 1e3,
           message: errStr,
-          severity: 8
+          severity,
+          filePath: null
         });
       }
     });
