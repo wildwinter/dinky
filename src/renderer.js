@@ -28,29 +28,31 @@ monaco.languages.register({ id: 'ink' });
 monaco.languages.setMonarchTokensProvider('ink', {
     tokenizer: {
         root: [
-            // Comments
+            // Comments (Top priority)
             [/\/\/.*$/, 'comment'],
             [/\/\*/, 'comment', '@comment'],
 
-            // Knots and Stitches
-            [/^(={2,})\s*\w+/, 'keyword'], // Knot === Name
-            [/^=\s*\w+/, 'type'],         // Stitch = Name
+            // Diverts: -> matches arrow and target
+            [/->\s*[\w_\.]+/, 'keyword'],
 
-            // Diverts
-            [/->\s*\w+/, 'operators'],
+            // Knots (=== Name ===)
+            [/^={2,}\s*[\w\s]+={2,}/, 'type.identifier'], // Full Knot header
+            [/^={2,}\s*\w+/, 'type.identifier'],          // Knot opening
+
+            // Stitches (= Name)
+            [/^=\s*\w+/, 'type.identifier'],
 
             // Choices
-            [/^[\*\+]\s?/, 'string'],
+            [/^[\*\+]+/, 'keyword'], // Choice bullets
 
             // Gather points
-            [/^\-\s?/, 'delimiter'],
+            [/^\-/, 'keyword'],
 
             // Tags
             [/#\s*.*$/, 'annotation'],
 
-            // Logic and Variables
-            [/{/, 'delimiter.bracket'],
-            [/}/, 'delimiter.bracket'],
+            // Logic
+            [/[{}]/, 'delimiter.bracket'],
             [/\w+(?=\()/, 'function'], // Function calls
         ],
         comment: [
