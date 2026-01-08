@@ -8,6 +8,13 @@ export default defineConfig({
             {
                 // Main-Process entry file of the Electron App.
                 entry: 'electron/main.js',
+                vite: {
+                    build: {
+                        rollupOptions: {
+                            external: ['inkjs', 'inkjs/full'],
+                        },
+                    },
+                },
             },
             {
                 entry: 'electron/preload.js',

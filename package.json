@@ -30,6 +30,7 @@
     "license": "ISC",
     "description": "",
     "dependencies": {
+        "inkjs": "^2.3.2",
         "monaco-editor": "^0.50.0"
     },
     "devDependencies": {

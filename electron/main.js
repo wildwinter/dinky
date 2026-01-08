@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, nativeTheme } = require('electron')
+const { app, BrowserWindow, Menu, dialog, nativeTheme, ipcMain } = require('electron')
 const path = require('path')
 const fs = require('fs/promises')
 
@@ -190,6 +190,91 @@ async function createWindow() {
         win.loadFile(indexPath).catch(e => console.error('Failed to load index.html:', e))
     }
 }
+
+// Compile handling
+ipcMain.handle('compile-ink', async (event, content) => {
+    let compiler = null
+    let parseError = null
+
+    try {
+        // console.log('Compiling ink content, length:', content.length); // Optional: keep or remove debug
+
+        // inkjs.Compiler is available in the library (requires /full export)
+        const inkjs = require('inkjs/full')
+
+        // Basic InkJS compiler usage for single file content:
+        compiler = new inkjs.Compiler(content)
+        compiler.Compile()
+    } catch (error) {
+        console.error('Compilation failed:', error)
+        parseError = error
+    }
+
+    const errors = []
+
+    // 1. Try to get standard internal errors from the compiler instance
+    if (compiler && compiler.errors && compiler.errors.length > 0) {
+        compiler.errors.forEach(errStr => {
+            const lineMatch = errStr.match(/Line (\d+): (.+)/i)
+            if (lineMatch) {
+                const line = parseInt(lineMatch[1])
+                const msg = lineMatch[2]
+                errors.push({
+                    startLineNumber: line,
+                    endLineNumber: line,
+                    startColumn: 1,
+                    endColumn: 1000,
+                    message: msg,
+                    severity: 8 // MarkerSeverity.Error
+                })
+            } else {
+                errors.push({
+                    startLineNumber: 1,
+                    endLineNumber: 1,
+                    startColumn: 1,
+                    endColumn: 1000,
+                    message: errStr,
+                    severity: 8
+                })
+            }
+        })
+    }
+
+    // 2. If we found explicit compiler errors, return them (they usually contain the true syntax error)
+    if (errors.length > 0) {
+        return errors
+    }
+
+    // 3. If no internal errors were recorded but usage threw an exception (e.g. crash), use heuristics
+    if (parseError) {
+        // Heuristic: Check for common crash causes
+        let errorLine = 1
+        let errorMsg = 'Compiler Error: ' + parseError.message
+
+        if (parseError.message.includes('not a function') || parseError.message.includes('undefined')) {
+            const lines = content.split(/\r?\n/)
+            for (let i = 0; i < lines.length; i++) {
+                // Known crash: bare '~'
+                if (lines[i].trim() === '~') {
+                    errorLine = i + 1
+                    errorMsg = "Syntax Error: Incomplete logic line. '~' must be followed by code."
+                    break
+                }
+            }
+        }
+
+        return [{
+            startLineNumber: errorLine,
+            endLineNumber: errorLine,
+            startColumn: 1,
+            endColumn: 1000,
+            message: errorMsg,
+            severity: 8
+        }]
+    }
+
+    return []
+})
 
 app.whenReady().then(() => {
     createWindow()

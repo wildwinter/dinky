@@ -101,6 +101,34 @@ window.electronAPI.onProjectLoaded((files) => {
     });
 });
 
+// Debounce helper
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+async function checkSyntax() {
+    const content = editor.getValue();
+    const errors = await window.electronAPI.compileInk(content);
+    const model = editor.getModel();
+    if (model) {
+        monaco.editor.setModelMarkers(model, 'ink', errors || []);
+    }
+}
+
+const debouncedCheck = debounce(checkSyntax, 1000);
+
+editor.onDidChangeModelContent(() => {
+    debouncedCheck();
+});
+
 window.electronAPI.onThemeUpdated((theme) => {
     monaco.editor.setTheme(theme);
     if (theme === 'vs') {
@@ -111,3 +139,6 @@ window.electronAPI.onThemeUpdated((theme) => {
         document.body.classList.remove('light');
     }
 });
+
+// Initial check
+checkSyntax();
