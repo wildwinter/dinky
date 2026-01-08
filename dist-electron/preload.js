@@ -1,1 +1,14 @@
-"use strict";const{contextBridge:r,ipcRenderer:c}=require("electron");r.exposeInMainWorld("electronAPI",{onFileOpened:n=>c.on("file-opened",(e,o)=>n(o))});window.addEventListener("DOMContentLoaded",()=>{const n=(e,o)=>{const t=document.getElementById(e);t&&(t.innerText=o)};for(const e of["chrome","node","electron"])n(`${e}-version`,process.versions[e])});
+"use strict";
+const { contextBridge, ipcRenderer } = require("electron");
+contextBridge.exposeInMainWorld("electronAPI", {
+  onFileOpened: (callback) => ipcRenderer.on("file-opened", (_event, value) => callback(value))
+});
+window.addEventListener("DOMContentLoaded", () => {
+  const replaceText = (selector, text) => {
+    const element = document.getElementById(selector);
+    if (element) element.innerText = text;
+  };
+  for (const type of ["chrome", "node", "electron"]) {
+    replaceText(`${type}-version`, process.versions[type]);
+  }
+});

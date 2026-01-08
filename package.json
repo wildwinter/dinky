@@ -5,8 +5,9 @@
     "main": "dist-electron/main.js",
     "scripts": {
         "dev": "vite",
+        "start": "npm run dev",
         "build": "vite build",
-        "preview": "vite preview",
+        "preview": "npm run build && electron .",
         "dist-mac": "npm run build && electron-builder --mac",
         "dist-win": "npm run build && electron-builder --win"
     },
