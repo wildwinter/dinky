@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog } = require('electron')
+const { app, BrowserWindow, Menu, dialog, nativeTheme } = require('electron')
 const path = require('path')
 const fs = require('fs/promises')
 
@@ -44,7 +44,32 @@ async function loadInkProject(rootFilePath) {
     return files
 }
 
-function createWindow() {
+// Config persistence
+const configPath = path.join(app.getPath('userData'), 'config.json')
+
+async function loadSettings() {
+    try {
+        const data = await fs.readFile(configPath, 'utf-8')
+        return JSON.parse(data)
+    } catch {
+        return { theme: 'system' }
+    }
+}
+
+async function saveSettings(settings) {
+    try {
+        const current = await loadSettings()
+        await fs.writeFile(configPath, JSON.stringify({ ...current, ...settings }, null, 2))
+    } catch (error) {
+        console.error('Failed to save settings:', error)
+    }
+}
+
+async function createWindow() {
+    // Load settings
+    const settings = await loadSettings()
+    nativeTheme.themeSource = settings.theme || 'system'
+
     const win = new BrowserWindow({
         title: 'Dinky',
         width: 800,
@@ -104,6 +129,39 @@ function createWindow() {
                 { role: 'zoomIn' },
                 { role: 'zoomOut' },
                 { type: 'separator' },
+                {
+                    label: 'Theme',
+                    submenu: [
+                        {
+                            label: 'System',
+                            type: 'radio',
+                            checked: nativeTheme.themeSource === 'system',
+                            click: () => {
+                                nativeTheme.themeSource = 'system'
+                                saveSettings({ theme: 'system' })
+                            }
+                        },
+                        {
+                            label: 'Light',
+                            type: 'radio',
+                            checked: nativeTheme.themeSource === 'light',
+                            click: () => {
+                                nativeTheme.themeSource = 'light'
+                                saveSettings({ theme: 'light' })
+                            }
+                        },
+                        {
+                            label: 'Dark',
+                            type: 'radio',
+                            checked: nativeTheme.themeSource === 'dark',
+                            click: () => {
+                                nativeTheme.themeSource = 'dark'
+                                saveSettings({ theme: 'dark' })
+                            }
+                        }
+                    ]
+                },
+                { type: 'separator' },
                 { role: 'togglefullscreen' }
             ]
         }
@@ -111,6 +169,18 @@ function createWindow() {
 
     const menu = Menu.buildFromTemplate(template)
     Menu.setApplicationMenu(menu)
+
+    // Theme handling
+    const updateTheme = () => {
+        const theme = nativeTheme.shouldUseDarkColors ? 'vs-dark' : 'vs'
+        win.webContents.send('theme-updated', theme)
+    }
+
+    nativeTheme.on('updated', updateTheme)
+
+    win.webContents.on('did-finish-load', () => {
+        updateTheme()
+    })
 
     if (process.env.VITE_DEV_SERVER_URL) {
         win.loadURL(process.env.VITE_DEV_SERVER_URL)

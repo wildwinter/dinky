@@ -86,17 +86,28 @@ window.electronAPI.onProjectLoaded((files) => {
         li.style.cursor = 'pointer';
 
         li.onclick = () => {
-            // Remove active class/style from all
-            Array.from(fileList.children).forEach(c => c.style.backgroundColor = '');
+            // Remove active class from all
+            Array.from(fileList.children).forEach(c => c.classList.remove('active'));
             editor.setValue(file.content);
-            li.style.backgroundColor = '#37373d';
+            li.classList.add('active');
         };
         fileList.appendChild(li);
 
         // Load root file (first one)
         if (index === 0) {
             editor.setValue(file.content);
-            li.style.backgroundColor = '#37373d';
+            li.classList.add('active');
         }
     });
+});
+
+window.electronAPI.onThemeUpdated((theme) => {
+    monaco.editor.setTheme(theme);
+    if (theme === 'vs') {
+        document.body.classList.add('light');
+        document.body.classList.remove('dark');
+    } else {
+        document.body.classList.add('dark');
+        document.body.classList.remove('light');
+    }
 });
