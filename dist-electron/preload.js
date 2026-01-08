@@ -1,7 +1,8 @@
 "use strict";
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("electronAPI", {
-  onFileOpened: (callback) => ipcRenderer.on("file-opened", (_event, value) => callback(value))
+  onFileOpened: (callback) => ipcRenderer.on("file-opened", (_event, value) => callback(value)),
+  onProjectLoaded: (callback) => ipcRenderer.on("project-loaded", (_event, value) => callback(value))
 });
 window.addEventListener("DOMContentLoaded", () => {
   const replaceText = (selector, text) => {

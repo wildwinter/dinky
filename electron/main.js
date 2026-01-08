@@ -4,6 +4,46 @@ const fs = require('fs/promises')
 
 app.setName('Dinky')
 
+// Helper to recursively load ink files
+async function loadInkProject(rootFilePath) {
+    const rootDir = path.dirname(rootFilePath)
+    const files = []
+    const visited = new Set()
+
+    async function traverse(currentPath) {
+        if (visited.has(currentPath)) return
+        visited.add(currentPath)
+
+        try {
+            const content = await fs.readFile(currentPath, { encoding: 'utf-8' })
+            const relativePath = path.relative(rootDir, currentPath)
+
+            files.push({
+                absolutePath: currentPath,
+                relativePath: relativePath === '' ? path.basename(currentPath) : relativePath,
+                content
+            })
+
+            const lines = content.split(/\r?\n/)
+            for (const line of lines) {
+                const match = line.match(/^\s*INCLUDE\s+(.+)/)
+                if (match) {
+                    const includePath = match[1].trim()
+                    // INCLUDES are relative to the file they are in
+                    const nextAbsPath = path.resolve(path.dirname(currentPath), includePath)
+                    await traverse(nextAbsPath)
+                }
+            }
+        } catch (error) {
+            console.error(`Failed to load file ${currentPath}:`, error)
+            // Still add it to list but maybe with error content? Or just skip
+        }
+    }
+
+    await traverse(rootFilePath)
+    return files
+}
+
 function createWindow() {
     const win = new BrowserWindow({
         title: 'Dinky',
@@ -45,17 +85,26 @@ function createWindow() {
                             filters: [{ name: 'Ink Files', extensions: ['ink'] }]
                         })
                         if (!canceled && filePaths.length > 0) {
-                            try {
-                                const content = await fs.readFile(filePaths[0], { encoding: 'utf-8' })
-                                const name = path.basename(filePaths[0])
-                                win.webContents.send('file-opened', { name, content })
-                            } catch (error) {
-                                console.error('Failed to read file:', error)
-                            }
+                            const files = await loadInkProject(filePaths[0])
+                            win.webContents.send('project-loaded', files)
                         }
                     }
                 },
                 isMac ? { label: 'Close', role: 'close' } : { role: 'quit' }
+            ]
+        },
+        {
+            label: 'View',
+            submenu: [
+                { role: 'reload' },
+                { role: 'forceReload' },
+                { role: 'toggleDevTools' },
+                { type: 'separator' },
+                { role: 'resetZoom' },
+                { role: 'zoomIn' },
+                { role: 'zoomOut' },
+                { type: 'separator' },
+                { role: 'togglefullscreen' }
             ]
         }
     ]

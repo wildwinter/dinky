@@ -68,17 +68,33 @@ const editor = monaco.editor.create(document.getElementById('editor-container'),
     automaticLayout: true,
 });
 
-window.electronAPI.onFileOpened((data) => {
-    // Handle both legacy string (if any cache) and new object format
-    const content = typeof data === 'string' ? data : data.content;
-    const name = typeof data === 'string' ? 'Untitled' : data.name;
+let currentProjectFiles = new Map();
 
-    editor.setValue(content);
-
-    // Update sidebar list
+window.electronAPI.onProjectLoaded((files) => {
+    currentProjectFiles.clear();
     const fileList = document.getElementById('file-list');
-    fileList.innerHTML = ''; // Start fresh for now
-    const li = document.createElement('li');
-    li.textContent = name;
-    fileList.appendChild(li);
+    fileList.innerHTML = '';
+
+    files.forEach((file, index) => {
+        currentProjectFiles.set(file.relativePath, file);
+
+        const li = document.createElement('li');
+        li.textContent = file.relativePath;
+        li.style.padding = '4px 8px';
+        li.style.cursor = 'pointer';
+
+        li.onclick = () => {
+            // Remove active class/style from all
+            Array.from(fileList.children).forEach(c => c.style.backgroundColor = '');
+            editor.setValue(file.content);
+            li.style.backgroundColor = '#37373d';
+        };
+        fileList.appendChild(li);
+
+        // Load root file (first one)
+        if (index === 0) {
+            editor.setValue(file.content);
+            li.style.backgroundColor = '#37373d';
+        }
+    });
 });
