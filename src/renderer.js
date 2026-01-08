@@ -163,12 +163,29 @@ async function checkSyntax() {
 
         const model = editor.getModel();
         if (model) {
+            // Debug: Log first error to see path format
+            if (errors && errors.length > 0) {
+                window.electronAPI.log('First error sample:', JSON.stringify(errors[0]))
+            }
+
             // Filter errors to display only those relevant to the current file
             const visibleErrors = errors.filter(e => {
                 // If no path is associated, assume it's relevant (or global)
-                // If path is provided, it must match the current file
-                return !e.filePath || e.filePath === currentFilePath;
+                if (!e.filePath) return true;
+
+                // Exact match
+                if (e.filePath === currentFilePath) return true;
+
+                // Loose match: check if filename matches
+                // currentFilePath is absolute, e.filePath might be relative
+                // Simple heuristic: does one end with the other?
+                // Or just match basenames
+                const currentFileName = currentFilePath.replace(/^.*[\\\/]/, '');
+                const errorFileName = e.filePath.replace(/^.*[\\\/]/, '');
+
+                return currentFileName === errorFileName;
             });
+
             monaco.editor.setModelMarkers(model, 'ink', visibleErrors || []);
         }
     } catch (e) {

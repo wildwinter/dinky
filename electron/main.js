@@ -198,6 +198,11 @@ ipcMain.on('renderer-log', (event, ...args) => {
 
 // Compile handling
 ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}) => {
+    // Strip BOM from main content
+    if (content && typeof content === 'string' && content.charCodeAt(0) === 0xFEFF) {
+        content = content.slice(1);
+    }
+
     console.log('IPC Handler: Compiling', filePath)
     console.log('Project files keys:', Object.keys(projectFiles))
 
@@ -209,17 +214,25 @@ ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}
         const inkjs = require('inkjs/full')
         const fsSync = require('fs')
 
+        console.log('Using inkjs.CompilerOptions:', !!inkjs.CompilerOptions)
+
         const fileHandler = {
             ResolveInkFilename: (filename) => {
                 const baseDir = filePath ? path.dirname(filePath) : process.cwd()
-                return path.resolve(baseDir, filename)
+                const resolved = path.resolve(baseDir, filename)
+                console.log('Resolving:', filename, '->', resolved)
+                return resolved
             },
             LoadInkFileContents: (filename) => {
                 // Check memory cache first (supports unsaved changes)
                 if (projectFiles && projectFiles[filename]) {
                     console.log(`Loaded memory: ${filename}`)
-                    console.log(`Content peek: ${projectFiles[filename].substring(0, 100).replace(/\n/g, '\\n')}`)
-                    return projectFiles[filename]
+
+                    let val = projectFiles[filename]
+                    if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
+                        val = val.slice(1)
+                    }
+                    return val
                 }
 
                 console.log('Memory miss for:', filename)
@@ -241,6 +254,7 @@ ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}
         // Use CompilerOptions class if available to ensure correct structure
         let options
         if (inkjs.CompilerOptions) {
+            console.log('CompilerOptions ctor:', inkjs.CompilerOptions.toString().substring(0, 100))
             options = new inkjs.CompilerOptions(
                 filePath, // sourceFilename passed for better context
                 [],   // pluginNames
@@ -257,6 +271,9 @@ ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}
         }
 
         // Basic InkJS compiler usage with file handler and custom error handler
+        console.log('Compiler Content Start:', content.substring(0, 100).replace(/\n/g, '\\n'))
+        console.log('Content Char Codes:', content.substring(0, 20).split('').map(c => c.charCodeAt(0)))
+
         const compiler = new inkjs.Compiler(content, options)
         compiler.Compile()
     } catch (error) {

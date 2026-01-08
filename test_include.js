@@ -1,71 +1,60 @@
 const inkjs = require('inkjs/full');
 const path = require('path');
 
+// Simulate absolute paths
+const rootDir = __dirname;
+const mainPath = path.join(rootDir, 'main.ink');
+const scenePath = path.join(rootDir, 'scene.ink');
+
 const mainContent = `
 INCLUDE scene.ink
 Coming from main.
 -> MyScene
 `;
 
-const sceneContentTwoEquals = `
-== MyScene
-Hello from scene.
--> END
-`;
-
-const sceneContentThreeEquals = `
+const sceneContent = `
 === MyScene ===
 Hello from scene.
 -> END
 `;
 
+console.log('Main Path:', mainPath);
+console.log('Scene Path:', scenePath);
+
 const fileHandler = {
     ResolveInkFilename: (filename) => {
-        return filename;
+        const resolved = path.resolve(path.dirname(mainPath), filename);
+        console.log('FileHandler: Resolving', filename, '->', resolved);
+        return resolved;
     },
     LoadInkFileContents: (filename) => {
-        if (filename === 'scene.ink') {
-            // Toggle this to test different contents
-            // return sceneContentTwoEquals; 
-            return sceneContentTwoEquals;
+        console.log('FileHandler: Loading', filename);
+        if (filename === scenePath) {
+            return sceneContent;
         }
         return '';
     }
 };
 
+const errorHandler = (msg, type) => {
+    console.error('ErrorHandler:', msg);
+};
+
+// Test with CompilerOptions
+console.log('--- Testing with CompilerOptions and Absolute Paths ---');
 const options = new inkjs.CompilerOptions(
-    'main.ink',
+    mainPath,
     [],
     false,
-    null,
+    errorHandler,
     fileHandler
 );
 
-console.log('--- Testing with == MyScene ---');
 try {
-    // We strictly test the Two Equals case first
     const compiler = new inkjs.Compiler(mainContent, options);
-    compiler.Compile();
-    console.log('Success!');
-} catch (e) {
-    console.error('Failed:', e.message);
-}
-
-// Now test Correct Syntax
-const fileHandler3 = {
-    ResolveInkFilename: (filename) => filename,
-    LoadInkFileContents: (filename) => {
-        if (filename === 'scene.ink') return sceneContentThreeEquals;
-        return '';
-    }
-};
-const options3 = new inkjs.CompilerOptions('main.ink', [], false, null, fileHandler3);
-
-console.log('\n--- Testing with === MyScene === ---');
-try {
-    const compiler = new inkjs.Compiler(mainContent, options3);
-    compiler.Compile();
-    console.log('Success!');
+    console.log('Compiler created. Compiling...');
+    const story = compiler.Compile();
+    console.log('Success! Story created.');
 } catch (e) {
     console.error('Failed:', e.message);
 }
