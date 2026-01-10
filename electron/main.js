@@ -13,6 +13,8 @@ app.setName('Dinky')
 // Wire up the menu rebuild callback
 setMenuRebuildCallback(buildMenu);
 
+let mainWindow = null;
+
 async function createWindow() {
     // Load settings
     const settings = await loadSettings()
@@ -28,6 +30,8 @@ async function createWindow() {
             contextIsolation: true,
         },
     })
+
+    mainWindow = win;
 
     // Initial menu build
     await buildMenu(win);
@@ -200,6 +204,11 @@ ipcMain.handle('delete-include', async (event, filePath) => {
 
 ipcMain.handle('start-test', (event, rootPath, projectFiles) => {
     openTestWindow(rootPath, projectFiles);
+});
+ipcMain.on('request-test-restart', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('trigger-start-test');
+    }
 });
 
 app.on('window-all-closed', () => {

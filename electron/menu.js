@@ -171,7 +171,7 @@ async function buildMenu(win) {
                     label: 'Start Test',
                     accelerator: 'CmdOrCtrl+T',
                     click: () => {
-                        openTestWindow()
+                        win.webContents.send('trigger-start-test');
                     }
                 }
             ]

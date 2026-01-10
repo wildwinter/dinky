@@ -175,9 +175,8 @@ if (btnRestart) {
     btnRestart.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (currentStoryJson) {
-            startStory(currentStoryJson);
-        }
+        // Request the main window to save all and restart our test
+        window.electronAPI.requestTestRestart();
     };
 }
 

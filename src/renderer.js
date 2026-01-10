@@ -462,8 +462,11 @@ btnDeleteInclude.addEventListener('click', async () => {
     }
 });
 
-document.getElementById('btn-start-test').addEventListener('click', async () => {
+async function handleStartTest() {
     if (!rootInkPath) return;
+
+    // Auto-save all files first
+    await saveAllFiles();
 
     const projectFiles = {};
     for (const [path, file] of loadedInkFiles) {
@@ -471,4 +474,12 @@ document.getElementById('btn-start-test').addEventListener('click', async () => 
     }
 
     await window.electronAPI.startTest(rootInkPath, projectFiles);
+}
+
+document.getElementById('btn-start-test').addEventListener('click', async () => {
+    await handleStartTest();
+});
+
+window.electronAPI.onTriggerStartTest(async () => {
+    await handleStartTest();
 });

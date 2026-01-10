@@ -22,7 +22,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   sendUnsavedStatus: (status) => ipcRenderer.send("unsaved-status", status),
   sendSaveExitComplete: () => ipcRenderer.send("save-exit-complete"),
   startTest: (rootPath, projectFiles) => ipcRenderer.invoke("start-test", rootPath, projectFiles),
-  onStartStory: (callback) => ipcRenderer.on("start-story", (_event, value) => callback(value))
+  onStartStory: (callback) => ipcRenderer.on("start-story", (_event, value) => callback(value)),
+  onTriggerStartTest: (callback) => ipcRenderer.on("trigger-start-test", (_event) => callback()),
+  requestTestRestart: () => ipcRenderer.send("request-test-restart")
 });
 window.addEventListener("DOMContentLoaded", () => {
   const replaceText = (selector, text) => {

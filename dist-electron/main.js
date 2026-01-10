@@ -671,7 +671,7 @@ async function buildMenu(win) {
           label: "Start Test",
           accelerator: "CmdOrCtrl+T",
           click: () => {
-            openTestWindow();
+            win.webContents.send("trigger-start-test");
           }
         }
       ]
@@ -682,6 +682,7 @@ async function buildMenu(win) {
 }
 electron.app.setName("Dinky");
 setMenuRebuildCallback(buildMenu);
+let mainWindow = null;
 async function createWindow() {
   const settings = await loadSettings();
   electron.nativeTheme.themeSource = settings.theme || "system";
@@ -695,6 +696,7 @@ async function createWindow() {
       contextIsolation: true
     }
   });
+  mainWindow = win;
   await buildMenu(win);
   const updateTheme = () => {
     const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
@@ -828,6 +830,11 @@ electron.ipcMain.handle("delete-include", async (event, filePath) => {
 });
 electron.ipcMain.handle("start-test", (event, rootPath, projectFiles) => {
   openTestWindow(rootPath, projectFiles);
+});
+electron.ipcMain.on("request-test-restart", () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("trigger-start-test");
+  }
 });
 electron.app.on("window-all-closed", () => {
   electron.app.quit();
