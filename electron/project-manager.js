@@ -81,7 +81,7 @@ async function loadProject(win, filePath) {
         if (rebuildMenuCallback) await rebuildMenuCallback(win); // Rebuild menu to update recent list
 
         // Auto-load Ink Root logic
-        // Priority 1: Last Ink Root loaded for this project (user preference)
+        // First check: Last Ink Root loaded for this project (user preference)
         const lastInkRoot = await getProjectSetting(filePath, 'lastInkRoot');
         let inkFileToLoad = null;
 
@@ -96,7 +96,7 @@ async function loadProject(win, filePath) {
             }
         }
 
-        // Priority 2: "source" in project JSON
+        // Second check: "source" in project JSON
         if (!inkFileToLoad && currentDinkProject.content.source) {
             const sourcePath = path.resolve(path.dirname(filePath), currentDinkProject.content.source);
             try {
@@ -137,10 +137,10 @@ async function createNewProject(win, name, parentPath) {
     try {
         await fs.mkdir(projectDir, { recursive: true });
 
-        // precise content as requested: empty JSON
+        // Empty JSON for project file
         await fs.writeFile(projectFile, '{}', 'utf-8');
 
-        // precise content as requested
+        // Default Ink content
         await fs.writeFile(inkFile, '// Add Ink content here', 'utf-8');
 
         // Set this as the preferred ink root for this project immediately
@@ -165,10 +165,10 @@ async function createNewInclude(win, name, folderPath) {
     const fullIncludePath = path.join(folderPath, fileName);
 
     try {
-        // 1. Create file with valid Ink comment
+        // Create file with valid Ink comment
         await fs.writeFile(fullIncludePath, '// Type Ink here', 'utf-8');
 
-        // 2. Modify Ink Root to add INCLUDE
+        // Modify Ink Root to add INCLUDE
         const rootContent = await fs.readFile(currentInkRoot, 'utf-8');
         const lines = rootContent.split(/\r?\n/);
         const relativePath = path.relative(path.dirname(currentInkRoot), fullIncludePath);
@@ -189,16 +189,12 @@ async function createNewInclude(win, name, folderPath) {
 
         if (insertIndex === -1) {
             // No INCLUDEs found, try to skip header comments
-            // Simple heuristic based on prompt: "after any comment lines"
             // We'll skip lines starting with // or enclosed in /* */
-            // But doing robust comment skipping is hard with regex. 
-            // Let's just find the first non-comment/non-empty line and insert before it, 
-            // OR if file starts with comments, insert after them.
+            // Simple check for line comments and empty lines
 
             insertIndex = 0;
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i].trim();
-                // Simple check for line comments and empty lines
                 if (line.startsWith('//') || line === '') {
                     insertIndex = i + 1;
                 } else {
@@ -209,12 +205,11 @@ async function createNewInclude(win, name, folderPath) {
         }
 
         lines.splice(insertIndex, 0, includeLine);
-        const newContent = lines.join('\n'); // Standardize on \n or preserve? split uses regex so we lose original endings. 
-        // Let's use os.EOL or just \n. Ink handles \n fine.
+        const newContent = lines.join('\n'); // Standardize on \n
 
         await fs.writeFile(currentInkRoot, newContent, 'utf-8');
 
-        // 3. Reload project files
+        // Reload project files
         // We can just reload the root ink
         const files = await loadRootInk(currentInkRoot);
         win.webContents.send('root-ink-loaded', files);
