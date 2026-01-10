@@ -46,9 +46,10 @@ async function createWindow() {
     ipcMain.emit('rebuild-menu');
 
     // Theme handling
-    setupThemeListener(win);
+    const { update: updateTheme } = setupThemeListener(win);
 
     win.webContents.on('did-finish-load', async () => {
+        updateTheme()
 
         // Load last used project if available
         const recent = await getRecentProjects();

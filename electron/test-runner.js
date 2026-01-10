@@ -35,7 +35,7 @@ export async function openTestWindow(rootPath, projectFiles) {
         show: false
     })
 
-    const cleanupTheme = setupThemeListener(testWindow, '#1e1e1e', '#ffffff');
+    const { cleanup: cleanupTheme, update: updateTheme } = setupThemeListener(testWindow, '#1e1e1e', '#ffffff');
 
     testWindow.on('move', () => saveWindowState('test', testWindow.getBounds()));
     testWindow.on('resize', () => saveWindowState('test', testWindow.getBounds()));
@@ -54,6 +54,7 @@ export async function openTestWindow(rootPath, projectFiles) {
     });
 
     testWindow.webContents.on('did-finish-load', async () => {
+        updateTheme()
         if (rootPath && projectFiles) {
             await runTestSequence(rootPath, projectFiles);
         }

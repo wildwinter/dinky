@@ -38,7 +38,10 @@ export function setupThemeListener(win, bgColorDark, bgColorLight) {
     // Initial run
     updateTheme()
 
-    return () => {
-        nativeTheme.off('updated', updateTheme)
+    return {
+        cleanup: () => {
+            nativeTheme.off('updated', updateTheme)
+        },
+        update: updateTheme
     }
 }

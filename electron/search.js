@@ -86,7 +86,7 @@ export async function openSearchWindow() {
         show: false
     })
 
-    const cleanupTheme = setupThemeListener(searchWindow, '#252526', '#f3f3f3');
+    const { cleanup: cleanupTheme, update: updateTheme } = setupThemeListener(searchWindow, '#252526', '#f3f3f3');
 
     searchWindow.on('move', () => saveWindowState('search', searchWindow.getBounds()));
     searchWindow.on('resize', () => saveWindowState('search', searchWindow.getBounds()));
@@ -103,6 +103,10 @@ export async function openSearchWindow() {
         searchWindow.show();
         await saveSettings({ searchWindowOpen: true });
         if (mainWindow) await safeSend(mainWindow, 'rebuild-menu');
+    });
+
+    searchWindow.webContents.on('did-finish-load', () => {
+        updateTheme();
     });
 
     if (process.env.VITE_DEV_SERVER_URL) {
