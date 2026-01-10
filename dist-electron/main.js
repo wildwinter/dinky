@@ -11,8 +11,21 @@ async function loadSettings() {
     const data = await fs.readFile(configPath, "utf-8");
     return JSON.parse(data);
   } catch {
-    return { theme: "system", recentProjects: [] };
+    return { theme: "system", recentProjects: [], projectSettings: {} };
   }
+}
+async function getProjectSetting(projectPath, key) {
+  const settings = await loadSettings();
+  if (!settings.projectSettings) return null;
+  if (!settings.projectSettings[projectPath]) return null;
+  return settings.projectSettings[projectPath][key];
+}
+async function setProjectSetting(projectPath, key, value) {
+  const settings = await loadSettings();
+  if (!settings.projectSettings) settings.projectSettings = {};
+  if (!settings.projectSettings[projectPath]) settings.projectSettings[projectPath] = {};
+  settings.projectSettings[projectPath][key] = value;
+  await saveSettings(settings);
 }
 async function saveSettings(settings) {
   try {
@@ -85,6 +98,31 @@ async function loadProject(win, filePath) {
     win.setTitle(`Dinky - ${path.basename(filePath)}`);
     await addToRecentProjects(filePath);
     await buildMenu(win);
+    const lastInkRoot = await getProjectSetting(filePath, "lastInkRoot");
+    let inkFileToLoad = null;
+    if (lastInkRoot) {
+      try {
+        await fs.access(lastInkRoot);
+        inkFileToLoad = lastInkRoot;
+        console.log("Using stored preference for Ink Root:", inkFileToLoad);
+      } catch {
+        console.log("Stored last Ink Root not found, falling back.");
+      }
+    }
+    if (!inkFileToLoad && currentDinkProject.content.source) {
+      const sourcePath = path.resolve(path.dirname(filePath), currentDinkProject.content.source);
+      try {
+        await fs.access(sourcePath);
+        inkFileToLoad = sourcePath;
+        console.log("Using project source for Ink Root:", inkFileToLoad);
+      } catch (e) {
+        console.warn("Project source file not found:", sourcePath);
+      }
+    }
+    if (inkFileToLoad) {
+      const files = await loadRootInk(inkFileToLoad);
+      win.webContents.send("root-ink-loaded", files);
+    }
     return true;
   } catch (e) {
     console.error("Failed to open project:", e);
@@ -181,6 +219,10 @@ async function buildMenu(win) {
             if (!canceled && filePaths.length > 0) {
               const files = await loadRootInk(filePaths[0]);
               win.webContents.send("root-ink-loaded", files);
+              if (currentDinkProject) {
+                await setProjectSetting(currentDinkProject.path, "lastInkRoot", filePaths[0]);
+                console.log("Saved Ink Root preference:", filePaths[0]);
+              }
             }
           }
         },
