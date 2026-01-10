@@ -5,6 +5,51 @@ const fs = require('fs/promises')
 app.setName('Dinky')
 
 let currentDinkProject = null;
+const MAX_RECENT_PROJECTS = 10;
+
+// Config persistence
+const configPath = path.join(app.getPath('userData'), 'config.json')
+
+async function loadSettings() {
+    try {
+        const data = await fs.readFile(configPath, 'utf-8')
+        return JSON.parse(data)
+    } catch {
+        return { theme: 'system', recentProjects: [] }
+    }
+}
+
+async function saveSettings(settings) {
+    try {
+        const current = await loadSettings()
+        await fs.writeFile(configPath, JSON.stringify({ ...current, ...settings }, null, 2))
+    } catch (error) {
+        console.error('Failed to save settings:', error)
+    }
+}
+
+// Recent Projects Helpers
+async function getRecentProjects() {
+    const settings = await loadSettings();
+    return settings.recentProjects || [];
+}
+
+async function addToRecentProjects(filePath) {
+    let recent = await getRecentProjects();
+    // Remove if exists to move to top
+    recent = recent.filter(p => p !== filePath);
+    recent.unshift(filePath);
+    if (recent.length > MAX_RECENT_PROJECTS) {
+        recent = recent.slice(0, MAX_RECENT_PROJECTS);
+    }
+    await saveSettings({ recentProjects: recent });
+}
+
+async function removeFromRecentProjects(filePath) {
+    let recent = await getRecentProjects();
+    recent = recent.filter(p => p !== filePath);
+    await saveSettings({ recentProjects: recent });
+}
 
 // Helper to recursively load ink files
 async function loadRootInk(rootFilePath) {
@@ -46,44 +91,60 @@ async function loadRootInk(rootFilePath) {
     return files
 }
 
-// Config persistence
-const configPath = path.join(app.getPath('userData'), 'config.json')
-
-async function loadSettings() {
+async function loadProject(win, filePath) {
     try {
-        const data = await fs.readFile(configPath, 'utf-8')
-        return JSON.parse(data)
-    } catch {
-        return { theme: 'system' }
+        // Verify file exists first
+        try {
+            await fs.access(filePath);
+        } catch {
+            throw new Error(`Project file not found: ${filePath}`);
+        }
+
+        const content = await fs.readFile(filePath, 'utf-8');
+        // Strip comments (single - // and multi-line - /**/)
+        const jsonContent = content.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        currentDinkProject = { path: filePath, content: JSON.parse(jsonContent) };
+
+        console.log('Loaded project:', filePath);
+        win.setTitle(`Dinky - ${path.basename(filePath)}`);
+
+        // Update Recent Projects
+        await addToRecentProjects(filePath);
+        await buildMenu(win); // Rebuild menu to update recent list
+
+        return true;
+    } catch (e) {
+        console.error('Failed to open project:', e);
+        if (e.message.includes('not found')) {
+            // Remove from recent if not found
+            await removeFromRecentProjects(filePath);
+            await buildMenu(win);
+        }
+        dialog.showErrorBox('Error', `Failed to open project file.\n${e.message}`);
+        return false;
     }
 }
 
-async function saveSettings(settings) {
-    try {
-        const current = await loadSettings()
-        await fs.writeFile(configPath, JSON.stringify({ ...current, ...settings }, null, 2))
-    } catch (error) {
-        console.error('Failed to save settings:', error)
-    }
-}
-
-async function createWindow() {
-    // Load settings
-    const settings = await loadSettings()
-    nativeTheme.themeSource = settings.theme || 'system'
-
-    const win = new BrowserWindow({
-        title: 'Dinky',
-        width: 800,
-        height: 600,
-        webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-            nodeIntegration: false,
-            contextIsolation: true,
-        },
-    })
-
+async function buildMenu(win) {
+    const recentProjects = await getRecentProjects();
     const isMac = process.platform === 'darwin'
+
+    const recentMenu = recentProjects.length > 0 ? recentProjects.map(p => ({
+        label: path.basename(p),
+        click: () => loadProject(win, p)
+    })) : [{ label: 'No Recent Projects', enabled: false }];
+
+    // Add clear option if there are items
+    if (recentProjects.length > 0) {
+        recentMenu.push({ type: 'separator' });
+        recentMenu.push({
+            label: 'Clear Recently Opened',
+            click: async () => {
+                await saveSettings({ recentProjects: [] });
+                await buildMenu(win);
+            }
+        });
+    }
 
     const template = [
         ...(isMac ? [{
@@ -113,9 +174,7 @@ async function createWindow() {
                             try {
                                 const initialContent = {};
                                 await fs.writeFile(filePath, JSON.stringify(initialContent, null, 4), 'utf-8');
-                                currentDinkProject = { path: filePath, content: initialContent };
-                                console.log('Created and loaded new project:', filePath);
-                                win.setTitle(`Dinky - ${path.basename(filePath)}`);
+                                await loadProject(win, filePath);
                             } catch (e) {
                                 console.error('Failed to create new project:', e);
                                 dialog.showErrorBox('Error', 'Failed to create new project file.');
@@ -131,19 +190,13 @@ async function createWindow() {
                             filters: [{ name: 'Dink Project', extensions: ['dinkproj'] }]
                         })
                         if (!canceled && filePaths.length > 0) {
-                            try {
-                                const content = await fs.readFile(filePaths[0], 'utf-8');
-                                // Strip comments (single - // and multi-line - /**/)
-                                const jsonContent = content.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-                                currentDinkProject = { path: filePaths[0], content: JSON.parse(jsonContent) };
-                                console.log('Loaded project:', filePaths[0]);
-                                win.setTitle(`Dinky - ${path.basename(filePaths[0])}`);
-                            } catch (e) {
-                                console.error('Failed to open project:', e);
-                                dialog.showErrorBox('Error', 'Failed to open project file.');
-                            }
+                            await loadProject(win, filePaths[0]);
                         }
                     }
+                },
+                {
+                    label: 'Open Recent Project',
+                    submenu: recentMenu
                 },
                 { type: 'separator' },
                 {
@@ -215,6 +268,26 @@ async function createWindow() {
 
     const menu = Menu.buildFromTemplate(template)
     Menu.setApplicationMenu(menu)
+}
+
+async function createWindow() {
+    // Load settings
+    const settings = await loadSettings()
+    nativeTheme.themeSource = settings.theme || 'system'
+
+    const win = new BrowserWindow({
+        title: 'Dinky',
+        width: 800,
+        height: 600,
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            nodeIntegration: false,
+            contextIsolation: true,
+        },
+    })
+
+    // Initial menu build
+    await buildMenu(win);
 
     // Theme handling
     const updateTheme = () => {
@@ -224,8 +297,26 @@ async function createWindow() {
 
     nativeTheme.on('updated', updateTheme)
 
-    win.webContents.on('did-finish-load', () => {
+    win.webContents.on('did-finish-load', async () => {
         updateTheme()
+
+        // Load last used project if available
+        const recent = await getRecentProjects();
+        if (recent.length > 0) {
+            const lastProject = recent[0];
+            try {
+                // Check if file exists
+                await fs.access(lastProject);
+                // If it exists, load it
+                console.log('Auto-loading last project:', lastProject);
+
+                await loadProject(win, lastProject);
+            } catch (e) {
+                console.log('Last project not found or invalid, removing from history:', lastProject);
+                await removeFromRecentProjects(lastProject);
+                await buildMenu(win);
+            }
+        }
     })
 
     if (process.env.VITE_DEV_SERVER_URL) {
