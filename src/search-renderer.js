@@ -3,6 +3,7 @@ const replaceInFilesInput = document.getElementById('replace-in-files-input');
 const btnFindInFiles = document.getElementById('btn-find-in-files');
 const btnReplaceInFiles = document.getElementById('btn-replace-in-files');
 const searchResultsList = document.getElementById('search-results-list');
+const caseSensitiveCheckbox = document.getElementById('case-sensitive-checkbox');
 
 async function performSearch() {
     const query = findInFilesInput.value;
@@ -10,7 +11,10 @@ async function performSearch() {
 
     searchResultsList.innerHTML = '<li style="cursor: default; border: none; opacity: 0.5;">Searching...</li>';
 
-    const results = await window.electronAPI.performSearch(query);
+    const results = await window.electronAPI.performSearch({
+        query,
+        caseSensitive: caseSensitiveCheckbox.checked
+    });
     displayResults(results, query);
 }
 
@@ -50,7 +54,11 @@ btnReplaceInFiles.addEventListener('click', async () => {
     const replacement = replaceInFilesInput.value;
     if (!query) return;
 
-    const count = await window.electronAPI.performReplaceAll({ query, replacement });
+    const count = await window.electronAPI.performReplaceAll({
+        query,
+        replacement,
+        caseSensitive: caseSensitiveCheckbox.checked
+    });
     if (count > 0) {
         performSearch();
     }

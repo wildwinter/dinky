@@ -1,8 +1,13 @@
-Testing.
-Add Search/Replace
-Add Find in Files
-Add Replace in Files
+TODO:
+-----
 Add zoom in / zoom out / reset zoom for every window, make persistent
 Add spellchecker/dictionary
 Add character list
 Add Dink syntax checking and highlighting
+
+Done:
+----
+Testing.
+Add Search/Replace
+Add Find in Files
+Add Replace in Files

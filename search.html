@@ -90,6 +90,10 @@
     <div class="search-area">
         <input type="text" id="find-in-files-input" placeholder="Search for..." autofocus>
         <input type="text" id="replace-in-files-input" placeholder="Replace with...">
+        <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 5px; font-size: 12px;">
+            <input type="checkbox" id="case-sensitive-checkbox">
+            <label for="case-sensitive-checkbox">Case Sensitive</label>
+        </div>
         <div class="buttons">
             <button id="btn-find-in-files" class="primary">Find All</button>
             <button id="btn-replace-in-files" class="secondary">Replace All</button>

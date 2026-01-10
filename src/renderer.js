@@ -480,12 +480,13 @@ window.electronAPI.onMenuReplace(() => {
     editor.trigger('keyboard', 'editor.action.startFindReplaceAction');
 });
 
-window.electronAPI.onSearchRequested((query) => {
+window.electronAPI.onSearchRequested(({ query, caseSensitive }) => {
     const matches = [];
     for (const [path, file] of loadedInkFiles) {
         const lines = file.content.split('\n');
         lines.forEach((line, index) => {
-            if (line.includes(query)) {
+            const match = caseSensitive ? line.includes(query) : line.toLowerCase().includes(query.toLowerCase());
+            if (match) {
                 matches.push({
                     path,
                     relativePath: file.relativePath,
@@ -513,14 +514,17 @@ window.electronAPI.onClearSearchHighlights(() => {
     }
 });
 
-window.electronAPI.onReplaceRequested(({ query, replacement }) => {
+window.electronAPI.onReplaceRequested(({ query, replacement, caseSensitive }) => {
     let totalReplacements = 0;
+    const regexFlags = caseSensitive ? 'g' : 'gi';
+    const regex = new RegExp(escapeRegExp(query), regexFlags);
+
     for (const [path, file] of loadedInkFiles) {
-        if (file.content.includes(query)) {
-            const count = (file.content.match(new RegExp(escapeRegExp(query), 'g')) || []).length;
+        if (regex.test(file.content)) {
+            const count = (file.content.match(regex) || []).length;
             totalReplacements += count;
 
-            const newContent = file.content.split(query).join(replacement);
+            const newContent = file.content.replace(regex, replacement);
             file.content = newContent;
 
             if (path === currentFilePath) {

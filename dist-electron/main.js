@@ -494,10 +494,10 @@ function initSearch(win) {
   electron.ipcMain.on("open-search-window", () => {
     openSearchWindow();
   });
-  electron.ipcMain.handle("perform-search", async (event, query) => {
+  electron.ipcMain.handle("perform-search", async (event, { query, caseSensitive }) => {
     if (!mainWindow$1) return [];
     return await new Promise((resolve) => {
-      mainWindow$1.webContents.send("request-search-results", query);
+      mainWindow$1.webContents.send("request-search-results", { query, caseSensitive });
       electron.ipcMain.once("search-results-ready", (_event, results) => {
         resolve(results);
       });
@@ -508,10 +508,10 @@ function initSearch(win) {
       mainWindow$1.webContents.send("navigate-to-match", { path: path2, line, query });
     }
   });
-  electron.ipcMain.handle("perform-replace-all", async (event, { query, replacement }) => {
+  electron.ipcMain.handle("perform-replace-all", async (event, { query, replacement, caseSensitive }) => {
     if (!mainWindow$1) return 0;
     return await new Promise((resolve) => {
-      mainWindow$1.webContents.send("request-replace-all", { query, replacement });
+      mainWindow$1.webContents.send("request-replace-all", { query, replacement, caseSensitive });
       electron.ipcMain.once("replace-all-complete", (_event, count) => {
         resolve(count);
       });

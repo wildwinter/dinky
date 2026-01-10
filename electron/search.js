@@ -11,10 +11,10 @@ export function initSearch(win) {
         openSearchWindow();
     });
 
-    ipcMain.handle('perform-search', async (event, query) => {
+    ipcMain.handle('perform-search', async (event, { query, caseSensitive }) => {
         if (!mainWindow) return [];
         return await new Promise((resolve) => {
-            mainWindow.webContents.send('request-search-results', query);
+            mainWindow.webContents.send('request-search-results', { query, caseSensitive });
             ipcMain.once('search-results-ready', (_event, results) => {
                 resolve(results);
             });
@@ -27,10 +27,10 @@ export function initSearch(win) {
         }
     });
 
-    ipcMain.handle('perform-replace-all', async (event, { query, replacement }) => {
+    ipcMain.handle('perform-replace-all', async (event, { query, replacement, caseSensitive }) => {
         if (!mainWindow) return 0;
         return await new Promise((resolve) => {
-            mainWindow.webContents.send('request-replace-all', { query, replacement });
+            mainWindow.webContents.send('request-replace-all', { query, replacement, caseSensitive });
             ipcMain.once('replace-all-complete', (_event, count) => {
                 resolve(count);
             });
