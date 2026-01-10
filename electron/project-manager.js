@@ -137,8 +137,11 @@ async function createNewProject(win, name, parentPath) {
     try {
         await fs.mkdir(projectDir, { recursive: true });
 
-        // Empty JSON for project file
-        await fs.writeFile(projectFile, '{}', 'utf-8');
+        // Create project JSON with source reference
+        const projectContent = {
+            source: 'main.ink'
+        };
+        await fs.writeFile(projectFile, JSON.stringify(projectContent, null, 2), 'utf-8');
 
         // Default Ink content
         await fs.writeFile(inkFile, '// Add Ink content here', 'utf-8');
