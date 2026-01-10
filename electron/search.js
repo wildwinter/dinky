@@ -1,7 +1,7 @@
 import { BrowserWindow, nativeTheme, ipcMain } from 'electron'
 import path from 'path'
 import { safeSend } from './utils'
-import { getWindowState, saveWindowState } from './config'
+import { getWindowState, saveWindowState, saveSettings } from './config'
 
 let searchWindow = null
 let mainWindow = null
@@ -45,6 +45,7 @@ export async function openSearchWindow() {
         searchWindow.show()
         searchWindow.focus()
         safeSend(searchWindow, 'focus-search-input');
+        await saveSettings({ searchWindowOpen: true });
         return
     }
 
@@ -103,12 +104,14 @@ export async function openSearchWindow() {
         nativeTheme.off('updated', themeListener)
         searchWindow = null
         safeSend(mainWindow, 'clear-search-highlights');
+        await saveSettings({ searchWindowOpen: false });
         if (mainWindow) await safeSend(mainWindow, 'rebuild-menu');
     })
 
     searchWindow.once('ready-to-show', async () => {
         searchWindow.show();
         updateTheme();
+        await saveSettings({ searchWindowOpen: true });
         if (mainWindow) await safeSend(mainWindow, 'rebuild-menu');
     });
 

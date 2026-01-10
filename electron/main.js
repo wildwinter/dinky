@@ -7,7 +7,7 @@ import { buildMenu } from './menu'
 import { compileInk } from './compiler'
 import { openTestWindow } from './test-runner'
 import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, deleteInclude, setMenuRebuildCallback } from './project-manager'
-import { initSearch } from './search'
+import { initSearch, openSearchWindow } from './search'
 import { safeSend } from './utils'
 
 app.setName('Dinky')
@@ -67,6 +67,16 @@ async function createWindow() {
                 console.log('Auto-loading last project:', lastProject);
 
                 await loadProject(win, lastProject);
+
+                // Restore other windows if they were open
+                const currentSettings = await loadSettings();
+                if (currentSettings.searchWindowOpen) {
+                    await openSearchWindow();
+                }
+                if (currentSettings.testWindowOpen) {
+                    // Start test (which opens the window)
+                    safeSend(win, 'trigger-start-test');
+                }
             } catch (e) {
                 console.log('Last project not found or invalid, removing from history:', lastProject);
                 await removeFromRecentProjects(lastProject);

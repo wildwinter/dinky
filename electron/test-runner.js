@@ -2,7 +2,7 @@ import { BrowserWindow, nativeTheme, ipcMain } from 'electron'
 import path from 'path'
 import { compileStory } from './compiler'
 import { safeSend } from './utils'
-import { getWindowState, saveWindowState } from './config'
+import { getWindowState, saveWindowState, saveSettings } from './config'
 
 let testWindow = null
 
@@ -13,6 +13,7 @@ export async function openTestWindow(rootPath, projectFiles) {
         if (rootPath && projectFiles) {
             await runTestSequence(rootPath, projectFiles);
         }
+        await saveSettings({ testWindowOpen: true });
         return
     }
 
@@ -48,14 +49,16 @@ export async function openTestWindow(rootPath, projectFiles) {
     testWindow.on('move', () => saveWindowState('test', testWindow.getBounds()));
     testWindow.on('resize', () => saveWindowState('test', testWindow.getBounds()));
 
-    testWindow.on('closed', () => {
+    testWindow.on('closed', async () => {
         nativeTheme.off('updated', themeListener)
         testWindow = null
+        await saveSettings({ testWindowOpen: false });
         ipcMain.emit('rebuild-menu');
     })
 
-    testWindow.once('ready-to-show', () => {
+    testWindow.once('ready-to-show', async () => {
         testWindow.show();
+        await saveSettings({ testWindowOpen: true });
         ipcMain.emit('rebuild-menu');
     });
 

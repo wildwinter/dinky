@@ -543,6 +543,7 @@ async function openTestWindow(rootPath, projectFiles) {
     if (rootPath && projectFiles) {
       await runTestSequence(rootPath, projectFiles);
     }
+    await saveSettings({ testWindowOpen: true });
     return;
   }
   const windowState = await getWindowState("test");
@@ -571,13 +572,15 @@ async function openTestWindow(rootPath, projectFiles) {
   electron.nativeTheme.on("updated", themeListener);
   testWindow.on("move", () => saveWindowState("test", testWindow.getBounds()));
   testWindow.on("resize", () => saveWindowState("test", testWindow.getBounds()));
-  testWindow.on("closed", () => {
+  testWindow.on("closed", async () => {
     electron.nativeTheme.off("updated", themeListener);
     testWindow = null;
+    await saveSettings({ testWindowOpen: false });
     electron.ipcMain.emit("rebuild-menu");
   });
-  testWindow.once("ready-to-show", () => {
+  testWindow.once("ready-to-show", async () => {
     testWindow.show();
+    await saveSettings({ testWindowOpen: true });
     electron.ipcMain.emit("rebuild-menu");
   });
   testWindow.webContents.on("did-finish-load", async () => {
@@ -642,6 +645,7 @@ async function openSearchWindow() {
     searchWindow.show();
     searchWindow.focus();
     safeSend(searchWindow, "focus-search-input");
+    await saveSettings({ searchWindowOpen: true });
     return;
   }
   const currentWindow = mainWindow$1;
@@ -689,11 +693,13 @@ async function openSearchWindow() {
     electron.nativeTheme.off("updated", themeListener);
     searchWindow = null;
     safeSend(mainWindow$1, "clear-search-highlights");
+    await saveSettings({ searchWindowOpen: false });
     if (mainWindow$1) await safeSend(mainWindow$1, "rebuild-menu");
   });
   searchWindow.once("ready-to-show", async () => {
     searchWindow.show();
     updateTheme();
+    await saveSettings({ searchWindowOpen: true });
     if (mainWindow$1) await safeSend(mainWindow$1, "rebuild-menu");
   });
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -932,6 +938,13 @@ async function createWindow() {
         await fs.access(lastProject);
         console.log("Auto-loading last project:", lastProject);
         await loadProject(win, lastProject);
+        const currentSettings = await loadSettings();
+        if (currentSettings.searchWindowOpen) {
+          await openSearchWindow();
+        }
+        if (currentSettings.testWindowOpen) {
+          safeSend(win, "trigger-start-test");
+        }
       } catch (e) {
         console.log("Last project not found or invalid, removing from history:", lastProject);
         await removeFromRecentProjects(lastProject);
