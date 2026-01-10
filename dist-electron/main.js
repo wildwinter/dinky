@@ -135,16 +135,6 @@ ${e.message}`);
     return false;
   }
 }
-async function handleNewProject(win, filePath) {
-  try {
-    const initialContent = {};
-    await fs.writeFile(filePath, JSON.stringify(initialContent, null, 4), "utf-8");
-    await loadProject(win, filePath);
-  } catch (e) {
-    console.error("Failed to create new project:", e);
-    dialog.showErrorBox("Error", "Failed to create new project file.");
-  }
-}
 async function buildMenu(win) {
   const recentProjects = await getRecentProjects();
   const isMac = process.platform === "darwin";
@@ -182,13 +172,9 @@ async function buildMenu(win) {
       submenu: [
         {
           label: "New Project...",
+          label: "New Project...",
           click: async () => {
-            const { canceled, filePath } = await dialog.showSaveDialog(win, {
-              filters: [{ name: "Dink Project", extensions: ["dinkproj"] }]
-            });
-            if (!canceled && filePath) {
-              await handleNewProject(win, filePath);
-            }
+            win.webContents.send("show-new-project-modal");
           }
         },
         {
@@ -469,11 +455,34 @@ ipcMain.handle("open-project", async (event) => {
 });
 ipcMain.handle("new-project", async (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
-  const { canceled, filePath } = await dialog.showSaveDialog(win, {
-    filters: [{ name: "Dink Project", extensions: ["dinkproj"] }]
+  win.webContents.send("show-new-project-modal");
+});
+ipcMain.handle("select-folder", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    properties: ["openDirectory", "createDirectory"]
   });
-  if (!canceled && filePath) {
-    await handleNewProject(win, filePath);
+  if (!canceled && filePaths.length > 0) {
+    return filePaths[0];
+  }
+  return null;
+});
+ipcMain.handle("create-new-project", async (event, name, parentPath) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!name || !parentPath) return false;
+  const projectDir = path.join(parentPath, name);
+  const projectFile = path.join(projectDir, `${name}.dinkproj`);
+  const inkFile = path.join(projectDir, "main.ink");
+  try {
+    await fs.mkdir(projectDir, { recursive: true });
+    await fs.writeFile(projectFile, "{}", "utf-8");
+    await fs.writeFile(inkFile, "// Add Ink content here", "utf-8");
+    await loadProject(win, projectFile);
+    return true;
+  } catch (e) {
+    console.error("Failed to create new project:", e);
+    dialog.showErrorBox("Error", `Failed to create new project: ${e.message}`);
+    return false;
   }
 });
 app.whenReady().then(() => {

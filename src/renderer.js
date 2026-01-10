@@ -263,3 +263,64 @@ window.electronAPI.onSaveAll(async () => {
 
 // Initial check
 checkSyntax();
+
+// --- New Project Modal Logic ---
+const modalOverlay = document.getElementById('modal-overlay');
+const inputName = document.getElementById('new-project-name');
+const inputFolder = document.getElementById('new-project-folder');
+const btnSelectFolder = document.getElementById('btn-select-folder');
+const btnCancel = document.getElementById('btn-cancel-create');
+const btnCreate = document.getElementById('btn-confirm-create');
+
+function openModal() {
+    inputName.value = '';
+    inputFolder.value = '';
+    validateForm();
+    modalOverlay.style.display = 'flex';
+    inputName.focus();
+}
+
+function closeModal() {
+    modalOverlay.style.display = 'none';
+}
+
+function validateForm() {
+    const name = inputName.value.trim();
+    const folder = inputFolder.value.trim();
+    btnCreate.disabled = !(name && folder);
+}
+
+// Event Listeners
+window.electronAPI.onShowNewProjectModal(() => {
+    openModal();
+});
+
+btnSelectFolder.addEventListener('click', async () => {
+    const path = await window.electronAPI.selectFolder();
+    if (path) {
+        inputFolder.value = path;
+        validateForm();
+    }
+});
+
+btnCancel.addEventListener('click', () => {
+    closeModal();
+});
+
+btnCreate.addEventListener('click', async () => {
+    const name = inputName.value.trim();
+    const folder = inputFolder.value.trim();
+    if (name && folder) {
+        // Disable button to prevent double submit
+        btnCreate.disabled = true;
+        const success = await window.electronAPI.createNewProject(name, folder);
+        if (success) {
+            closeModal();
+        } else {
+            // Re-enable if failed (though main process shows error box usually)
+            btnCreate.disabled = false;
+        }
+    }
+});
+
+inputName.addEventListener('input', validateForm);

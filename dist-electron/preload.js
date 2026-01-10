@@ -9,7 +9,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onThemeUpdated: (callback) => ipcRenderer.on("theme-updated", (_event, value) => callback(value)),
   log: (...args) => ipcRenderer.send("renderer-log", ...args),
   openProject: () => ipcRenderer.invoke("open-project"),
-  newProject: () => ipcRenderer.invoke("new-project")
+  newProject: () => ipcRenderer.invoke("new-project"),
+  selectFolder: () => ipcRenderer.invoke("select-folder"),
+  createNewProject: (name, parentPath) => ipcRenderer.invoke("create-new-project", name, parentPath),
+  onShowNewProjectModal: (callback) => ipcRenderer.on("show-new-project-modal", (_event, value) => callback(value))
 });
 window.addEventListener("DOMContentLoaded", () => {
   const replaceText = (selector, text) => {
