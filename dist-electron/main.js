@@ -205,7 +205,7 @@ async function createNewInclude(win, name, folderPath) {
 }
 function openNewIncludeUI(win) {
   if (!currentInkRoot) {
-    electron.dialog.showErrorBox("Error", "No Ink Root loaded so where should I put the INCLUDE? Please open an Ink file first.");
+    electron.dialog.showErrorBox("Error", "No Ink project loaded. Please open a project first.");
     return;
   }
   const defaultFolder = path.dirname(currentInkRoot);
@@ -224,7 +224,7 @@ async function deleteInclude(win, filePathToDelete) {
     defaultId: 0,
     title: "Delete File",
     message: `Are you sure you want to delete file "${fileName}"?`,
-    detail: "This action cannot be undone. The file will be deleted and the CREATE line removed from the root file."
+    detail: "This action cannot be undone. The file will be deleted and the INCLUDE line removed from the root file."
   });
   if (response === 0) {
     return false;
@@ -262,6 +262,29 @@ async function deleteInclude(win, filePathToDelete) {
     return false;
   }
 }
+function createFileHandler(filePath, projectFiles) {
+  return {
+    ResolveInkFilename: (filename) => {
+      const baseDir = filePath ? path.dirname(filePath) : process.cwd();
+      return path.resolve(baseDir, filename);
+    },
+    LoadInkFileContents: (filename) => {
+      if (projectFiles && projectFiles[filename]) {
+        let val = projectFiles[filename];
+        if (val && typeof val === "string" && val.charCodeAt(0) === 65279) {
+          val = val.slice(1);
+        }
+        return val;
+      }
+      try {
+        return fsSync.readFileSync(filename, "utf-8");
+      } catch (e) {
+        console.error("Failed to load included file:", filename, e);
+        return "";
+      }
+    }
+  };
+}
 async function compileInk(content, filePath, projectFiles = {}) {
   if (content && typeof content === "string" && content.charCodeAt(0) === 65279) {
     content = content.slice(1);
@@ -269,28 +292,7 @@ async function compileInk(content, filePath, projectFiles = {}) {
   const collectedErrors = [];
   let parseError = null;
   try {
-    const fileHandler = {
-      ResolveInkFilename: (filename) => {
-        const baseDir = filePath ? path.dirname(filePath) : process.cwd();
-        const resolved = path.resolve(baseDir, filename);
-        return resolved;
-      },
-      LoadInkFileContents: (filename) => {
-        if (projectFiles && projectFiles[filename]) {
-          let val = projectFiles[filename];
-          if (val && typeof val === "string" && val.charCodeAt(0) === 65279) {
-            val = val.slice(1);
-          }
-          return val;
-        }
-        try {
-          return fsSync.readFileSync(filename, "utf-8");
-        } catch (e) {
-          console.error("Failed to load included file:", filename, e);
-          return "";
-        }
-      }
-    };
+    const fileHandler = createFileHandler(filePath, projectFiles);
     const errorHandler = (message, errorType) => {
       collectedErrors.push(message);
     };
@@ -321,40 +323,33 @@ async function compileInk(content, filePath, projectFiles = {}) {
     }
     parseError = error;
   }
-  const errors = [];
-  if (collectedErrors.length > 0) {
-    collectedErrors.forEach((errStr) => {
-      const severity = errStr.includes("WARNING") ? 4 : 8;
-      const parts = errStr.match(/^(?:ERROR: )?(?:'([^']+)' )?line (\d+): (.+)/i);
-      if (parts) {
-        const errFilePath = parts[1] || null;
-        const line = parseInt(parts[2]);
-        const msg = parts[3];
-        errors.push({
-          startLineNumber: line,
-          endLineNumber: line,
-          startColumn: 1,
-          endColumn: 1e3,
-          message: msg,
-          severity,
-          filePath: errFilePath
-        });
-      } else {
-        errors.push({
-          startLineNumber: 1,
-          endLineNumber: 1,
-          startColumn: 1,
-          endColumn: 1e3,
-          message: errStr,
-          severity,
-          filePath: null
-        });
-      }
-    });
-  }
-  if (errors.length > 0) {
-    return errors;
-  }
+  const errors = collectedErrors.map((errStr) => {
+    const severity = errStr.includes("WARNING") ? 4 : 8;
+    const parts = errStr.match(/^(?:ERROR: )?(?:'([^']+)' )?line (\d+): (.+)/i);
+    if (parts) {
+      const [, errFilePath, lineStr, msg] = parts;
+      const line = parseInt(lineStr);
+      return {
+        startLineNumber: line,
+        endLineNumber: line,
+        startColumn: 1,
+        endColumn: 1e3,
+        message: msg,
+        severity,
+        filePath: errFilePath || null
+      };
+    }
+    return {
+      startLineNumber: 1,
+      endLineNumber: 1,
+      startColumn: 1,
+      endColumn: 1e3,
+      message: errStr,
+      severity,
+      filePath: null
+    };
+  });
+  if (errors.length > 0) return errors;
   if (parseError) {
     let errorLine = 1;
     let errorMsg = "Compiler Error: " + parseError.message;
@@ -384,29 +379,8 @@ async function compileStory(content, filePath, projectFiles = {}) {
     content = content.slice(1);
   }
   const collectedErrors = [];
-  const fileHandler = {
-    ResolveInkFilename: (filename) => {
-      const baseDir = filePath ? path.dirname(filePath) : process.cwd();
-      const resolved = path.resolve(baseDir, filename);
-      return resolved;
-    },
-    LoadInkFileContents: (filename) => {
-      if (projectFiles && projectFiles[filename]) {
-        let val = projectFiles[filename];
-        if (val && typeof val === "string" && val.charCodeAt(0) === 65279) {
-          val = val.slice(1);
-        }
-        return val;
-      }
-      try {
-        return fsSync.readFileSync(filename, "utf-8");
-      } catch (e) {
-        console.error("Failed to load included file:", filename, e);
-        return "";
-      }
-    }
-  };
-  const errorHandler = (message, errorType) => {
+  const fileHandler = createFileHandler(filePath, projectFiles);
+  const errorHandler = (message) => {
     collectedErrors.push(message);
   };
   let options;
@@ -495,7 +469,7 @@ async function runTestSequence(rootPath, projectFiles) {
   if (!testWindow || testWindow.isDestroyed()) return;
   const rootContent = projectFiles[rootPath];
   if (!rootContent) {
-    console.error("Root file content not found in projectFiles for path:", rootPath);
+    console.error("Root file content not found for path:", rootPath);
     return;
   }
   try {
@@ -506,7 +480,7 @@ async function runTestSequence(rootPath, projectFiles) {
   } catch (e) {
     console.error("Test compilation failed:", e);
     if (testWindow && !testWindow.isDestroyed()) {
-      testWindow.webContents.executeJavaScript(`console.error("Compilation failed: ${e.message.replace(/"/g, '\\"')}")`);
+      testWindow.webContents.send("compilation-error", e.message);
     }
   }
 }

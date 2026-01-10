@@ -171,6 +171,19 @@ window.electronAPI.onStartStory((storyJson) => {
     startStory(storyJson);
 });
 
+window.electronAPI.onCompilationError((message) => {
+    contentArea.innerHTML = '';
+    const p = document.createElement('p');
+    p.style.color = 'red';
+    p.style.fontWeight = 'bold';
+    p.textContent = 'Compilation Error:';
+    const pre = document.createElement('pre');
+    pre.textContent = message;
+    pre.style.whiteSpace = 'pre-wrap';
+    contentArea.appendChild(p);
+    contentArea.appendChild(pre);
+});
+
 if (btnRestart) {
     btnRestart.onclick = (e) => {
         e.preventDefault();

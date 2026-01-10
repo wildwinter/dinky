@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   startTest: (rootPath, projectFiles) => ipcRenderer.invoke("start-test", rootPath, projectFiles),
   onStartStory: (callback) => ipcRenderer.on("start-story", (_event, value) => callback(value)),
   onTriggerStartTest: (callback) => ipcRenderer.on("trigger-start-test", (_event) => callback()),
+  onCompilationError: (callback) => ipcRenderer.on("compilation-error", (_event, message) => callback(message)),
   requestTestRestart: () => ipcRenderer.send("request-test-restart")
 });
 window.addEventListener("DOMContentLoaded", () => {

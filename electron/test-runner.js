@@ -8,7 +8,6 @@ export async function openTestWindow(rootPath, projectFiles) {
     if (testWindow) {
         testWindow.show()
         testWindow.focus()
-        // If args provided, re-run test
         if (rootPath && projectFiles) {
             await runTestSequence(rootPath, projectFiles);
         }
@@ -57,7 +56,6 @@ export async function openTestWindow(rootPath, projectFiles) {
         testWindow.show();
     });
 
-    // Wait for load to finish before running test if we have data
     testWindow.webContents.on('did-finish-load', async () => {
         updateTheme()
         if (rootPath && projectFiles) {
@@ -76,10 +74,9 @@ export async function openTestWindow(rootPath, projectFiles) {
 async function runTestSequence(rootPath, projectFiles) {
     if (!testWindow || testWindow.isDestroyed()) return;
 
-    // Get content from projectFiles map
     const rootContent = projectFiles[rootPath];
     if (!rootContent) {
-        console.error('Root file content not found in projectFiles for path:', rootPath);
+        console.error('Root file content not found for path:', rootPath);
         return;
     }
 
@@ -90,10 +87,8 @@ async function runTestSequence(rootPath, projectFiles) {
         }
     } catch (e) {
         console.error('Test compilation failed:', e);
-        // TODO: Send error to renderer?
         if (testWindow && !testWindow.isDestroyed()) {
-            // Maybe a specific error channel or just log console
-            testWindow.webContents.executeJavaScript(`console.error("Compilation failed: ${e.message.replace(/"/g, '\\"')}")`);
+            testWindow.webContents.send('compilation-error', e.message);
         }
     }
 }

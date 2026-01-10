@@ -72,9 +72,9 @@ const editor = monaco.editor.create(document.getElementById('editor-container'),
 });
 
 let loadedInkFiles = new Map();
-let currentFilePath = null; // Added: To store the absolute path of the currently open file
-let rootInkPath = null; // Renamed from rootFilePath
-let isUpdatingContent = false; // Added: To prevent recursive updates during file switching
+let currentFilePath = null;
+let rootInkPath = null;
+let isUpdatingContent = false;
 
 document.getElementById('btn-load-project').addEventListener('click', () => {
     window.electronAPI.openProject();
@@ -124,11 +124,10 @@ window.electronAPI.onRootInkLoaded((files) => {
             // Update delete button state
             updateDeleteButtonState(currentFilePath === rootInkPath);
 
-            checkSyntax(); // Added: Trigger syntax check on file switch
+            checkSyntax();
         };
         fileList.appendChild(li);
 
-        // Load root file (first one)
         if (index === 0) {
             isUpdatingContent = true;
             currentFilePath = file.absolutePath;
@@ -136,14 +135,10 @@ window.electronAPI.onRootInkLoaded((files) => {
             isUpdatingContent = false;
 
             li.classList.add('active');
-            // checkSyntax call is handled by initial load or manual call below
-
-            // Check if root for delete button state (it is root, index 0)
             updateDeleteButtonState(true);
         }
     });
 
-    // Initial syntax check after loading project
     if (rootInkPath) {
         checkSyntax();
     }
@@ -162,26 +157,25 @@ function debounce(func, wait) {
     };
 }
 
-async function checkSyntax() {
-    if (!rootInkPath) return;
-
-    let contentToCompile = '';
-    let compilePath = rootInkPath;
-    let projectFiles = {};
-
-    // Serialize project files for IPC (absolute path -> content)
+function getProjectFilesContent() {
+    const projectFiles = {};
     for (const [path, file] of loadedInkFiles) {
         projectFiles[path] = file.content;
     }
+    return projectFiles;
+}
 
+async function checkSyntax() {
+    if (!rootInkPath) return;
+
+    const projectFiles = getProjectFilesContent();
     const rootFileObj = loadedInkFiles.get(rootInkPath);
-    if (!rootFileObj) {
-        return;
-    }
-    contentToCompile = rootFileObj.content;
+    if (!rootFileObj) return;
+
+    const contentToCompile = rootFileObj.content;
 
     try {
-        const errors = await window.electronAPI.compileInk(contentToCompile, compilePath, projectFiles);
+        const errors = await window.electronAPI.compileInk(contentToCompile, rootInkPath, projectFiles);
 
 
         const model = editor.getModel();
@@ -193,10 +187,9 @@ async function checkSyntax() {
 
             // Filter errors to display only those relevant to the current file
             const visibleErrors = errors.filter(e => {
-                // If no path is associated, assume it's relevant (or global)
                 if (!e.filePath) return true;
 
-                const activePath = currentFilePath || compilePath;
+                const activePath = currentFilePath || rootInkPath;
 
                 // Exact match
                 if (e.filePath === activePath) return true;
@@ -465,13 +458,8 @@ btnDeleteInclude.addEventListener('click', async () => {
 async function handleStartTest() {
     if (!rootInkPath) return;
 
-    // Auto-save all files first
     await saveAllFiles();
-
-    const projectFiles = {};
-    for (const [path, file] of loadedInkFiles) {
-        projectFiles[path] = file.content;
-    }
+    const projectFiles = getProjectFilesContent();
 
     await window.electronAPI.startTest(rootInkPath, projectFiles);
 }

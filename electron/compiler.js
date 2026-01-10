@@ -2,41 +2,41 @@ import path from 'path'
 import fsSync from 'fs'
 import inkjs from 'inkjs/full'
 
+function createFileHandler(filePath, projectFiles) {
+    return {
+        ResolveInkFilename: (filename) => {
+            const baseDir = filePath ? path.dirname(filePath) : process.cwd()
+            return path.resolve(baseDir, filename)
+        },
+        LoadInkFileContents: (filename) => {
+            if (projectFiles && projectFiles[filename]) {
+                let val = projectFiles[filename]
+                if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
+                    val = val.slice(1)
+                }
+                return val
+            }
+
+            try {
+                return fsSync.readFileSync(filename, 'utf-8')
+            } catch (e) {
+                console.error('Failed to load included file:', filename, e)
+                return ''
+            }
+        }
+    }
+}
+
 async function compileInk(content, filePath, projectFiles = {}) {
-    // Strip BOM from main content
     if (content && typeof content === 'string' && content.charCodeAt(0) === 0xFEFF) {
         content = content.slice(1);
     }
 
-    // console.log('Compiler: Compiling', filePath)
     const collectedErrors = []
     let parseError = null
 
     try {
-        const fileHandler = {
-            ResolveInkFilename: (filename) => {
-                const baseDir = filePath ? path.dirname(filePath) : process.cwd()
-                const resolved = path.resolve(baseDir, filename)
-                return resolved
-            },
-            LoadInkFileContents: (filename) => {
-                // Check memory cache first (supports unsaved changes)
-                if (projectFiles && projectFiles[filename]) {
-                    let val = projectFiles[filename]
-                    if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
-                        val = val.slice(1)
-                    }
-                    return val
-                }
-
-                try {
-                    return fsSync.readFileSync(filename, 'utf-8')
-                } catch (e) {
-                    console.error('Failed to load included file:', filename, e)
-                    return ''
-                }
-            }
-        }
+        const fileHandler = createFileHandler(filePath, projectFiles)
 
         const errorHandler = (message, errorType) => {
             collectedErrors.push(message)
@@ -69,49 +69,37 @@ async function compileInk(content, filePath, projectFiles = {}) {
         parseError = error
     }
 
-    const errors = []
+    // Map errors to Monaco format
+    const errors = collectedErrors.map(errStr => {
+        const severity = errStr.includes('WARNING') ? 4 : 8 // 4=Warning, 8=Error
+        const parts = errStr.match(/^(?:ERROR: )?(?:'([^']+)' )?line (\d+): (.+)/i)
 
-    // Process explicitly collected errors
-    if (collectedErrors.length > 0) {
-        collectedErrors.forEach(errStr => {
-            // Determine severity (simple heuristic or default to Error)
-            const severity = errStr.includes('WARNING') ? 4 : 8 // 4=Warning, 8=Error
-
-            // Parse error string: "ERROR: 'path' line X: message" or "Line X: message"
-            const parts = errStr.match(/^(?:ERROR: )?(?:'([^']+)' )?line (\d+): (.+)/i)
-
-            if (parts) {
-                const errFilePath = parts[1] || null // Capture file path if present
-                const line = parseInt(parts[2])
-                const msg = parts[3]
-
-                errors.push({
-                    startLineNumber: line,
-                    endLineNumber: line,
-                    startColumn: 1,
-                    endColumn: 1000,
-                    message: msg,
-                    severity: severity,
-                    filePath: errFilePath
-                })
-            } else {
-                errors.push({
-                    startLineNumber: 1,
-                    endLineNumber: 1,
-                    startColumn: 1,
-                    endColumn: 1000,
-                    message: errStr,
-                    severity: severity,
-                    filePath: null
-                })
+        if (parts) {
+            const [, errFilePath, lineStr, msg] = parts
+            const line = parseInt(lineStr)
+            return {
+                startLineNumber: line,
+                endLineNumber: line,
+                startColumn: 1,
+                endColumn: 1000,
+                message: msg,
+                severity,
+                filePath: errFilePath || null
             }
-        })
-    }
+        }
 
-    // If we found explicit compiler errors, return them
-    if (errors.length > 0) {
-        return errors
-    }
+        return {
+            startLineNumber: 1,
+            endLineNumber: 1,
+            startColumn: 1,
+            endColumn: 1000,
+            message: errStr,
+            severity,
+            filePath: null
+        }
+    })
+
+    if (errors.length > 0) return errors
 
     // Fallback if no errors collected but crashed
     if (parseError) {
@@ -151,32 +139,9 @@ async function compileStory(content, filePath, projectFiles = {}) {
 
     const collectedErrors = []
 
-    // File Handler (Same as compileInk)
-    const fileHandler = {
-        ResolveInkFilename: (filename) => {
-            const baseDir = filePath ? path.dirname(filePath) : process.cwd()
-            const resolved = path.resolve(baseDir, filename)
-            return resolved
-        },
-        LoadInkFileContents: (filename) => {
-            if (projectFiles && projectFiles[filename]) {
-                let val = projectFiles[filename]
-                if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
-                    val = val.slice(1)
-                }
-                return val
-            }
-            try {
-                return fsSync.readFileSync(filename, 'utf-8')
-            } catch (e) {
-                console.error('Failed to load included file:', filename, e)
-                return ''
-            }
-        }
-    }
+    const fileHandler = createFileHandler(filePath, projectFiles)
 
-    // Capture errors to throw if needed
-    const errorHandler = (message, errorType) => {
+    const errorHandler = (message) => {
         collectedErrors.push(message)
     }
 
