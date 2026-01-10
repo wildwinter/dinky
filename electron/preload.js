@@ -29,7 +29,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onMenuFind: (callback) => ipcRenderer.on('menu-find', (_event) => callback()),
     onMenuReplace: (callback) => ipcRenderer.on('menu-replace', (_event) => callback()),
     onMenuFindInFiles: (callback) => ipcRenderer.on('menu-find-in-files', (_event) => callback()),
-    onMenuReplaceInFiles: (callback) => ipcRenderer.on('menu-replace-in-files', (_event) => callback())
+    onMenuReplaceInFiles: (callback) => ipcRenderer.on('menu-replace-in-files', (_event) => callback()),
+
+    // Search window API
+    performSearch: (query) => ipcRenderer.invoke('perform-search', query),
+    navigateToResult: (data) => ipcRenderer.send('navigate-to-result', data),
+    performReplaceAll: (data) => ipcRenderer.invoke('perform-replace-all', data),
+    onNavigationRequested: (callback) => ipcRenderer.on('navigate-to-match', (_event, value) => callback(value)),
+    onSearchRequested: (callback) => ipcRenderer.on('request-search-results', (_event, value) => callback(value)),
+    sendSearchResults: (results) => ipcRenderer.send('search-results-ready', results),
+    onReplaceRequested: (callback) => ipcRenderer.on('request-replace-all', (_event, value) => callback(value)),
+    sendReplaceComplete: (count) => ipcRenderer.send('replace-all-complete', count),
+
+    // Search window specific
+    onFocusSearchInput: (callback) => ipcRenderer.on('focus-search-input', (_event) => callback()),
+    onClearSearchHighlights: (callback) => ipcRenderer.on('clear-search-highlights', (_event) => callback())
 });
 
 window.addEventListener('DOMContentLoaded', () => {

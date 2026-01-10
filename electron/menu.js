@@ -3,6 +3,7 @@ import path from 'path'
 import { getRecentProjects, saveSettings, setProjectSetting } from './config'
 import { loadProject, loadRootInk, getCurrentProject, getCurrentInkRoot, openNewIncludeUI } from './project-manager'
 import { openTestWindow } from './test-runner'
+import { openSearchWindow } from './search'
 
 async function buildMenu(win) {
     const recentProjects = await getRecentProjects();
@@ -118,8 +119,8 @@ async function buildMenu(win) {
                 { label: 'Find', accelerator: 'CmdOrCtrl+F', click: (menuItem, browserWindow) => { browserWindow.webContents.send('menu-find'); } },
                 { label: 'Replace', accelerator: 'CmdOrCtrl+Alt+F', click: (menuItem, browserWindow) => { browserWindow.webContents.send('menu-replace'); } },
                 { type: 'separator' },
-                { label: 'Find In Files', accelerator: 'CmdOrCtrl+Shift+F', click: (menuItem, browserWindow) => { browserWindow.webContents.send('menu-find-in-files'); } },
-                { label: 'Replace In Files', accelerator: 'CmdOrCtrl+Shift+H', click: (menuItem, browserWindow) => { browserWindow.webContents.send('menu-replace-in-files'); } }
+                { label: 'Find In Files', accelerator: 'CmdOrCtrl+Shift+F', click: () => { openSearchWindow(); } },
+                { label: 'Replace In Files', accelerator: 'CmdOrCtrl+Shift+H', click: () => { openSearchWindow(); } }
             ]
         },
         {

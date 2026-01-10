@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Find In Files</title>
+    <link rel="stylesheet" href="/src/styles.css">
+    <style>
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            box-sizing: border-box;
+            background-color: var(--sidebar-bg);
+            color: var(--text-color);
+        }
+
+        .search-area {
+            flex-shrink: 0;
+            margin-bottom: 10px;
+        }
+
+        #find-in-files-input,
+        #replace-in-files-input {
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 6px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            font-family: inherit;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .buttons button {
+            flex: 1;
+            padding: 6px;
+            cursor: pointer;
+        }
+
+        #search-results-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            background-color: var(--bg-color);
+            border: 1px solid var(--sidebar-border);
+            border-radius: 4px;
+        }
+
+        #search-results-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        #search-results-list li {
+            padding: 8px;
+            border-bottom: 1px solid var(--sidebar-border);
+            cursor: pointer;
+        }
+
+        #search-results-list li:hover {
+            background-color: var(--sidebar-hover);
+        }
+
+        .result-file {
+            font-weight: bold;
+            font-size: 11px;
+            color: #61afef;
+            margin-bottom: 2px;
+        }
+
+        .result-line {
+            font-size: 11px;
+            opacity: 0.8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="search-area">
+        <input type="text" id="find-in-files-input" placeholder="Search for..." autofocus>
+        <input type="text" id="replace-in-files-input" placeholder="Replace with...">
+        <div class="buttons">
+            <button id="btn-find-in-files" class="primary">Find All</button>
+            <button id="btn-replace-in-files" class="secondary">Replace All</button>
+        </div>
+    </div>
+    <div id="search-results-container">
+        <ul id="search-results-list"></ul>
+    </div>
+    <script type="module" src="/src/search-renderer.js"></script>
+</body>
+
+</html>

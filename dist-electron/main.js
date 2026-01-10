@@ -487,6 +487,95 @@ async function runTestSequence(rootPath, projectFiles) {
     }
   }
 }
+let searchWindow = null;
+let mainWindow$1 = null;
+function initSearch(win) {
+  mainWindow$1 = win;
+  electron.ipcMain.on("open-search-window", () => {
+    openSearchWindow();
+  });
+  electron.ipcMain.handle("perform-search", async (event, query) => {
+    if (!mainWindow$1) return [];
+    return await new Promise((resolve) => {
+      mainWindow$1.webContents.send("request-search-results", query);
+      electron.ipcMain.once("search-results-ready", (_event, results) => {
+        resolve(results);
+      });
+    });
+  });
+  electron.ipcMain.on("navigate-to-result", (event, { path: path2, line, query }) => {
+    if (mainWindow$1) {
+      mainWindow$1.webContents.send("navigate-to-match", { path: path2, line, query });
+    }
+  });
+  electron.ipcMain.handle("perform-replace-all", async (event, { query, replacement }) => {
+    if (!mainWindow$1) return 0;
+    return await new Promise((resolve) => {
+      mainWindow$1.webContents.send("request-replace-all", { query, replacement });
+      electron.ipcMain.once("replace-all-complete", (_event, count) => {
+        resolve(count);
+      });
+    });
+  });
+}
+function openSearchWindow() {
+  if (searchWindow) {
+    searchWindow.show();
+    searchWindow.focus();
+    searchWindow.webContents.send("focus-search-input");
+    return;
+  }
+  const currentWindow = mainWindow$1;
+  let x, y;
+  if (currentWindow) {
+    const [winX, winY] = currentWindow.getPosition();
+    const [winW, winH] = currentWindow.getSize();
+    x = winX + winW / 2 - 200;
+    y = winY + 100;
+  }
+  searchWindow = new electron.BrowserWindow({
+    title: "Find In Files",
+    width: 400,
+    height: 500,
+    x,
+    y,
+    frame: true,
+    resizable: true,
+    alwaysOnTop: true,
+    backgroundColor: electron.nativeTheme.shouldUseDarkColors ? "#252526" : "#f3f3f3",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      nodeIntegration: false,
+      contextIsolation: true
+    },
+    show: false
+  });
+  const updateTheme = () => {
+    if (!searchWindow || searchWindow.isDestroyed()) return;
+    const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
+    searchWindow.webContents.send("theme-updated", theme);
+    searchWindow.setBackgroundColor(electron.nativeTheme.shouldUseDarkColors ? "#252526" : "#f3f3f3");
+  };
+  const themeListener = () => updateTheme();
+  electron.nativeTheme.on("updated", themeListener);
+  searchWindow.on("closed", () => {
+    electron.nativeTheme.off("updated", themeListener);
+    searchWindow = null;
+    if (mainWindow$1) {
+      mainWindow$1.webContents.send("clear-search-highlights");
+    }
+  });
+  searchWindow.once("ready-to-show", () => {
+    searchWindow.show();
+    updateTheme();
+  });
+  if (process.env.VITE_DEV_SERVER_URL) {
+    searchWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}search.html`);
+  } else {
+    const indexPath = path.join(__dirname, "../dist/search.html");
+    searchWindow.loadFile(indexPath).catch((e) => console.error("Failed to load search.html:", e));
+  }
+}
 async function buildMenu(win) {
   const recentProjects = await getRecentProjects();
   const isMac = process.platform === "darwin";
@@ -599,11 +688,11 @@ async function buildMenu(win) {
           browserWindow.webContents.send("menu-replace");
         } },
         { type: "separator" },
-        { label: "Find In Files", accelerator: "CmdOrCtrl+Shift+F", click: (menuItem, browserWindow) => {
-          browserWindow.webContents.send("menu-find-in-files");
+        { label: "Find In Files", accelerator: "CmdOrCtrl+Shift+F", click: () => {
+          openSearchWindow();
         } },
-        { label: "Replace In Files", accelerator: "CmdOrCtrl+Shift+H", click: (menuItem, browserWindow) => {
-          browserWindow.webContents.send("menu-replace-in-files");
+        { label: "Replace In Files", accelerator: "CmdOrCtrl+Shift+H", click: () => {
+          openSearchWindow();
         } }
       ]
     },
@@ -702,6 +791,7 @@ async function createWindow() {
     }
   });
   mainWindow = win;
+  initSearch(win);
   await buildMenu(win);
   const updateTheme = () => {
     const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";

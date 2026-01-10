@@ -7,6 +7,7 @@ import { buildMenu } from './menu'
 import { compileInk } from './compiler'
 import { openTestWindow } from './test-runner'
 import { loadProject, createNewProject, setMenuRebuildCallback, createNewInclude, openNewIncludeUI, deleteInclude } from './project-manager'
+import { initSearch } from './search'
 
 app.setName('Dinky')
 
@@ -32,6 +33,7 @@ async function createWindow() {
     })
 
     mainWindow = win;
+    initSearch(win);
 
     // Initial menu build
     await buildMenu(win);

@@ -35,8 +35,7 @@ body {
 }
 
 #sidebar {
-    width: 250px;
-    /* Increased slightly for search controls */
+    width: 200px;
     background-color: var(--sidebar-bg);
     border-right: 1px solid var(--sidebar-border);
     color: var(--text-color);
