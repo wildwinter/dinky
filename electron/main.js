@@ -68,7 +68,53 @@ async function createWindow() {
         const indexPath = path.join(__dirname, '../dist/index.html')
         win.loadFile(indexPath).catch(e => console.error('Failed to load index.html:', e))
     }
+
+    win.forceClose = false;
+
+    win.on('close', (e) => {
+        if (win.forceClose) return;
+        e.preventDefault();
+        win.webContents.send('check-unsaved');
+    });
 }
+
+// IPC Handlers for Unsaved Check
+ipcMain.on('unsaved-status', (event, hasUnsaved) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+
+    if (!hasUnsaved) {
+        win.forceClose = true;
+        win.close();
+    } else {
+        const choice = dialog.showMessageBoxSync(win, {
+            type: 'question',
+            buttons: ['Save', 'Discard', 'Cancel'],
+            defaultId: 0,
+            title: 'Unsaved Changes',
+            message: 'Do you want to save the changes you made in the project?',
+            detail: "Your changes will be lost if you don't save them.",
+            cancelId: 2,
+            noLink: true
+        });
+
+        if (choice === 0) { // Save
+            win.webContents.send('save-and-exit');
+        } else if (choice === 1) { // Discard
+            win.forceClose = true;
+            win.close();
+        }
+        // Choice 2 is Cancel, do nothing
+    }
+});
+
+ipcMain.on('save-exit-complete', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) {
+        win.forceClose = true;
+        win.close();
+    }
+});
 
 // Renderer logging
 ipcMain.on('renderer-log', (event, ...args) => {
@@ -147,7 +193,5 @@ ipcMain.handle('open-new-include-ui', (event) => {
 });
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit()
-    }
+    app.quit()
 })

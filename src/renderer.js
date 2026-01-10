@@ -243,8 +243,8 @@ window.electronAPI.onThemeUpdated((theme) => {
     }
 });
 
-// Listen for Save All command from main process
-window.electronAPI.onSaveAll(async () => {
+// Save Logic
+async function saveAllFiles() {
     const filesToSave = [];
     for (const [filePath, file] of loadedInkFiles) {
         filesToSave.push({ path: filePath, content: file.content });
@@ -259,6 +259,28 @@ window.electronAPI.onSaveAll(async () => {
             file.listItem.textContent = file.relativePath;
         }
     }
+    return true;
+}
+
+// Listen for Save All command from main process
+window.electronAPI.onSaveAll(async () => {
+    await saveAllFiles();
+});
+
+window.electronAPI.onSaveAndExit(async () => {
+    await saveAllFiles();
+    window.electronAPI.sendSaveExitComplete();
+});
+
+window.electronAPI.onCheckUnsaved(() => {
+    let hasUnsaved = false;
+    for (const [filePath, file] of loadedInkFiles) {
+        if (file.content !== file.originalContent) {
+            hasUnsaved = true;
+            break;
+        }
+    }
+    window.electronAPI.sendUnsavedStatus(hasUnsaved);
 });
 
 // Initial check

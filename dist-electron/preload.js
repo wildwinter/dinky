@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onFileOpened: (callback) => ipcRenderer.on("file-opened", (_event, value) => callback(value)),
   onRootInkLoaded: (callback) => ipcRenderer.on("root-ink-loaded", (_event, value) => callback(value)),
   onSaveAll: (callback) => ipcRenderer.on("save-all", (_event, ...args) => callback(...args)),
+  onSaveAndExit: (callback) => ipcRenderer.on("save-and-exit", (_event, ...args) => callback(...args)),
   saveFiles: (files) => ipcRenderer.invoke("save-files", files),
   compileInk: (content, filePath, projectFiles) => ipcRenderer.invoke("compile-ink", content, filePath, projectFiles),
   onThemeUpdated: (callback) => ipcRenderer.on("theme-updated", (_event, value) => callback(value)),
@@ -15,7 +16,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onShowNewProjectModal: (callback) => ipcRenderer.on("show-new-project-modal", (_event, value) => callback(value)),
   createNewInclude: (name, folderPath) => ipcRenderer.invoke("create-new-include", name, folderPath),
   onShowNewIncludeModal: (callback) => ipcRenderer.on("show-new-include-modal", (_event, value) => callback(value)),
-  openNewIncludeUI: () => ipcRenderer.invoke("open-new-include-ui")
+  openNewIncludeUI: () => ipcRenderer.invoke("open-new-include-ui"),
+  onCheckUnsaved: (callback) => ipcRenderer.on("check-unsaved", (_event) => callback()),
+  sendUnsavedStatus: (status) => ipcRenderer.send("unsaved-status", status),
+  sendSaveExitComplete: () => ipcRenderer.send("save-exit-complete")
 });
 window.addEventListener("DOMContentLoaded", () => {
   const replaceText = (selector, text) => {
