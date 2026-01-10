@@ -87,9 +87,11 @@ window.electronAPI.onProjectLoaded((files) => {
     }
 
     files.forEach((file, index) => {
+        file.originalContent = file.content;
         currentProjectFiles.set(file.absolutePath, file);
 
         const li = document.createElement('li');
+        file.listItem = li;
         li.textContent = file.relativePath;
         li.style.padding = '4px 8px';
         li.style.cursor = 'pointer';
@@ -205,7 +207,13 @@ editor.onDidChangeModelContent(() => {
 
     // Keep the file model in sync with editor content immediately
     if (currentFilePath && currentProjectFiles.has(currentFilePath)) {
-        currentProjectFiles.get(currentFilePath).content = editor.getValue();
+        const file = currentProjectFiles.get(currentFilePath);
+        file.content = editor.getValue();
+
+        if (file.listItem) {
+            const isModified = file.content !== file.originalContent;
+            file.listItem.textContent = file.relativePath + (isModified ? '*' : '');
+        }
     }
     debouncedCheck();
 });
@@ -222,13 +230,21 @@ window.electronAPI.onThemeUpdated((theme) => {
 });
 
 // Listen for Save All command from main process
-window.electronAPI.onSaveAll(() => {
+window.electronAPI.onSaveAll(async () => {
     const filesToSave = [];
     for (const [filePath, file] of currentProjectFiles) {
         filesToSave.push({ path: filePath, content: file.content });
     }
     // Invoke IPC to save files
-    window.electronAPI.saveFiles(filesToSave);
+    await window.electronAPI.saveFiles(filesToSave);
+
+    // Update original content and remove asterisks
+    for (const [filePath, file] of currentProjectFiles) {
+        file.originalContent = file.content;
+        if (file.listItem) {
+            file.listItem.textContent = file.relativePath;
+        }
+    }
 });
 
 // Initial check
