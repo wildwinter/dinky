@@ -11,10 +11,22 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            padding: 15px;
+            padding: 30px 15px 15px 15px;
+            /* Added more top padding for traffic lights */
             box-sizing: border-box;
             background-color: var(--sidebar-bg);
             color: var(--text-color);
+            position: relative;
+        }
+
+        .drag-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            -webkit-app-region: drag;
+            z-index: 100;
         }
 
         .search-area {
@@ -31,6 +43,16 @@
             color: var(--text-color);
             border: 1px solid var(--sidebar-border);
             font-family: inherit;
+            box-sizing: border-box;
+            /* Fix spillover */
+            font-size: 11px;
+            /* Smaller font */
+        }
+
+        .search-area label,
+        .buttons button {
+            font-size: 11px;
+            /* Smaller font */
         }
 
         .buttons {
@@ -41,7 +63,8 @@
 
         .buttons button {
             flex: 1;
-            padding: 6px;
+            padding: 4px;
+            /* Slightly tighter padding for smaller font */
             cursor: pointer;
         }
 
@@ -87,6 +110,7 @@
 </head>
 
 <body>
+    <div class="drag-bar"></div>
     <div class="search-area">
         <input type="text" id="find-in-files-input" placeholder="Search for..." autofocus>
         <input type="text" id="replace-in-files-input" placeholder="Replace with...">

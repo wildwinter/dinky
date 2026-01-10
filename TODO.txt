@@ -1,6 +1,7 @@
 TODO:
 -----
 Fix window menu
+Rename ink file button
 Add zoom in / zoom out / reset zoom for every window, make persistent
 Add spellchecker/dictionary
 Add character list
