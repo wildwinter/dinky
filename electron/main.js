@@ -4,6 +4,8 @@ const fs = require('fs/promises')
 
 app.setName('Dinky')
 
+let currentDinkProject = null;
+
 // Helper to recursively load ink files
 async function loadRootInk(rootFilePath) {
     const rootDir = path.dirname(rootFilePath)
@@ -101,6 +103,49 @@ async function createWindow() {
         {
             label: 'File',
             submenu: [
+                {
+                    label: 'New Dink Project...',
+                    click: async () => {
+                        const { canceled, filePath } = await dialog.showSaveDialog(win, {
+                            filters: [{ name: 'Dink Project', extensions: ['dinkproj'] }]
+                        })
+                        if (!canceled && filePath) {
+                            try {
+                                const initialContent = {};
+                                await fs.writeFile(filePath, JSON.stringify(initialContent, null, 4), 'utf-8');
+                                currentDinkProject = { path: filePath, content: initialContent };
+                                console.log('Created and loaded new project:', filePath);
+                                win.setTitle(`Dinky - ${path.basename(filePath)}`);
+                            } catch (e) {
+                                console.error('Failed to create new project:', e);
+                                dialog.showErrorBox('Error', 'Failed to create new project file.');
+                            }
+                        }
+                    }
+                },
+                {
+                    label: 'Open Dink Project...',
+                    click: async () => {
+                        const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+                            properties: ['openFile'],
+                            filters: [{ name: 'Dink Project', extensions: ['dinkproj'] }]
+                        })
+                        if (!canceled && filePaths.length > 0) {
+                            try {
+                                const content = await fs.readFile(filePaths[0], 'utf-8');
+                                // Strip comments (single - // and multi-line - /**/)
+                                const jsonContent = content.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+                                currentDinkProject = { path: filePaths[0], content: JSON.parse(jsonContent) };
+                                console.log('Loaded project:', filePaths[0]);
+                                win.setTitle(`Dinky - ${path.basename(filePaths[0])}`);
+                            } catch (e) {
+                                console.error('Failed to open project:', e);
+                                dialog.showErrorBox('Error', 'Failed to open project file.');
+                            }
+                        }
+                    }
+                },
+                { type: 'separator' },
                 {
                     label: 'Open Ink Root...',
                     accelerator: 'CmdOrCtrl+O',
