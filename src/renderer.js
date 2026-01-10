@@ -64,10 +64,11 @@ monaco.languages.setMonarchTokensProvider('ink', {
 });
 
 const editor = monaco.editor.create(document.getElementById('editor-container'), {
-    value: '// Type some Ink code here\n=== start ===\nHello world!\n* [Choice 1]\n    -> end\n\n=== end ===\n-> END',
+    value: '',
     language: 'ink',
     theme: 'vs-dark',
     automaticLayout: true,
+    readOnly: true,
 });
 
 let currentProjectFiles = new Map();
@@ -82,6 +83,7 @@ window.electronAPI.onProjectLoaded((files) => {
 
     if (files.length > 0) {
         rootFilePath = files[0].absolutePath;
+        editor.updateOptions({ readOnly: false });
     }
 
     files.forEach((file, index) => {
@@ -138,26 +140,22 @@ function debounce(func, wait) {
 }
 
 async function checkSyntax() {
+    if (!rootFilePath) return;
+
     let contentToCompile = '';
-    let compilePath = 'untitled.ink';
+    let compilePath = rootFilePath;
     let projectFiles = {};
 
-    if (rootFilePath) {
-        // Serialize project files for IPC (absolute path -> content)
-        for (const [path, file] of currentProjectFiles) {
-            projectFiles[path] = file.content;
-        }
-
-        const rootFileObj = currentProjectFiles.get(rootFilePath);
-        if (!rootFileObj) {
-            return;
-        }
-        contentToCompile = rootFileObj.content;
-        compilePath = rootFilePath;
-    } else {
-        // Single file mode (unsaved)
-        contentToCompile = editor.getValue();
+    // Serialize project files for IPC (absolute path -> content)
+    for (const [path, file] of currentProjectFiles) {
+        projectFiles[path] = file.content;
     }
+
+    const rootFileObj = currentProjectFiles.get(rootFilePath);
+    if (!rootFileObj) {
+        return;
+    }
+    contentToCompile = rootFileObj.content;
 
     try {
         const errors = await window.electronAPI.compileInk(contentToCompile, compilePath, projectFiles);
@@ -221,6 +219,16 @@ window.electronAPI.onThemeUpdated((theme) => {
         document.body.classList.add('dark');
         document.body.classList.remove('light');
     }
+});
+
+// Listen for Save All command from main process
+window.electronAPI.onSaveAll(() => {
+    const filesToSave = [];
+    for (const [filePath, file] of currentProjectFiles) {
+        filesToSave.push({ path: filePath, content: file.content });
+    }
+    // Invoke IPC to save files
+    window.electronAPI.saveFiles(filesToSave);
 });
 
 // Initial check

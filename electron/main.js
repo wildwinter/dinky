@@ -115,7 +115,8 @@ async function createWindow() {
                         }
                     }
                 },
-                isMac ? { label: 'Close', role: 'close' } : { role: 'quit' }
+                { label: 'Save', accelerator: isMac ? 'Cmd+S' : 'Ctrl+S', click: async () => { win.webContents.send('save-all'); } },
+                ...(isMac ? [] : [{ role: 'quit' }])
             ]
         },
         {
@@ -353,6 +354,17 @@ ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}
 
     return []
 })
+
+ipcMain.handle('save-files', async (event, files) => {
+    const fs = require('fs/promises');
+    for (const { path: filePath, content } of files) {
+        try {
+            await fs.writeFile(filePath, content, 'utf-8');
+        } catch (e) {
+            console.error('Failed to save file', filePath, e);
+        }
+    }
+});
 
 app.whenReady().then(() => {
     createWindow()
