@@ -74,7 +74,6 @@ async function loadProject(win, filePath) {
         const jsonContent = content.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
         currentDinkProject = { path: filePath, content: JSON.parse(jsonContent) };
 
-        console.log('Loaded project:', filePath);
         if (!win.isDestroyed()) {
             win.setTitle(`Dinky - ${path.basename(filePath, '.dinkproj')}`);
         }
@@ -93,9 +92,8 @@ async function loadProject(win, filePath) {
             try {
                 await fs.access(lastInkRoot);
                 inkFileToLoad = lastInkRoot;
-                console.log('Using stored preference for Ink Root:', inkFileToLoad);
             } catch {
-                console.log('Stored last Ink Root not found, falling back.');
+                // Fallback handled below
             }
         }
 
@@ -105,9 +103,8 @@ async function loadProject(win, filePath) {
             try {
                 await fs.access(sourcePath);
                 inkFileToLoad = sourcePath;
-                console.log('Using project source for Ink Root:', inkFileToLoad);
             } catch (e) {
-                console.warn('Project source file not found:', sourcePath);
+                // Fallback handled below
             }
         }
 

@@ -2,7 +2,7 @@ import { app, BrowserWindow, nativeTheme, ipcMain, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 
-import { loadSettings, getRecentProjects, removeFromRecentProjects } from './config'
+import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowState, saveWindowState, flushSettings } from './config'
 import { buildMenu } from './menu'
 import { compileInk } from './compiler'
 import { openTestWindow } from './test-runner'
@@ -22,10 +22,15 @@ async function createWindow() {
     const settings = await loadSettings()
     nativeTheme.themeSource = settings.theme || 'system'
 
+    // Load saved window state
+    const windowState = await getWindowState('main');
+
     const win = new BrowserWindow({
         title: 'Dinky',
-        width: 800,
-        height: 600,
+        width: windowState?.width || 800,
+        height: windowState?.height || 600,
+        x: windowState?.x,
+        y: windowState?.y,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
@@ -78,6 +83,9 @@ async function createWindow() {
     }
 
     win.forceClose = false;
+
+    win.on('move', () => saveWindowState('main', win.getBounds()));
+    win.on('resize', () => saveWindowState('main', win.getBounds()));
 
     win.on('close', (e) => {
         if (win.forceClose) return;
@@ -216,3 +224,14 @@ ipcMain.on('request-test-restart', () => {
 app.on('window-all-closed', () => {
     app.quit()
 })
+
+// Ensure config is saved before quit
+let isQuitting = false;
+app.on('before-quit', async (e) => {
+    if (isQuitting) return;
+
+    e.preventDefault();
+    await flushSettings();
+    isQuitting = true;
+    app.quit();
+});

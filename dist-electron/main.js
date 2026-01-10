@@ -6,13 +6,26 @@ const fsSync = require("fs");
 const inkjs = require("inkjs/full");
 const configPath = path.join(electron.app.getPath("userData"), "config.json");
 const MAX_RECENT_PROJECTS = 10;
+let settingsCache = null;
+let loadPromise = null;
+let saveQueue = Promise.resolve();
+let debounceTimer = null;
 async function loadSettings() {
-  try {
-    const data = await fs.readFile(configPath, "utf-8");
-    return JSON.parse(data);
-  } catch {
-    return { theme: "system", recentProjects: [], projectSettings: {} };
-  }
+  if (settingsCache) return settingsCache;
+  if (loadPromise) return loadPromise;
+  loadPromise = (async () => {
+    try {
+      const data = await fs.readFile(configPath, "utf-8");
+      settingsCache = JSON.parse(data);
+      return settingsCache;
+    } catch (e) {
+      settingsCache = { theme: "system", recentProjects: [], projectSettings: {}, windowStates: {} };
+      return settingsCache;
+    } finally {
+      loadPromise = null;
+    }
+  })();
+  return loadPromise;
 }
 async function getProjectSetting(projectPath, key) {
   const settings = await loadSettings();
@@ -27,13 +40,65 @@ async function setProjectSetting(projectPath, key, value) {
   settings.projectSettings[projectPath][key] = value;
   await saveSettings(settings);
 }
-async function saveSettings(settings) {
-  try {
-    const current = await loadSettings();
-    await fs.writeFile(configPath, JSON.stringify({ ...current, ...settings }, null, 2));
-  } catch (error) {
-    console.error("Failed to save settings:", error);
+async function saveSettings(settings, immediate = false) {
+  if (!settingsCache) await loadSettings();
+  if (settings.projectSettings) {
+    settingsCache.projectSettings = { ...settingsCache.projectSettings || {}, ...settings.projectSettings };
   }
+  if (settings.windowStates) {
+    settingsCache.windowStates = { ...settingsCache.windowStates || {}, ...settings.windowStates };
+  }
+  Object.keys(settings).forEach((key) => {
+    if (key !== "projectSettings" && key !== "windowStates") {
+      settingsCache[key] = settings[key];
+    }
+  });
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
+  if (immediate) {
+    return performSave();
+  } else {
+    return new Promise((resolve) => {
+      debounceTimer = setTimeout(() => {
+        resolve(performSave());
+      }, 500);
+    });
+  }
+}
+async function performSave() {
+  saveQueue = saveQueue.then(async () => {
+    const tmpPath = `${configPath}.tmp`;
+    try {
+      await fs.writeFile(tmpPath, JSON.stringify(settingsCache, null, 2));
+      await fs.rename(tmpPath, configPath);
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      try {
+        await fs.unlink(tmpPath);
+      } catch {
+      }
+    }
+  });
+  return saveQueue;
+}
+async function flushSettings() {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+    await performSave();
+  }
+  await saveQueue;
+}
+async function getWindowState(key) {
+  const settings = await loadSettings();
+  return settings.windowStates ? settings.windowStates[key] : null;
+}
+async function saveWindowState(key, bounds) {
+  const windowStates = {};
+  windowStates[key] = bounds;
+  await saveSettings({ windowStates });
 }
 async function getRecentProjects() {
   const settings = await loadSettings();
@@ -46,12 +111,12 @@ async function addToRecentProjects(filePath) {
   if (recent.length > MAX_RECENT_PROJECTS) {
     recent = recent.slice(0, MAX_RECENT_PROJECTS);
   }
-  await saveSettings({ recentProjects: recent });
+  await saveSettings({ recentProjects: recent }, true);
 }
 async function removeFromRecentProjects(filePath) {
   let recent = await getRecentProjects();
   recent = recent.filter((p) => p !== filePath);
-  await saveSettings({ recentProjects: recent });
+  await saveSettings({ recentProjects: recent }, true);
 }
 function safeSend(win, channel, ...args) {
   if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
@@ -110,7 +175,6 @@ async function loadProject(win, filePath) {
     const content = await fs.readFile(filePath, "utf-8");
     const jsonContent = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
     currentDinkProject = { path: filePath, content: JSON.parse(jsonContent) };
-    console.log("Loaded project:", filePath);
     if (!win.isDestroyed()) {
       win.setTitle(`Dinky - ${path.basename(filePath, ".dinkproj")}`);
     }
@@ -122,9 +186,7 @@ async function loadProject(win, filePath) {
       try {
         await fs.access(lastInkRoot);
         inkFileToLoad = lastInkRoot;
-        console.log("Using stored preference for Ink Root:", inkFileToLoad);
       } catch {
-        console.log("Stored last Ink Root not found, falling back.");
       }
     }
     if (!inkFileToLoad && currentDinkProject.content.source) {
@@ -132,9 +194,7 @@ async function loadProject(win, filePath) {
       try {
         await fs.access(sourcePath);
         inkFileToLoad = sourcePath;
-        console.log("Using project source for Ink Root:", inkFileToLoad);
       } catch (e) {
-        console.warn("Project source file not found:", sourcePath);
       }
     }
     if (inkFileToLoad) {
@@ -428,19 +488,13 @@ async function openTestWindow(rootPath, projectFiles) {
     }
     return;
   }
-  let x, y;
-  const currentWindow = electron.BrowserWindow.getFocusedWindow() || electron.BrowserWindow.getAllWindows()[0];
-  if (currentWindow) {
-    const [currentX, currentY] = currentWindow.getPosition();
-    x = currentX + 50;
-    y = currentY + 50;
-  }
+  const windowState = await getWindowState("test");
   testWindow = new electron.BrowserWindow({
     title: "Test",
-    width: 800,
-    height: 600,
-    x,
-    y,
+    width: (windowState == null ? void 0 : windowState.width) || 800,
+    height: (windowState == null ? void 0 : windowState.height) || 600,
+    x: windowState == null ? void 0 : windowState.x,
+    y: windowState == null ? void 0 : windowState.y,
     backgroundColor: electron.nativeTheme.shouldUseDarkColors ? "#1e1e1e" : "#ffffff",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -458,6 +512,8 @@ async function openTestWindow(rootPath, projectFiles) {
   };
   const themeListener = () => updateTheme();
   electron.nativeTheme.on("updated", themeListener);
+  testWindow.on("move", () => saveWindowState("test", testWindow.getBounds()));
+  testWindow.on("resize", () => saveWindowState("test", testWindow.getBounds()));
   testWindow.on("closed", () => {
     electron.nativeTheme.off("updated", themeListener);
     testWindow = null;
@@ -522,7 +578,7 @@ function initSearch(win) {
     });
   });
 }
-function openSearchWindow() {
+async function openSearchWindow() {
   if (searchWindow && !searchWindow.isDestroyed()) {
     searchWindow.show();
     searchWindow.focus();
@@ -530,19 +586,17 @@ function openSearchWindow() {
     return;
   }
   const currentWindow = mainWindow$1;
-  let x, y;
   if (currentWindow) {
     const [winX, winY] = currentWindow.getPosition();
     const [winW, winH] = currentWindow.getSize();
-    x = winX + winW / 2 - 200;
-    y = winY + 100;
   }
+  const windowState = await getWindowState("search");
   searchWindow = new electron.BrowserWindow({
     title: "Find In Files",
-    width: 400,
-    height: 500,
-    x,
-    y,
+    width: (windowState == null ? void 0 : windowState.width) || 400,
+    height: (windowState == null ? void 0 : windowState.height) || 500,
+    x: windowState == null ? void 0 : windowState.x,
+    y: windowState == null ? void 0 : windowState.y,
     frame: true,
     resizable: true,
     alwaysOnTop: true,
@@ -563,6 +617,8 @@ function openSearchWindow() {
   };
   const themeListener = () => updateTheme();
   electron.nativeTheme.on("updated", themeListener);
+  searchWindow.on("move", () => saveWindowState("search", searchWindow.getBounds()));
+  searchWindow.on("resize", () => saveWindowState("search", searchWindow.getBounds()));
   searchWindow.on("closed", () => {
     electron.nativeTheme.off("updated", themeListener);
     searchWindow = null;
@@ -783,10 +839,13 @@ let mainWindow = null;
 async function createWindow() {
   const settings = await loadSettings();
   electron.nativeTheme.themeSource = settings.theme || "system";
+  const windowState = await getWindowState("main");
   const win = new electron.BrowserWindow({
     title: "Dinky",
-    width: 800,
-    height: 600,
+    width: (windowState == null ? void 0 : windowState.width) || 800,
+    height: (windowState == null ? void 0 : windowState.height) || 600,
+    x: windowState == null ? void 0 : windowState.x,
+    y: windowState == null ? void 0 : windowState.y,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
@@ -824,6 +883,8 @@ async function createWindow() {
     win.loadFile(indexPath).catch((e) => console.error("Failed to load index.html:", e));
   }
   win.forceClose = false;
+  win.on("move", () => saveWindowState("main", win.getBounds()));
+  win.on("resize", () => saveWindowState("main", win.getBounds()));
   win.on("close", (e) => {
     if (win.forceClose) return;
     if (win.webContents.isDestroyed()) return;
@@ -934,5 +995,13 @@ electron.ipcMain.on("request-test-restart", () => {
   safeSend(mainWindow, "trigger-start-test");
 });
 electron.app.on("window-all-closed", () => {
+  electron.app.quit();
+});
+let isQuitting = false;
+electron.app.on("before-quit", async (e) => {
+  if (isQuitting) return;
+  e.preventDefault();
+  await flushSettings();
+  isQuitting = true;
   electron.app.quit();
 });

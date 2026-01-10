@@ -6,13 +6,29 @@ import fs from 'fs/promises'
 const configPath = path.join(app.getPath('userData'), 'config.json')
 const MAX_RECENT_PROJECTS = 10;
 
+let settingsCache = null;
+let loadPromise = null;
+let saveQueue = Promise.resolve();
+let debounceTimer = null;
+
 async function loadSettings() {
-    try {
-        const data = await fs.readFile(configPath, 'utf-8')
-        return JSON.parse(data)
-    } catch {
-        return { theme: 'system', recentProjects: [], projectSettings: {} }
-    }
+    if (settingsCache) return settingsCache;
+    if (loadPromise) return loadPromise;
+
+    loadPromise = (async () => {
+        try {
+            const data = await fs.readFile(configPath, 'utf-8');
+            settingsCache = JSON.parse(data);
+            return settingsCache;
+        } catch (e) {
+            settingsCache = { theme: 'system', recentProjects: [], projectSettings: {}, windowStates: {} };
+            return settingsCache;
+        } finally {
+            loadPromise = null;
+        }
+    })();
+
+    return loadPromise;
 }
 
 async function getProjectSetting(projectPath, key) {
@@ -27,16 +43,74 @@ async function setProjectSetting(projectPath, key, value) {
     if (!settings.projectSettings) settings.projectSettings = {};
     if (!settings.projectSettings[projectPath]) settings.projectSettings[projectPath] = {};
     settings.projectSettings[projectPath][key] = value;
-    await saveSettings(settings);
+    await saveSettings(settings); // Debounced by default
 }
 
-async function saveSettings(settings) {
-    try {
-        const current = await loadSettings()
-        await fs.writeFile(configPath, JSON.stringify({ ...current, ...settings }, null, 2))
-    } catch (error) {
-        console.error('Failed to save settings:', error)
+async function saveSettings(settings, immediate = false) {
+    if (!settingsCache) await loadSettings();
+
+    // Deep merge logic
+    if (settings.projectSettings) {
+        settingsCache.projectSettings = { ...(settingsCache.projectSettings || {}), ...settings.projectSettings };
     }
+    if (settings.windowStates) {
+        settingsCache.windowStates = { ...(settingsCache.windowStates || {}), ...settings.windowStates };
+    }
+    // Shallow merge for other keys
+    Object.keys(settings).forEach(key => {
+        if (key !== 'projectSettings' && key !== 'windowStates') {
+            settingsCache[key] = settings[key];
+        }
+    });
+
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+    }
+
+    if (immediate) {
+        return performSave();
+    } else {
+        return new Promise((resolve) => {
+            debounceTimer = setTimeout(() => {
+                resolve(performSave());
+            }, 500);
+        });
+    }
+}
+
+async function performSave() {
+    saveQueue = saveQueue.then(async () => {
+        const tmpPath = `${configPath}.tmp`;
+        try {
+            await fs.writeFile(tmpPath, JSON.stringify(settingsCache, null, 2));
+            await fs.rename(tmpPath, configPath);
+        } catch (error) {
+            console.error('Failed to save settings:', error);
+            try { await fs.unlink(tmpPath); } catch { }
+        }
+    });
+    return saveQueue;
+}
+
+async function flushSettings() {
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+        await performSave();
+    }
+    await saveQueue;
+}
+
+async function getWindowState(key) {
+    const settings = await loadSettings();
+    return settings.windowStates ? settings.windowStates[key] : null;
+}
+
+async function saveWindowState(key, bounds) {
+    const windowStates = {};
+    windowStates[key] = bounds;
+    await saveSettings({ windowStates });
 }
 
 // Recent Projects Helpers
@@ -53,13 +127,13 @@ async function addToRecentProjects(filePath) {
     if (recent.length > MAX_RECENT_PROJECTS) {
         recent = recent.slice(0, MAX_RECENT_PROJECTS);
     }
-    await saveSettings({ recentProjects: recent });
+    await saveSettings({ recentProjects: recent }, true);
 }
 
 async function removeFromRecentProjects(filePath) {
     let recent = await getRecentProjects();
     recent = recent.filter(p => p !== filePath);
-    await saveSettings({ recentProjects: recent });
+    await saveSettings({ recentProjects: recent }, true);
 }
 
 export {
@@ -69,5 +143,8 @@ export {
     setProjectSetting,
     getRecentProjects,
     addToRecentProjects,
-    removeFromRecentProjects
+    removeFromRecentProjects,
+    getWindowState,
+    saveWindowState,
+    flushSettings
 }

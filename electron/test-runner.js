@@ -2,6 +2,7 @@ import { BrowserWindow, nativeTheme } from 'electron'
 import path from 'path'
 import { compileStory } from './compiler'
 import { safeSend } from './utils'
+import { getWindowState, saveWindowState } from './config'
 
 let testWindow = null
 
@@ -15,20 +16,15 @@ export async function openTestWindow(rootPath, projectFiles) {
         return
     }
 
-    let x, y
-    const currentWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
-    if (currentWindow) {
-        const [currentX, currentY] = currentWindow.getPosition()
-        x = currentX + 50
-        y = currentY + 50
-    }
+    // Load saved window state
+    const windowState = await getWindowState('test');
 
     testWindow = new BrowserWindow({
         title: 'Test',
-        width: 800,
-        height: 600,
-        x,
-        y,
+        width: windowState?.width || 800,
+        height: windowState?.height || 600,
+        x: windowState?.x,
+        y: windowState?.y,
         backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#ffffff',
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
@@ -48,6 +44,9 @@ export async function openTestWindow(rootPath, projectFiles) {
 
     const themeListener = () => updateTheme()
     nativeTheme.on('updated', themeListener)
+
+    testWindow.on('move', () => saveWindowState('test', testWindow.getBounds()));
+    testWindow.on('resize', () => saveWindowState('test', testWindow.getBounds()));
 
     testWindow.on('closed', () => {
         nativeTheme.off('updated', themeListener)

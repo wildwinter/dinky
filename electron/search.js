@@ -1,6 +1,7 @@
 import { BrowserWindow, nativeTheme, ipcMain } from 'electron'
 import path from 'path'
 import { safeSend } from './utils'
+import { getWindowState, saveWindowState } from './config'
 
 let searchWindow = null
 let mainWindow = null
@@ -39,7 +40,7 @@ export function initSearch(win) {
     });
 }
 
-export function openSearchWindow() {
+export async function openSearchWindow() {
     if (searchWindow && !searchWindow.isDestroyed()) {
         searchWindow.show()
         searchWindow.focus()
@@ -56,12 +57,15 @@ export function openSearchWindow() {
         y = winY + 100
     }
 
+    // Load saved window state
+    const windowState = await getWindowState('search');
+
     searchWindow = new BrowserWindow({
         title: 'Find In Files',
-        width: 400,
-        height: 500,
-        x,
-        y,
+        width: windowState?.width || 400,
+        height: windowState?.height || 500,
+        x: windowState?.x,
+        y: windowState?.y,
         frame: true,
         resizable: true,
         alwaysOnTop: true,
@@ -84,6 +88,9 @@ export function openSearchWindow() {
 
     const themeListener = () => updateTheme()
     nativeTheme.on('updated', themeListener)
+
+    searchWindow.on('move', () => saveWindowState('search', searchWindow.getBounds()));
+    searchWindow.on('resize', () => saveWindowState('search', searchWindow.getBounds()));
 
     searchWindow.on('closed', () => {
         nativeTheme.off('updated', themeListener)
