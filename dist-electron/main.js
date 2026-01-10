@@ -54,12 +54,16 @@ async function removeFromRecentProjects(filePath) {
   await saveSettings({ recentProjects: recent });
 }
 let currentDinkProject = null;
+let currentInkRoot = null;
 let rebuildMenuCallback = null;
 function setMenuRebuildCallback(fn) {
   rebuildMenuCallback = fn;
 }
 function getCurrentProject() {
   return currentDinkProject;
+}
+function getCurrentInkRoot() {
+  return currentInkRoot;
 }
 async function loadRootInk(rootFilePath) {
   const rootDir = path.dirname(rootFilePath);
@@ -128,6 +132,7 @@ async function loadProject(win, filePath) {
       }
     }
     if (inkFileToLoad) {
+      currentInkRoot = inkFileToLoad;
       const files = await loadRootInk(inkFileToLoad);
       win.webContents.send("root-ink-loaded", files);
     }
@@ -158,6 +163,46 @@ async function createNewProject(win, name, parentPath) {
   } catch (e) {
     console.error("Failed to create new project:", e);
     electron.dialog.showErrorBox("Error", `Failed to create new project: ${e.message}`);
+    return false;
+  }
+}
+async function createNewInclude(win, name, folderPath) {
+  if (!name || !folderPath || !currentInkRoot) return false;
+  const fileName = name.endsWith(".ink") ? name : `${name}.ink`;
+  const fullIncludePath = path.join(folderPath, fileName);
+  try {
+    await fs.writeFile(fullIncludePath, "// Type Ink here", "utf-8");
+    const rootContent = await fs.readFile(currentInkRoot, "utf-8");
+    const lines = rootContent.split(/\r?\n/);
+    const relativePath = path.relative(path.dirname(currentInkRoot), fullIncludePath);
+    const includeLine = `INCLUDE ${relativePath.replace(/\\/g, "/")}`;
+    let insertIndex = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].trim().startsWith("INCLUDE ")) {
+        insertIndex = i + 1;
+        break;
+      }
+    }
+    if (insertIndex === -1) {
+      insertIndex = 0;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line.startsWith("//") || line === "") {
+          insertIndex = i + 1;
+        } else {
+          break;
+        }
+      }
+    }
+    lines.splice(insertIndex, 0, includeLine);
+    const newContent = lines.join("\n");
+    await fs.writeFile(currentInkRoot, newContent, "utf-8");
+    const files = await loadRootInk(currentInkRoot);
+    win.webContents.send("root-ink-loaded", files);
+    return true;
+  } catch (e) {
+    console.error("Failed to create new include:", e);
+    electron.dialog.showErrorBox("Error", `Failed to create new include: ${e.message}`);
     return false;
   }
 }
@@ -239,6 +284,18 @@ async function buildMenu(win) {
                 console.log("Saved Ink Root preference:", filePaths[0]);
               }
             }
+          }
+        },
+        {
+          label: "Create New Include...",
+          click: async () => {
+            const currentInkRoot2 = getCurrentInkRoot();
+            if (!currentInkRoot2) {
+              electron.dialog.showErrorBox("Error", "No Ink Root loaded so where should I put the INCLUDE? Please open an Ink file first.");
+              return;
+            }
+            const defaultFolder = path.dirname(currentInkRoot2);
+            win.webContents.send("show-new-include-modal", defaultFolder);
           }
         },
         { label: "Save", accelerator: isMac ? "Cmd+S" : "Ctrl+S", click: async () => {
@@ -509,6 +566,10 @@ electron.app.whenReady().then(() => {
       createWindow();
     }
   });
+});
+electron.ipcMain.handle("create-new-include", async (event, name, folderPath) => {
+  const win = electron.BrowserWindow.fromWebContents(event.sender);
+  return await createNewInclude(win, name, folderPath);
 });
 electron.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {

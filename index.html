@@ -222,6 +222,33 @@
             </div>
         </div>
     </div>
+
+    <!-- New Include Modal -->
+    <div id="modal-include-overlay"
+        style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); align-items: center; justify-content: center; z-index: 1000;">
+        <div id="new-include-modal"
+            style="background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); padding: 20px; width: 400px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            <div class="modal-header">Create New Include</div>
+
+            <div class="form-group">
+                <label for="new-include-name">Ink File Name (will append .ink)</label>
+                <input type="text" id="new-include-name" placeholder="my_include" />
+            </div>
+
+            <div class="form-group">
+                <label for="new-include-folder">Parent Folder</label>
+                <div class="folder-row">
+                    <input type="text" id="new-include-folder" readonly placeholder="Select a folder..." />
+                    <button id="btn-select-include-folder" class="secondary">...</button>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="btn-cancel-include" class="secondary">Cancel</button>
+                <button id="btn-confirm-include" class="primary" disabled>Create</button>
+            </div>
+        </div>
+    </div>
     <script type="module" src="/src/renderer.js"></script>
 </body>
 

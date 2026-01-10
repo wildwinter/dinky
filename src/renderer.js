@@ -326,3 +326,61 @@ btnCreate.addEventListener('click', async () => {
 });
 
 inputName.addEventListener('input', validateForm);
+
+// --- New Include Modal Logic ---
+const modalIncludeOverlay = document.getElementById('modal-include-overlay');
+const inputIncludeName = document.getElementById('new-include-name');
+const inputIncludeFolder = document.getElementById('new-include-folder');
+const btnSelectIncludeFolder = document.getElementById('btn-select-include-folder');
+const btnCancelInclude = document.getElementById('btn-cancel-include');
+const btnCreateInclude = document.getElementById('btn-confirm-include');
+
+function openIncludeModal(defaultFolder) {
+    inputIncludeName.value = '';
+    inputIncludeFolder.value = defaultFolder || '';
+    validateIncludeForm();
+    modalIncludeOverlay.style.display = 'flex';
+    inputIncludeName.focus();
+}
+
+function closeIncludeModal() {
+    modalIncludeOverlay.style.display = 'none';
+}
+
+function validateIncludeForm() {
+    const name = inputIncludeName.value.trim();
+    const folder = inputIncludeFolder.value.trim();
+    btnCreateInclude.disabled = !(name && folder);
+}
+
+window.electronAPI.onShowNewIncludeModal((defaultFolder) => {
+    openIncludeModal(defaultFolder);
+});
+
+btnSelectIncludeFolder.addEventListener('click', async () => {
+    const path = await window.electronAPI.selectFolder();
+    if (path) {
+        inputIncludeFolder.value = path;
+        validateIncludeForm();
+    }
+});
+
+btnCancelInclude.addEventListener('click', () => {
+    closeIncludeModal();
+});
+
+btnCreateInclude.addEventListener('click', async () => {
+    const name = inputIncludeName.value.trim();
+    const folder = inputIncludeFolder.value.trim();
+    if (name && folder) {
+        btnCreateInclude.disabled = true;
+        const success = await window.electronAPI.createNewInclude(name, folder);
+        if (success) {
+            closeIncludeModal();
+        } else {
+            btnCreateInclude.disabled = false;
+        }
+    }
+});
+
+inputIncludeName.addEventListener('input', validateIncludeForm);

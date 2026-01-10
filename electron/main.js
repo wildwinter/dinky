@@ -5,7 +5,7 @@ import fs from 'fs/promises'
 import { loadSettings, getRecentProjects, removeFromRecentProjects } from './config'
 import { buildMenu } from './menu'
 import { compileInk } from './compiler'
-import { loadProject, createNewProject, setMenuRebuildCallback } from './project-manager'
+import { loadProject, createNewProject, setMenuRebuildCallback, createNewInclude } from './project-manager'
 
 app.setName('Dinky')
 
@@ -134,6 +134,11 @@ app.whenReady().then(() => {
         }
     })
 })
+
+ipcMain.handle('create-new-include', async (event, name, folderPath) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return await createNewInclude(win, name, folderPath);
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {

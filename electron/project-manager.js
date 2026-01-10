@@ -4,6 +4,7 @@ import fs from 'fs/promises'
 import { addToRecentProjects, getProjectSetting, removeFromRecentProjects, setProjectSetting } from './config'
 
 let currentDinkProject = null;
+let currentInkRoot = null;
 let rebuildMenuCallback = null;
 
 function setMenuRebuildCallback(fn) {
@@ -12,6 +13,10 @@ function setMenuRebuildCallback(fn) {
 
 function getCurrentProject() {
     return currentDinkProject;
+}
+
+function getCurrentInkRoot() {
+    return currentInkRoot;
 }
 
 // Helper to recursively load ink files
@@ -104,6 +109,7 @@ async function loadProject(win, filePath) {
         }
 
         if (inkFileToLoad) {
+            currentInkRoot = inkFileToLoad; // Track it
             const files = await loadRootInk(inkFileToLoad);
             win.webContents.send('root-ink-loaded', files);
         }
@@ -151,11 +157,83 @@ async function createNewProject(win, name, parentPath) {
     }
 }
 
+async function createNewInclude(win, name, folderPath) {
+    if (!name || !folderPath || !currentInkRoot) return false;
+
+    // Ensure .ink extension
+    const fileName = name.endsWith('.ink') ? name : `${name}.ink`;
+    const fullIncludePath = path.join(folderPath, fileName);
+
+    try {
+        // 1. Create file with valid Ink comment
+        await fs.writeFile(fullIncludePath, '// Type Ink here', 'utf-8');
+
+        // 2. Modify Ink Root to add INCLUDE
+        const rootContent = await fs.readFile(currentInkRoot, 'utf-8');
+        const lines = rootContent.split(/\r?\n/);
+        const relativePath = path.relative(path.dirname(currentInkRoot), fullIncludePath);
+
+        // Ensure forward slashes for cross-platform compatibility in Ink INCLUDE
+        const includeLine = `INCLUDE ${relativePath.replace(/\\/g, '/')}`;
+
+        // Find insertion point
+        let insertIndex = -1;
+
+        // Find last existing INCLUDE
+        for (let i = lines.length - 1; i >= 0; i--) {
+            if (lines[i].trim().startsWith('INCLUDE ')) {
+                insertIndex = i + 1;
+                break;
+            }
+        }
+
+        if (insertIndex === -1) {
+            // No INCLUDEs found, try to skip header comments
+            // Simple heuristic based on prompt: "after any comment lines"
+            // We'll skip lines starting with // or enclosed in /* */
+            // But doing robust comment skipping is hard with regex. 
+            // Let's just find the first non-comment/non-empty line and insert before it, 
+            // OR if file starts with comments, insert after them.
+
+            insertIndex = 0;
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                // Simple check for line comments and empty lines
+                if (line.startsWith('//') || line === '') {
+                    insertIndex = i + 1;
+                } else {
+                    // Stop at first non-comment code
+                    break;
+                }
+            }
+        }
+
+        lines.splice(insertIndex, 0, includeLine);
+        const newContent = lines.join('\n'); // Standardize on \n or preserve? split uses regex so we lose original endings. 
+        // Let's use os.EOL or just \n. Ink handles \n fine.
+
+        await fs.writeFile(currentInkRoot, newContent, 'utf-8');
+
+        // 3. Reload project files
+        // We can just reload the root ink
+        const files = await loadRootInk(currentInkRoot);
+        win.webContents.send('root-ink-loaded', files);
+
+        return true;
+    } catch (e) {
+        console.error('Failed to create new include:', e);
+        dialog.showErrorBox('Error', `Failed to create new include: ${e.message}`);
+        return false;
+    }
+}
+
 
 export {
     loadProject,
     createNewProject,
     loadRootInk,
     getCurrentProject,
-    setMenuRebuildCallback
+    setMenuRebuildCallback,
+    getCurrentInkRoot,
+    createNewInclude
 }

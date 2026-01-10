@@ -12,7 +12,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   newProject: () => ipcRenderer.invoke("new-project"),
   selectFolder: () => ipcRenderer.invoke("select-folder"),
   createNewProject: (name, parentPath) => ipcRenderer.invoke("create-new-project", name, parentPath),
-  onShowNewProjectModal: (callback) => ipcRenderer.on("show-new-project-modal", (_event, value) => callback(value))
+  onShowNewProjectModal: (callback) => ipcRenderer.on("show-new-project-modal", (_event, value) => callback(value)),
+  createNewInclude: (name, folderPath) => ipcRenderer.invoke("create-new-include", name, folderPath),
+  onShowNewIncludeModal: (callback) => ipcRenderer.on("show-new-include-modal", (_event, value) => callback(value))
 });
 window.addEventListener("DOMContentLoaded", () => {
   const replaceText = (selector, text) => {
