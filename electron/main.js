@@ -5,7 +5,7 @@ const fs = require('fs/promises')
 app.setName('Dinky')
 
 // Helper to recursively load ink files
-async function loadInkProject(rootFilePath) {
+async function loadRootInk(rootFilePath) {
     const rootDir = path.dirname(rootFilePath)
     const files = []
     const visited = new Set()
@@ -110,8 +110,8 @@ async function createWindow() {
                             filters: [{ name: 'Ink Files', extensions: ['ink'] }]
                         })
                         if (!canceled && filePaths.length > 0) {
-                            const files = await loadInkProject(filePaths[0])
-                            win.webContents.send('project-loaded', files)
+                            const files = await loadRootInk(filePaths[0])
+                            win.webContents.send('root-ink-loaded', files)
                         }
                     }
                 },

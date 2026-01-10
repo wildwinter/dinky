@@ -75,6 +75,19 @@
             flex-grow: 1;
             height: 100%;
             overflow: hidden;
+            display: none;
+            /* Hidden by default */
+        }
+
+        #empty-state {
+            flex-grow: 1;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: var(--text-color);
+            background-color: var(--bg-color);
         }
     </style>
 </head>
@@ -87,6 +100,7 @@
             <ul id="file-list"></ul>
         </div>
         <div id="editor-container"></div>
+        <div id="empty-state">Load Project</div>
     </div>
     <script type="module" src="/src/renderer.js"></script>
 </body>

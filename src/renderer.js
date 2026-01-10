@@ -71,24 +71,30 @@ const editor = monaco.editor.create(document.getElementById('editor-container'),
     readOnly: true,
 });
 
-let currentProjectFiles = new Map();
+let loadedInkFiles = new Map();
 let currentFilePath = null; // Added: To store the absolute path of the currently open file
-let rootFilePath = null; // Added: To track the project root for compilation
+let rootInkPath = null; // Renamed from rootFilePath
 let isUpdatingContent = false; // Added: To prevent recursive updates during file switching
 
-window.electronAPI.onProjectLoaded((files) => {
-    currentProjectFiles.clear();
+window.electronAPI.onRootInkLoaded((files) => {
+    loadedInkFiles.clear();
     const fileList = document.getElementById('file-list');
     fileList.innerHTML = '';
 
+    // Toggle view
+    document.getElementById('empty-state').style.display = 'none';
+    const editorContainer = document.getElementById('editor-container');
+    editorContainer.style.display = 'block';
+    editor.layout();
+
     if (files.length > 0) {
-        rootFilePath = files[0].absolutePath;
+        rootInkPath = files[0].absolutePath;
         editor.updateOptions({ readOnly: false });
     }
 
     files.forEach((file, index) => {
         file.originalContent = file.content;
-        currentProjectFiles.set(file.absolutePath, file);
+        loadedInkFiles.set(file.absolutePath, file);
 
         const li = document.createElement('li');
         file.listItem = li;
@@ -123,7 +129,7 @@ window.electronAPI.onProjectLoaded((files) => {
     });
 
     // Initial syntax check after loading project
-    if (rootFilePath) {
+    if (rootInkPath) {
         checkSyntax();
     }
 });
@@ -142,18 +148,18 @@ function debounce(func, wait) {
 }
 
 async function checkSyntax() {
-    if (!rootFilePath) return;
+    if (!rootInkPath) return;
 
     let contentToCompile = '';
-    let compilePath = rootFilePath;
+    let compilePath = rootInkPath;
     let projectFiles = {};
 
     // Serialize project files for IPC (absolute path -> content)
-    for (const [path, file] of currentProjectFiles) {
+    for (const [path, file] of loadedInkFiles) {
         projectFiles[path] = file.content;
     }
 
-    const rootFileObj = currentProjectFiles.get(rootFilePath);
+    const rootFileObj = loadedInkFiles.get(rootInkPath);
     if (!rootFileObj) {
         return;
     }
@@ -206,8 +212,8 @@ editor.onDidChangeModelContent(() => {
     if (isUpdatingContent) return;
 
     // Keep the file model in sync with editor content immediately
-    if (currentFilePath && currentProjectFiles.has(currentFilePath)) {
-        const file = currentProjectFiles.get(currentFilePath);
+    if (currentFilePath && loadedInkFiles.has(currentFilePath)) {
+        const file = loadedInkFiles.get(currentFilePath);
         file.content = editor.getValue();
 
         if (file.listItem) {
@@ -232,14 +238,14 @@ window.electronAPI.onThemeUpdated((theme) => {
 // Listen for Save All command from main process
 window.electronAPI.onSaveAll(async () => {
     const filesToSave = [];
-    for (const [filePath, file] of currentProjectFiles) {
+    for (const [filePath, file] of loadedInkFiles) {
         filesToSave.push({ path: filePath, content: file.content });
     }
     // Invoke IPC to save files
     await window.electronAPI.saveFiles(filesToSave);
 
     // Update original content and remove asterisks
-    for (const [filePath, file] of currentProjectFiles) {
+    for (const [filePath, file] of loadedInkFiles) {
         file.originalContent = file.content;
         if (file.listItem) {
             file.listItem.textContent = file.relativePath;
