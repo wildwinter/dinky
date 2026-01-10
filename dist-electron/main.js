@@ -95,7 +95,7 @@ async function loadProject(win, filePath) {
     const jsonContent = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
     currentDinkProject = { path: filePath, content: JSON.parse(jsonContent) };
     console.log("Loaded project:", filePath);
-    win.setTitle(`Dinky - ${path.basename(filePath)}`);
+    win.setTitle(`Dinky - ${path.basename(filePath, ".dinkproj")}`);
     await addToRecentProjects(filePath);
     await buildMenu(win);
     const lastInkRoot = await getProjectSetting(filePath, "lastInkRoot");
@@ -479,6 +479,7 @@ ipcMain.handle("create-new-project", async (event, name, parentPath) => {
     await fs.mkdir(projectDir, { recursive: true });
     await fs.writeFile(projectFile, "{}", "utf-8");
     await fs.writeFile(inkFile, "// Add Ink content here", "utf-8");
+    await setProjectSetting(projectFile, "lastInkRoot", inkFile);
     await loadProject(win, projectFile);
     return true;
   } catch (e) {

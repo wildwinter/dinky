@@ -121,7 +121,7 @@ async function loadProject(win, filePath) {
         currentDinkProject = { path: filePath, content: JSON.parse(jsonContent) };
 
         console.log('Loaded project:', filePath);
-        win.setTitle(`Dinky - ${path.basename(filePath)}`);
+        win.setTitle(`Dinky - ${path.basename(filePath, '.dinkproj')}`);
 
         // Update Recent Projects
         await addToRecentProjects(filePath);
@@ -601,6 +601,10 @@ ipcMain.handle('create-new-project', async (event, name, parentPath) => {
 
         // precise content as requested
         await fs.writeFile(inkFile, '// Add Ink content here', 'utf-8');
+
+        // Set this as the preferred ink root for this project immediately
+        // This ensures it loads automatically and is remembered
+        await setProjectSetting(projectFile, 'lastInkRoot', inkFile);
 
         // Load it
         await loadProject(win, projectFile);
