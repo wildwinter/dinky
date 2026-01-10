@@ -38,7 +38,7 @@ export async function openTestWindow(rootPath, projectFiles) {
     })
 
     const updateTheme = () => {
-        if (!testWindow || testWindow.isDestroyed()) return
+        if (!testWindow || testWindow.isDestroyed() || testWindow.webContents.isDestroyed()) return
         const theme = nativeTheme.shouldUseDarkColors ? 'vs-dark' : 'vs'
         testWindow.webContents.send('theme-updated', theme)
         testWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#ffffff')

@@ -12,7 +12,7 @@ export function initSearch(win) {
     });
 
     ipcMain.handle('perform-search', async (event, { query, caseSensitive }) => {
-        if (!mainWindow) return [];
+        if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return [];
         return await new Promise((resolve) => {
             mainWindow.webContents.send('request-search-results', { query, caseSensitive });
             ipcMain.once('search-results-ready', (_event, results) => {
@@ -22,13 +22,13 @@ export function initSearch(win) {
     });
 
     ipcMain.on('navigate-to-result', (event, { path, line, query }) => {
-        if (mainWindow) {
+        if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
             mainWindow.webContents.send('navigate-to-match', { path, line, query });
         }
     });
 
     ipcMain.handle('perform-replace-all', async (event, { query, replacement, caseSensitive }) => {
-        if (!mainWindow) return 0;
+        if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return 0;
         return await new Promise((resolve) => {
             mainWindow.webContents.send('request-replace-all', { query, replacement, caseSensitive });
             ipcMain.once('replace-all-complete', (_event, count) => {
@@ -39,10 +39,12 @@ export function initSearch(win) {
 }
 
 export function openSearchWindow() {
-    if (searchWindow) {
+    if (searchWindow && !searchWindow.isDestroyed()) {
         searchWindow.show()
         searchWindow.focus()
-        searchWindow.webContents.send('focus-search-input');
+        if (!searchWindow.webContents.isDestroyed()) {
+            searchWindow.webContents.send('focus-search-input');
+        }
         return
     }
 
@@ -74,7 +76,7 @@ export function openSearchWindow() {
     })
 
     const updateTheme = () => {
-        if (!searchWindow || searchWindow.isDestroyed()) return
+        if (!searchWindow || searchWindow.isDestroyed() || searchWindow.webContents.isDestroyed()) return
         const theme = nativeTheme.shouldUseDarkColors ? 'vs-dark' : 'vs'
         searchWindow.webContents.send('theme-updated', theme)
         searchWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#252526' : '#f3f3f3')
@@ -86,7 +88,7 @@ export function openSearchWindow() {
     searchWindow.on('closed', () => {
         nativeTheme.off('updated', themeListener)
         searchWindow = null
-        if (mainWindow) {
+        if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
             mainWindow.webContents.send('clear-search-highlights');
         }
     })

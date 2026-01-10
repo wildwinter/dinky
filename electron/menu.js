@@ -47,7 +47,9 @@ async function buildMenu(win) {
                 {
                     label: 'New Project...',
                     click: async () => {
-                        win.webContents.send('show-new-project-modal');
+                        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+                            win.webContents.send('show-new-project-modal');
+                        }
                     }
                 },
                 {
@@ -81,7 +83,9 @@ async function buildMenu(win) {
                         })
                         if (!canceled && filePaths.length > 0) {
                             const files = await loadRootInk(filePaths[0])
-                            win.webContents.send('root-ink-loaded', files)
+                            if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+                                win.webContents.send('root-ink-loaded', files)
+                            }
 
                             // Save as preference if a project is open
                             const currentDinkProject = getCurrentProject();
@@ -99,7 +103,7 @@ async function buildMenu(win) {
                         openNewIncludeUI(win);
                     }
                 },
-                { label: 'Save', accelerator: isMac ? 'Cmd+S' : 'Ctrl+S', click: async () => { win.webContents.send('save-all'); } },
+                { label: 'Save', accelerator: isMac ? 'Cmd+S' : 'Ctrl+S', click: async () => { if (!win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('save-all'); } },
                 ...(isMac ? [] : [{ role: 'quit' }])
             ]
         },
@@ -177,7 +181,9 @@ async function buildMenu(win) {
                     label: 'Start Test',
                     accelerator: 'CmdOrCtrl+T',
                     click: () => {
-                        win.webContents.send('trigger-start-test');
+                        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+                            win.webContents.send('trigger-start-test');
+                        }
                     }
                 }
             ]

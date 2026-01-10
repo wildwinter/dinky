@@ -74,7 +74,9 @@ async function loadProject(win, filePath) {
         currentDinkProject = { path: filePath, content: JSON.parse(jsonContent) };
 
         console.log('Loaded project:', filePath);
-        win.setTitle(`Dinky - ${path.basename(filePath, '.dinkproj')}`);
+        if (!win.isDestroyed()) {
+            win.setTitle(`Dinky - ${path.basename(filePath, '.dinkproj')}`);
+        }
 
         // Update Recent Projects
         await addToRecentProjects(filePath);
@@ -111,7 +113,9 @@ async function loadProject(win, filePath) {
         if (inkFileToLoad) {
             currentInkRoot = inkFileToLoad;
             const files = await loadRootInk(inkFileToLoad);
-            win.webContents.send('root-ink-loaded', files);
+            if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+                win.webContents.send('root-ink-loaded', files);
+            }
         }
 
         return true;
@@ -213,7 +217,9 @@ async function createNewInclude(win, name, folderPath) {
         await fs.writeFile(currentInkRoot, newContent, 'utf-8');
 
         const files = await loadRootInk(currentInkRoot);
-        win.webContents.send('root-ink-loaded', files);
+        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+            win.webContents.send('root-ink-loaded', files);
+        }
 
         return true;
     } catch (e) {
@@ -230,7 +236,9 @@ function openNewIncludeUI(win) {
         return;
     }
     const defaultFolder = path.dirname(currentInkRoot);
-    win.webContents.send('show-new-include-modal', defaultFolder);
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+        win.webContents.send('show-new-include-modal', defaultFolder);
+    }
 }
 
 export {
@@ -307,7 +315,9 @@ async function deleteInclude(win, filePathToDelete) {
 
         // Reload project
         const files = await loadRootInk(currentInkRoot);
-        win.webContents.send('root-ink-loaded', files);
+        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+            win.webContents.send('root-ink-loaded', files);
+        }
 
         return true;
 
