@@ -51,8 +51,7 @@ async function loadRootInk(rootFilePath) {
                 }
             }
         } catch (error) {
-            console.error(`Failed to load file ${currentPath}:`, error)
-            // Still add it to list but maybe with error content? Or just skip
+            // Still add it to list
         }
     }
 

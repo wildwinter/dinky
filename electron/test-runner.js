@@ -1,7 +1,7 @@
 import { BrowserWindow, nativeTheme, ipcMain } from 'electron'
 import path from 'path'
 import { compileStory } from './compiler'
-import { safeSend } from './utils'
+import { safeSend, setupThemeListener } from './utils'
 import { getWindowState, saveWindowState, saveSettings } from './config'
 
 let testWindow = null
@@ -35,22 +35,13 @@ export async function openTestWindow(rootPath, projectFiles) {
         show: false
     })
 
-    const updateTheme = () => {
-        const theme = nativeTheme.shouldUseDarkColors ? 'vs-dark' : 'vs'
-        const sent = safeSend(testWindow, 'theme-updated', theme);
-        if (sent) {
-            testWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#ffffff')
-        }
-    }
-
-    const themeListener = () => updateTheme()
-    nativeTheme.on('updated', themeListener)
+    const cleanupTheme = setupThemeListener(testWindow, '#1e1e1e', '#ffffff');
 
     testWindow.on('move', () => saveWindowState('test', testWindow.getBounds()));
     testWindow.on('resize', () => saveWindowState('test', testWindow.getBounds()));
 
     testWindow.on('closed', async () => {
-        nativeTheme.off('updated', themeListener)
+        cleanupTheme()
         testWindow = null
         await saveSettings({ testWindowOpen: false });
         ipcMain.emit('rebuild-menu');
@@ -63,7 +54,6 @@ export async function openTestWindow(rootPath, projectFiles) {
     });
 
     testWindow.webContents.on('did-finish-load', async () => {
-        updateTheme()
         if (rootPath && projectFiles) {
             await runTestSequence(rootPath, projectFiles);
         }

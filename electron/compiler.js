@@ -166,11 +166,8 @@ async function compileStory(content, filePath, projectFiles = {}) {
     const story = compiler.Compile()
 
     if (collectedErrors.length > 0) {
-        // Filter for actual errors (severity 8 usually, or just assuming all are blocking for now if compiler fails? 
-        // inkjs often continues after errors. But we probably shouldn't run if there are errors.)
-        // But usually warnings are fine.
-        // Let's check if story was produced.
-        // If compiler.Compile returns a story, it might be valid.
+        // Log errors but continue if possible
+        console.error('Story compilation warnings/errors:', collectedErrors);
     }
 
     // Checks if the compilation succeeded

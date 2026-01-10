@@ -125,6 +125,20 @@ function safeSend(win, channel, ...args) {
   }
   return false;
 }
+function setupThemeListener(win, bgColorDark, bgColorLight) {
+  const updateTheme = () => {
+    const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
+    const sent = safeSend(win, "theme-updated", theme);
+    if (sent && win && !win.isDestroyed() && bgColorDark && bgColorLight) {
+      win.setBackgroundColor(electron.nativeTheme.shouldUseDarkColors ? bgColorDark : bgColorLight);
+    }
+  };
+  electron.nativeTheme.on("updated", updateTheme);
+  updateTheme();
+  return () => {
+    electron.nativeTheme.off("updated", updateTheme);
+  };
+}
 let currentDinkProject = null;
 let currentInkRoot = null;
 let rebuildMenuCallback = null;
@@ -159,7 +173,6 @@ async function loadRootInk(rootFilePath) {
         }
       }
     } catch (error) {
-      console.error(`Failed to load file ${currentPath}:`, error);
     }
   }
   await traverse(rootFilePath);
@@ -530,6 +543,9 @@ async function compileStory(content, filePath, projectFiles = {}) {
   }
   const compiler = new inkjs.Compiler(content, options);
   const story = compiler.Compile();
+  if (collectedErrors.length > 0) {
+    console.error("Story compilation warnings/errors:", collectedErrors);
+  }
   if (!story) {
     throw new Error("Compilation failed: " + collectedErrors.join("\n"));
   }
@@ -561,19 +577,11 @@ async function openTestWindow(rootPath, projectFiles) {
     },
     show: false
   });
-  const updateTheme = () => {
-    const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
-    const sent = safeSend(testWindow, "theme-updated", theme);
-    if (sent) {
-      testWindow.setBackgroundColor(electron.nativeTheme.shouldUseDarkColors ? "#1e1e1e" : "#ffffff");
-    }
-  };
-  const themeListener = () => updateTheme();
-  electron.nativeTheme.on("updated", themeListener);
+  const cleanupTheme = setupThemeListener(testWindow, "#1e1e1e", "#ffffff");
   testWindow.on("move", () => saveWindowState("test", testWindow.getBounds()));
   testWindow.on("resize", () => saveWindowState("test", testWindow.getBounds()));
   testWindow.on("closed", async () => {
-    electron.nativeTheme.off("updated", themeListener);
+    cleanupTheme();
     testWindow = null;
     await saveSettings({ testWindowOpen: false });
     electron.ipcMain.emit("rebuild-menu");
@@ -584,7 +592,6 @@ async function openTestWindow(rootPath, projectFiles) {
     electron.ipcMain.emit("rebuild-menu");
   });
   testWindow.webContents.on("did-finish-load", async () => {
-    updateTheme();
     if (rootPath && projectFiles) {
       await runTestSequence(rootPath, projectFiles);
     }
@@ -678,19 +685,11 @@ async function openSearchWindow() {
     },
     show: false
   });
-  const updateTheme = () => {
-    const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
-    const sent = safeSend(searchWindow, "theme-updated", theme);
-    if (sent) {
-      searchWindow.setBackgroundColor(electron.nativeTheme.shouldUseDarkColors ? "#252526" : "#f3f3f3");
-    }
-  };
-  const themeListener = () => updateTheme();
-  electron.nativeTheme.on("updated", themeListener);
+  const cleanupTheme = setupThemeListener(searchWindow, "#252526", "#f3f3f3");
   searchWindow.on("move", () => saveWindowState("search", searchWindow.getBounds()));
   searchWindow.on("resize", () => saveWindowState("search", searchWindow.getBounds()));
   searchWindow.on("closed", async () => {
-    electron.nativeTheme.off("updated", themeListener);
+    cleanupTheme();
     searchWindow = null;
     safeSend(mainWindow$1, "clear-search-highlights");
     await saveSettings({ searchWindowOpen: false });
@@ -698,7 +697,6 @@ async function openSearchWindow() {
   });
   searchWindow.once("ready-to-show", async () => {
     searchWindow.show();
-    updateTheme();
     await saveSettings({ searchWindowOpen: true });
     if (mainWindow$1) await safeSend(mainWindow$1, "rebuild-menu");
   });
@@ -924,13 +922,8 @@ async function createWindow() {
   initSearch(win);
   await buildMenu(win);
   electron.ipcMain.emit("rebuild-menu");
-  const updateTheme = () => {
-    const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
-    safeSend(win, "theme-updated", theme);
-  };
-  electron.nativeTheme.on("updated", updateTheme);
+  setupThemeListener(win);
   win.webContents.on("did-finish-load", async () => {
-    updateTheme();
     const recent = await getRecentProjects();
     if (recent.length > 0) {
       const lastProject = recent[0];

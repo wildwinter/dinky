@@ -1,10 +1,13 @@
 TODO:
 -----
 Rename ink file button
+Let the file list slide backwards.
 Add zoom in / zoom out / reset zoom for every window, make persistent
 Add spellchecker/dictionary
 Add character list
 Add Dink syntax checking and highlighting
+Line ID handling
+Line ID searching
 
 Done:
 ----

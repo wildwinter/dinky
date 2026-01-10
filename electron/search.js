@@ -1,6 +1,6 @@
 import { BrowserWindow, nativeTheme, ipcMain } from 'electron'
 import path from 'path'
-import { safeSend } from './utils'
+import { safeSend, setupThemeListener } from './utils'
 import { getWindowState, saveWindowState, saveSettings } from './config'
 
 let searchWindow = null
@@ -86,22 +86,13 @@ export async function openSearchWindow() {
         show: false
     })
 
-    const updateTheme = () => {
-        const theme = nativeTheme.shouldUseDarkColors ? 'vs-dark' : 'vs'
-        const sent = safeSend(searchWindow, 'theme-updated', theme)
-        if (sent) {
-            searchWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#252526' : '#f3f3f3')
-        }
-    }
-
-    const themeListener = () => updateTheme()
-    nativeTheme.on('updated', themeListener)
+    const cleanupTheme = setupThemeListener(searchWindow, '#252526', '#f3f3f3');
 
     searchWindow.on('move', () => saveWindowState('search', searchWindow.getBounds()));
     searchWindow.on('resize', () => saveWindowState('search', searchWindow.getBounds()));
 
     searchWindow.on('closed', async () => {
-        nativeTheme.off('updated', themeListener)
+        cleanupTheme()
         searchWindow = null
         safeSend(mainWindow, 'clear-search-highlights');
         await saveSettings({ searchWindowOpen: false });
@@ -110,7 +101,6 @@ export async function openSearchWindow() {
 
     searchWindow.once('ready-to-show', async () => {
         searchWindow.show();
-        updateTheme();
         await saveSettings({ searchWindowOpen: true });
         if (mainWindow) await safeSend(mainWindow, 'rebuild-menu');
     });

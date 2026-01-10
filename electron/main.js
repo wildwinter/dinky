@@ -8,7 +8,7 @@ import { compileInk } from './compiler'
 import { openTestWindow } from './test-runner'
 import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, deleteInclude, setMenuRebuildCallback } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
-import { safeSend } from './utils'
+import { safeSend, setupThemeListener } from './utils'
 
 app.setName('Dinky')
 
@@ -46,15 +46,9 @@ async function createWindow() {
     ipcMain.emit('rebuild-menu');
 
     // Theme handling
-    const updateTheme = () => {
-        const theme = nativeTheme.shouldUseDarkColors ? 'vs-dark' : 'vs'
-        safeSend(win, 'theme-updated', theme)
-    }
-
-    nativeTheme.on('updated', updateTheme)
+    setupThemeListener(win);
 
     win.webContents.on('did-finish-load', async () => {
-        updateTheme()
 
         // Load last used project if available
         const recent = await getRecentProjects();

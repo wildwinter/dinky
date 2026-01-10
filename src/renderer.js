@@ -201,7 +201,6 @@ async function checkSyntax() {
 
         const model = editor.getModel();
         if (model) {
-            // Debug: Log first error to see path format
             /* if (errors && errors.length > 0) {
                 window.electronAPI.log('First error sample:', JSON.stringify(errors[0]))
             } */
