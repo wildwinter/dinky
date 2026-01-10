@@ -13,49 +13,132 @@ window.electronAPI.onThemeUpdated((theme) => {
 
 const contentArea = document.getElementById('content-area');
 const btnRestart = document.getElementById('btn-restart');
+const btnBack = document.getElementById('btn-back');
 let story = null;
 let currentStoryJson = null;
+let stateStack = [];
+let currentTurnElement = null;
+
+function updateButtonStates() {
+    if (btnBack) {
+        // Disable back button if we are on the first turn (stack size <= 1)
+        if (stateStack.length <= 1) {
+            btnBack.classList.add('disabled');
+        } else {
+            btnBack.classList.remove('disabled');
+        }
+    }
+}
 
 function continueStory() {
     if (!story) return;
+
+    // Create a new turn element to hold the output of this step
+    currentTurnElement = document.createElement('div');
+    currentTurnElement.className = 'turn';
+    contentArea.appendChild(currentTurnElement);
 
     while (story.canContinue) {
         const text = story.Continue();
         const p = document.createElement('p');
         p.textContent = text;
-        contentArea.appendChild(p);
+        currentTurnElement.appendChild(p);
     }
 
+    // ALWAYS push the state reached after this continuation (choice point or end)
+    const state = story.state.toJson();
+    stateStack.push({ state, turnElement: currentTurnElement });
+    console.log('Turn completed. Pushed to stack. Stack size:', stateStack.length);
+    updateButtonStates();
+
     if (story.currentChoices.length > 0) {
-        story.currentChoices.forEach((choice, index) => {
-            const p = document.createElement('p');
-            p.style.textAlign = 'center';
-            p.className = 'choice';
-            const a = document.createElement('a');
-            a.href = '#';
-            a.textContent = choice.text;
-            a.style.color = 'var(--link-color, #007acc)';
-            a.style.textDecoration = 'none';
-            a.onclick = (e) => {
-                e.preventDefault();
-                story.ChooseChoiceIndex(index);
-                const choices = contentArea.querySelectorAll('.choice');
-                choices.forEach(c => c.remove());
-                continueStory();
-            };
-            p.appendChild(a);
-            contentArea.appendChild(p);
-        });
+        renderChoices();
     } else {
         const endP = document.createElement('p');
         endP.innerHTML = '<em>End of story</em>';
         endP.style.textAlign = 'center';
         endP.style.marginTop = '40px';
-        contentArea.appendChild(endP);
+        currentTurnElement.appendChild(endP);
 
         // Scroll to bottom
         endP.scrollIntoView({ behavior: 'smooth' });
     }
+}
+
+function renderChoices() {
+    if (!story || !currentTurnElement) return;
+
+    // Clear any existing choices in this specific turn (prevents duplicates on Back)
+    const choices = currentTurnElement.querySelectorAll('.choice');
+    choices.forEach(c => c.remove());
+
+    story.currentChoices.forEach((choice, index) => {
+        const p = document.createElement('p');
+        p.style.textAlign = 'center';
+        p.className = 'choice';
+        const a = document.createElement('a');
+        a.href = '#';
+        a.textContent = choice.text;
+        a.style.color = 'var(--link-color, #007acc)';
+        a.style.textDecoration = 'none';
+        a.onclick = (e) => {
+            e.preventDefault();
+            story.ChooseChoiceIndex(index);
+
+            // Remove choices from the current turn before continuing
+            const choicesInTurn = currentTurnElement.querySelectorAll('.choice');
+            choicesInTurn.forEach(c => c.remove());
+
+            continueStory();
+        };
+        p.appendChild(a);
+        currentTurnElement.appendChild(p);
+    });
+}
+
+function goBack() {
+    if (stateStack.length === 0) {
+        console.warn('Cannot go back: stack is empty. No previous state to restore.');
+        return;
+    }
+
+    // Pop the current step (the one we are looking at)
+    const currentStep = stateStack.pop();
+    console.log('Popping current turn from stack.');
+
+    // Remove the turn element associated with this step
+    if (currentStep.turnElement && currentStep.turnElement.parentNode) {
+        currentStep.turnElement.remove();
+    }
+
+    if (stateStack.length === 0) {
+        console.log('Stack empty after pop. Restarting story.');
+        startStory(currentStoryJson);
+        return;
+    }
+
+    // The new top of the stack is the state we want to REVERT to
+    const prevState = stateStack[stateStack.length - 1];
+    console.log('Reverting to previous turn. Stack size:', stateStack.length);
+
+    // Restore the engine state
+    try {
+        story.state.LoadJson(prevState.state);
+    } catch (e) {
+        console.error('Failed to load state in goBack:', e);
+        // Fallback or alert user
+    }
+
+    // Set the currentTurnElement to the previous turn so renderChoices knows where to put things
+    currentTurnElement = prevState.turnElement;
+
+    // Log for debugging
+    console.log('Choices after restore:', story.currentChoices.length);
+
+    // Re-render choices for this state
+    renderChoices();
+
+    updateButtonStates();
 }
 
 function startStory(storyJson) {
@@ -66,9 +149,12 @@ function startStory(storyJson) {
     console.log('Starting story...');
     currentStoryJson = storyJson;
     contentArea.innerHTML = ''; // Clear previous
+    stateStack = []; // Clear stack on start/restart
+    currentTurnElement = null;
+    updateButtonStates();
+    console.log('State stack cleared.');
 
     try {
-        // Create a new Story instance. Clone JSON to ensure no shared state if inkjs mutates it.
         const jsonToUse = typeof storyJson === 'string' ? JSON.parse(storyJson) : JSON.parse(JSON.stringify(storyJson));
         story = new Story(jsonToUse);
         continueStory();
@@ -82,23 +168,23 @@ function startStory(storyJson) {
 }
 
 window.electronAPI.onStartStory((storyJson) => {
-    console.log('onStartStory received');
     startStory(storyJson);
 });
 
 if (btnRestart) {
-    console.log('Attaching click handler to btnRestart');
     btnRestart.onclick = (e) => {
-        console.log('Restart button clicked');
         e.preventDefault();
         e.stopPropagation();
         if (currentStoryJson) {
-            console.log('Restarting with stored story JSON');
             startStory(currentStoryJson);
-        } else {
-            console.warn('Cannot restart: currentStoryJson is null');
         }
     };
-} else {
-    console.error('btn-restart element not found!');
+}
+
+if (btnBack) {
+    btnBack.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        goBack();
+    };
 }

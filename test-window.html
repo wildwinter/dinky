@@ -41,6 +41,13 @@
         #icon-bar div:active {
             opacity: 0.7;
         }
+
+        #icon-bar div.disabled {
+            opacity: 0.3;
+            pointer-events: none;
+            filter: grayscale(1);
+            cursor: default !important;
+        }
     </style>
 </head>
 
@@ -50,11 +57,21 @@
         <div id="icon-bar">
             <div id="btn-restart" title="Restart"
                 style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
-                <!-- Phosphor Rewind Icon -->
+                <!-- Phosphor ArrowCounterClockwise Icon -->
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" width="18"
                     height="18">
                     <path
-                        d="M216,40V216a8,8,0,0,1-13.66,5.66L112,131.31V216a8,8,0,0,1-13.66,5.66L10.34,133.66a8,8,0,0,1,0-11.32l88-88A8,8,0,0,1,112,40v84.69l90.34-90.35A8,8,0,0,1,216,40ZM96,194.34V61.66L29.66,128ZM200,194.34V61.66L133.66,128Z">
+                        d="M224,128a96,96,0,0,1-94.71,96H128a95.38,95.38,0,0,1-67.88-28.12l-3.43-3.43a8,8,0,0,1,11.32-11.32l3.43,3.43A79.39,79.39,0,0,0,128,208h1.29A80,80,0,1,0,71.43,71.43l-3.31,3.31L88,96a8,8,0,0,1-5.66,13.66h-56a8,8,0,0,1-8-8v-56A8,8,0,0,1,32,40h0a8,8,0,0,1,8,8V69.31l3.31-3.31A96,96,0,0,1,224,128Z">
+                    </path>
+                </svg>
+            </div>
+            <div id="btn-back" title="Back"
+                style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                <!-- Phosphor ArrowLeft Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" width="18"
+                    height="18">
+                    <path
+                        d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z">
                     </path>
                 </svg>
             </div>
