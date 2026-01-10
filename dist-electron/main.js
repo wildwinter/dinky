@@ -574,9 +574,11 @@ async function openTestWindow(rootPath, projectFiles) {
   testWindow.on("closed", () => {
     electron.nativeTheme.off("updated", themeListener);
     testWindow = null;
+    electron.ipcMain.emit("rebuild-menu");
   });
   testWindow.once("ready-to-show", () => {
     testWindow.show();
+    electron.ipcMain.emit("rebuild-menu");
   });
   testWindow.webContents.on("did-finish-load", async () => {
     updateTheme();
@@ -683,14 +685,16 @@ async function openSearchWindow() {
   electron.nativeTheme.on("updated", themeListener);
   searchWindow.on("move", () => saveWindowState("search", searchWindow.getBounds()));
   searchWindow.on("resize", () => saveWindowState("search", searchWindow.getBounds()));
-  searchWindow.on("closed", () => {
+  searchWindow.on("closed", async () => {
     electron.nativeTheme.off("updated", themeListener);
     searchWindow = null;
     safeSend(mainWindow$1, "clear-search-highlights");
+    if (mainWindow$1) await safeSend(mainWindow$1, "rebuild-menu");
   });
-  searchWindow.once("ready-to-show", () => {
+  searchWindow.once("ready-to-show", async () => {
     searchWindow.show();
     updateTheme();
+    if (mainWindow$1) await safeSend(mainWindow$1, "rebuild-menu");
   });
   if (process.env.VITE_DEV_SERVER_URL) {
     searchWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}search.html`);
@@ -871,11 +875,20 @@ async function buildMenu(win) {
         ...isMac ? [
           { type: "separator" },
           { role: "front" },
-          { type: "separator" },
-          { role: "window" }
+          { type: "separator" }
         ] : [
-          { role: "close" }
-        ]
+          { role: "close" },
+          { type: "separator" }
+        ],
+        ...electron.BrowserWindow.getAllWindows().map((w, index) => ({
+          label: w.getTitle() || `Window ${index + 1}`,
+          accelerator: isMac ? `Cmd+${index + 1}` : `Ctrl+${index + 1}`,
+          click: () => {
+            if (w.isMinimized()) w.restore();
+            w.show();
+            w.focus();
+          }
+        }))
       ]
     }
   ];
@@ -904,6 +917,7 @@ async function createWindow() {
   mainWindow = win;
   initSearch(win);
   await buildMenu(win);
+  electron.ipcMain.emit("rebuild-menu");
   const updateTheme = () => {
     const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
     safeSend(win, "theme-updated", theme);
@@ -1050,6 +1064,9 @@ electron.ipcMain.handle("start-test", (event, rootPath, projectFiles) => {
 });
 electron.ipcMain.on("request-test-restart", () => {
   safeSend(mainWindow, "trigger-start-test");
+});
+electron.ipcMain.on("rebuild-menu", () => {
+  if (mainWindow) buildMenu(mainWindow);
 });
 electron.app.on("window-all-closed", () => {
   electron.app.quit();

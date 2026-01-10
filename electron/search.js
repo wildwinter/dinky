@@ -99,15 +99,17 @@ export async function openSearchWindow() {
     searchWindow.on('move', () => saveWindowState('search', searchWindow.getBounds()));
     searchWindow.on('resize', () => saveWindowState('search', searchWindow.getBounds()));
 
-    searchWindow.on('closed', () => {
+    searchWindow.on('closed', async () => {
         nativeTheme.off('updated', themeListener)
         searchWindow = null
         safeSend(mainWindow, 'clear-search-highlights');
+        if (mainWindow) await safeSend(mainWindow, 'rebuild-menu');
     })
 
-    searchWindow.once('ready-to-show', () => {
+    searchWindow.once('ready-to-show', async () => {
         searchWindow.show();
         updateTheme();
+        if (mainWindow) await safeSend(mainWindow, 'rebuild-menu');
     });
 
     if (process.env.VITE_DEV_SERVER_URL) {

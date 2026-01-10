@@ -1,4 +1,4 @@
-import { app, Menu, dialog, nativeTheme } from 'electron'
+import { app, Menu, dialog, nativeTheme, BrowserWindow } from 'electron'
 import path from 'path'
 import { getRecentProjects, saveSettings, setProjectSetting } from './config'
 import { loadProject, loadRootInk, getCurrentProject, getCurrentInkRoot, openNewIncludeUI } from './project-manager'
@@ -173,11 +173,20 @@ async function buildMenu(win) {
                 ...(isMac ? [
                     { type: 'separator' },
                     { role: 'front' },
-                    { type: 'separator' },
-                    { role: 'window' }
+                    { type: 'separator' }
                 ] : [
-                    { role: 'close' }
-                ])
+                    { role: 'close' },
+                    { type: 'separator' }
+                ]),
+                ...BrowserWindow.getAllWindows().map((w, index) => ({
+                    label: w.getTitle() || `Window ${index + 1}`,
+                    accelerator: isMac ? `Cmd+${index + 1}` : `Ctrl+${index + 1}`,
+                    click: () => {
+                        if (w.isMinimized()) w.restore();
+                        w.show();
+                        w.focus();
+                    }
+                }))
             ]
         }
     ]

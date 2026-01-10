@@ -43,6 +43,7 @@ async function createWindow() {
 
     // Initial menu build
     await buildMenu(win);
+    ipcMain.emit('rebuild-menu');
 
     // Theme handling
     const updateTheme = () => {
@@ -229,6 +230,9 @@ ipcMain.handle('start-test', (event, rootPath, projectFiles) => {
 });
 ipcMain.on('request-test-restart', () => {
     safeSend(mainWindow, 'trigger-start-test');
+});
+ipcMain.on('rebuild-menu', () => {
+    if (mainWindow) buildMenu(mainWindow);
 });
 
 app.on('window-all-closed', () => {

@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeTheme } from 'electron'
+import { BrowserWindow, nativeTheme, ipcMain } from 'electron'
 import path from 'path'
 import { compileStory } from './compiler'
 import { safeSend } from './utils'
@@ -51,10 +51,12 @@ export async function openTestWindow(rootPath, projectFiles) {
     testWindow.on('closed', () => {
         nativeTheme.off('updated', themeListener)
         testWindow = null
+        ipcMain.emit('rebuild-menu');
     })
 
     testWindow.once('ready-to-show', () => {
         testWindow.show();
+        ipcMain.emit('rebuild-menu');
     });
 
     testWindow.webContents.on('did-finish-load', async () => {
