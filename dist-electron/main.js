@@ -1,11 +1,11 @@
 "use strict";
-const { app, BrowserWindow, Menu, dialog, nativeTheme, ipcMain } = require("electron");
+const electron = require("electron");
 const path = require("path");
 const fs = require("fs/promises");
-app.setName("Dinky");
-let currentDinkProject = null;
+const fsSync = require("fs");
+const inkjs = require("inkjs/full");
+const configPath = path.join(electron.app.getPath("userData"), "config.json");
 const MAX_RECENT_PROJECTS = 10;
-const configPath = path.join(app.getPath("userData"), "config.json");
 async function loadSettings() {
   try {
     const data = await fs.readFile(configPath, "utf-8");
@@ -53,6 +53,14 @@ async function removeFromRecentProjects(filePath) {
   recent = recent.filter((p) => p !== filePath);
   await saveSettings({ recentProjects: recent });
 }
+let currentDinkProject = null;
+let rebuildMenuCallback = null;
+function setMenuRebuildCallback(fn) {
+  rebuildMenuCallback = fn;
+}
+function getCurrentProject() {
+  return currentDinkProject;
+}
 async function loadRootInk(rootFilePath) {
   const rootDir = path.dirname(rootFilePath);
   const files = [];
@@ -97,7 +105,7 @@ async function loadProject(win, filePath) {
     console.log("Loaded project:", filePath);
     win.setTitle(`Dinky - ${path.basename(filePath, ".dinkproj")}`);
     await addToRecentProjects(filePath);
-    await buildMenu(win);
+    if (rebuildMenuCallback) await rebuildMenuCallback(win);
     const lastInkRoot = await getProjectSetting(filePath, "lastInkRoot");
     let inkFileToLoad = null;
     if (lastInkRoot) {
@@ -128,10 +136,28 @@ async function loadProject(win, filePath) {
     console.error("Failed to open project:", e);
     if (e.message.includes("not found")) {
       await removeFromRecentProjects(filePath);
-      await buildMenu(win);
+      if (rebuildMenuCallback) await rebuildMenuCallback(win);
     }
-    dialog.showErrorBox("Error", `Failed to open project file.
+    electron.dialog.showErrorBox("Error", `Failed to open project file.
 ${e.message}`);
+    return false;
+  }
+}
+async function createNewProject(win, name, parentPath) {
+  if (!name || !parentPath) return false;
+  const projectDir = path.join(parentPath, name);
+  const projectFile = path.join(projectDir, `${name}.dinkproj`);
+  const inkFile = path.join(projectDir, "main.ink");
+  try {
+    await fs.mkdir(projectDir, { recursive: true });
+    await fs.writeFile(projectFile, "{}", "utf-8");
+    await fs.writeFile(inkFile, "// Add Ink content here", "utf-8");
+    await setProjectSetting(projectFile, "lastInkRoot", inkFile);
+    await loadProject(win, projectFile);
+    return true;
+  } catch (e) {
+    console.error("Failed to create new project:", e);
+    electron.dialog.showErrorBox("Error", `Failed to create new project: ${e.message}`);
     return false;
   }
 }
@@ -154,7 +180,7 @@ async function buildMenu(win) {
   }
   const template = [
     ...isMac ? [{
-      label: app.name,
+      label: electron.app.name,
       submenu: [
         { role: "about" },
         { type: "separator" },
@@ -172,7 +198,6 @@ async function buildMenu(win) {
       submenu: [
         {
           label: "New Project...",
-          label: "New Project...",
           click: async () => {
             win.webContents.send("show-new-project-modal");
           }
@@ -180,7 +205,7 @@ async function buildMenu(win) {
         {
           label: "Open Project...",
           click: async () => {
-            const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+            const { canceled, filePaths } = await electron.dialog.showOpenDialog(win, {
               properties: ["openFile"],
               filters: [{ name: "Dink Project", extensions: ["dinkproj"] }]
             });
@@ -198,25 +223,24 @@ async function buildMenu(win) {
           label: "Open Ink Root...",
           accelerator: "CmdOrCtrl+O",
           click: async () => {
-            const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+            const { canceled, filePaths } = await electron.dialog.showOpenDialog(win, {
               properties: ["openFile"],
               filters: [{ name: "Ink Files", extensions: ["ink"] }]
             });
             if (!canceled && filePaths.length > 0) {
               const files = await loadRootInk(filePaths[0]);
               win.webContents.send("root-ink-loaded", files);
-              if (currentDinkProject) {
-                await setProjectSetting(currentDinkProject.path, "lastInkRoot", filePaths[0]);
+              const currentDinkProject2 = getCurrentProject();
+              if (currentDinkProject2) {
+                await setProjectSetting(currentDinkProject2.path, "lastInkRoot", filePaths[0]);
                 console.log("Saved Ink Root preference:", filePaths[0]);
               }
             }
           }
         },
-        {
-          label: "Save All", accelerator: isMac ? "Cmd+S" : "Ctrl+S", click: async () => {
-            win.webContents.send("save-all");
-          }
-        },
+        { label: "Save", accelerator: isMac ? "Cmd+S" : "Ctrl+S", click: async () => {
+          win.webContents.send("save-all");
+        } },
         ...isMac ? [] : [{ role: "quit" }]
       ]
     },
@@ -237,27 +261,27 @@ async function buildMenu(win) {
             {
               label: "System",
               type: "radio",
-              checked: nativeTheme.themeSource === "system",
+              checked: electron.nativeTheme.themeSource === "system",
               click: () => {
-                nativeTheme.themeSource = "system";
+                electron.nativeTheme.themeSource = "system";
                 saveSettings({ theme: "system" });
               }
             },
             {
               label: "Light",
               type: "radio",
-              checked: nativeTheme.themeSource === "light",
+              checked: electron.nativeTheme.themeSource === "light",
               click: () => {
-                nativeTheme.themeSource = "light";
+                electron.nativeTheme.themeSource = "light";
                 saveSettings({ theme: "light" });
               }
             },
             {
               label: "Dark",
               type: "radio",
-              checked: nativeTheme.themeSource === "dark",
+              checked: electron.nativeTheme.themeSource === "dark",
               click: () => {
-                nativeTheme.themeSource = "dark";
+                electron.nativeTheme.themeSource = "dark";
                 saveSettings({ theme: "dark" });
               }
             }
@@ -268,63 +292,16 @@ async function buildMenu(win) {
       ]
     }
   ];
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
+  const menu = electron.Menu.buildFromTemplate(template);
+  electron.Menu.setApplicationMenu(menu);
 }
-async function createWindow() {
-  const settings = await loadSettings();
-  nativeTheme.themeSource = settings.theme || "system";
-  const win = new BrowserWindow({
-    title: "Dinky",
-    width: 800,
-    height: 600,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      nodeIntegration: false,
-      contextIsolation: true
-    }
-  });
-  await buildMenu(win);
-  const updateTheme = () => {
-    const theme = nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
-    win.webContents.send("theme-updated", theme);
-  };
-  nativeTheme.on("updated", updateTheme);
-  win.webContents.on("did-finish-load", async () => {
-    updateTheme();
-    const recent = await getRecentProjects();
-    if (recent.length > 0) {
-      const lastProject = recent[0];
-      try {
-        await fs.access(lastProject);
-        console.log("Auto-loading last project:", lastProject);
-        await loadProject(win, lastProject);
-      } catch (e) {
-        console.log("Last project not found or invalid, removing from history:", lastProject);
-        await removeFromRecentProjects(lastProject);
-        await buildMenu(win);
-      }
-    }
-  });
-  if (process.env.VITE_DEV_SERVER_URL) {
-    win.loadURL(process.env.VITE_DEV_SERVER_URL);
-  } else {
-    const indexPath = path.join(__dirname, "../dist/index.html");
-    win.loadFile(indexPath).catch((e) => console.error("Failed to load index.html:", e));
-  }
-}
-ipcMain.on("renderer-log", (event, ...args) => {
-  console.log("[Renderer]", ...args);
-});
-ipcMain.handle("compile-ink", async (event, content, filePath, projectFiles = {}) => {
+async function compileInk(content, filePath, projectFiles = {}) {
   if (content && typeof content === "string" && content.charCodeAt(0) === 65279) {
     content = content.slice(1);
   }
   const collectedErrors = [];
   let parseError = null;
   try {
-    const inkjs = require("inkjs/full");
-    const fsSync = require("fs");
     const fileHandler = {
       ResolveInkFilename: (filename) => {
         const baseDir = filePath ? path.dirname(filePath) : process.cwd();
@@ -434,20 +411,69 @@ ipcMain.handle("compile-ink", async (event, content, filePath, projectFiles = {}
     }];
   }
   return [];
+}
+electron.app.setName("Dinky");
+setMenuRebuildCallback(buildMenu);
+async function createWindow() {
+  const settings = await loadSettings();
+  electron.nativeTheme.themeSource = settings.theme || "system";
+  const win = new electron.BrowserWindow({
+    title: "Dinky",
+    width: 800,
+    height: 600,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+  await buildMenu(win);
+  const updateTheme = () => {
+    const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
+    win.webContents.send("theme-updated", theme);
+  };
+  electron.nativeTheme.on("updated", updateTheme);
+  win.webContents.on("did-finish-load", async () => {
+    updateTheme();
+    const recent = await getRecentProjects();
+    if (recent.length > 0) {
+      const lastProject = recent[0];
+      try {
+        await fs.access(lastProject);
+        console.log("Auto-loading last project:", lastProject);
+        await loadProject(win, lastProject);
+      } catch (e) {
+        console.log("Last project not found or invalid, removing from history:", lastProject);
+        await removeFromRecentProjects(lastProject);
+        await buildMenu(win);
+      }
+    }
+  });
+  if (process.env.VITE_DEV_SERVER_URL) {
+    win.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    const indexPath = path.join(__dirname, "../dist/index.html");
+    win.loadFile(indexPath).catch((e) => console.error("Failed to load index.html:", e));
+  }
+}
+electron.ipcMain.on("renderer-log", (event, ...args) => {
+  console.log("[Renderer]", ...args);
 });
-ipcMain.handle("save-files", async (event, files) => {
-  const fs2 = require("fs/promises");
+electron.ipcMain.handle("compile-ink", async (event, content, filePath, projectFiles = {}) => {
+  return await compileInk(content, filePath, projectFiles);
+});
+electron.ipcMain.handle("save-files", async (event, files) => {
   for (const { path: filePath, content } of files) {
     try {
-      await fs2.writeFile(filePath, content, "utf-8");
+      await fs.writeFile(filePath, content, "utf-8");
     } catch (e) {
       console.error("Failed to save file", filePath, e);
     }
   }
 });
-ipcMain.handle("open-project", async (event) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+electron.ipcMain.handle("open-project", async (event) => {
+  const win = electron.BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await electron.dialog.showOpenDialog(win, {
     properties: ["openFile"],
     filters: [{ name: "Dink Project", extensions: ["dinkproj"] }]
   });
@@ -455,13 +481,13 @@ ipcMain.handle("open-project", async (event) => {
     await loadProject(win, filePaths[0]);
   }
 });
-ipcMain.handle("new-project", async (event) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
+electron.ipcMain.handle("new-project", async (event) => {
+  const win = electron.BrowserWindow.fromWebContents(event.sender);
   win.webContents.send("show-new-project-modal");
 });
-ipcMain.handle("select-folder", async (event) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+electron.ipcMain.handle("select-folder", async (event) => {
+  const win = electron.BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await electron.dialog.showOpenDialog(win, {
     properties: ["openDirectory", "createDirectory"]
   });
   if (!canceled && filePaths.length > 0) {
@@ -469,35 +495,20 @@ ipcMain.handle("select-folder", async (event) => {
   }
   return null;
 });
-ipcMain.handle("create-new-project", async (event, name, parentPath) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (!name || !parentPath) return false;
-  const projectDir = path.join(parentPath, name);
-  const projectFile = path.join(projectDir, `${name}.dinkproj`);
-  const inkFile = path.join(projectDir, "main.ink");
-  try {
-    await fs.mkdir(projectDir, { recursive: true });
-    await fs.writeFile(projectFile, "{}", "utf-8");
-    await fs.writeFile(inkFile, "// Add Ink content here", "utf-8");
-    await setProjectSetting(projectFile, "lastInkRoot", inkFile);
-    await loadProject(win, projectFile);
-    return true;
-  } catch (e) {
-    console.error("Failed to create new project:", e);
-    dialog.showErrorBox("Error", `Failed to create new project: ${e.message}`);
-    return false;
-  }
+electron.ipcMain.handle("create-new-project", async (event, name, parentPath) => {
+  const win = electron.BrowserWindow.fromWebContents(event.sender);
+  return await createNewProject(win, name, parentPath);
 });
-app.whenReady().then(() => {
+electron.app.whenReady().then(() => {
   createWindow();
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+  electron.app.on("activate", () => {
+    if (electron.BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
 });
-app.on("window-all-closed", () => {
+electron.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
-    app.quit();
+    electron.app.quit();
   }
 });
