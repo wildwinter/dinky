@@ -2,6 +2,7 @@ import { app, Menu, dialog, nativeTheme } from 'electron'
 import path from 'path'
 import { getRecentProjects, saveSettings, setProjectSetting } from './config'
 import { loadProject, loadRootInk, getCurrentProject, getCurrentInkRoot, openNewIncludeUI } from './project-manager'
+import { openTestWindow } from './test-runner'
 
 async function buildMenu(win) {
     const recentProjects = await getRecentProjects();
@@ -146,6 +147,33 @@ async function buildMenu(win) {
                 },
                 { type: 'separator' },
                 { role: 'togglefullscreen' }
+            ]
+        },
+        {
+            label: 'Window',
+            submenu: [
+                { role: 'minimize' },
+                { role: 'zoom' },
+                ...(isMac ? [
+                    { type: 'separator' },
+                    { role: 'front' },
+                    { type: 'separator' },
+                    { role: 'window' }
+                ] : [
+                    { role: 'close' }
+                ])
+            ]
+        },
+        {
+            label: 'Test',
+            submenu: [
+                {
+                    label: 'Start Test',
+                    accelerator: 'CmdOrCtrl+T',
+                    click: () => {
+                        openTestWindow()
+                    }
+                }
             ]
         }
     ]

@@ -20,7 +20,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   deleteInclude: (filePath) => ipcRenderer.invoke("delete-include", filePath),
   onCheckUnsaved: (callback) => ipcRenderer.on("check-unsaved", (_event) => callback()),
   sendUnsavedStatus: (status) => ipcRenderer.send("unsaved-status", status),
-  sendSaveExitComplete: () => ipcRenderer.send("save-exit-complete")
+  sendSaveExitComplete: () => ipcRenderer.send("save-exit-complete"),
+  startTest: () => ipcRenderer.invoke("start-test")
 });
 window.addEventListener("DOMContentLoaded", () => {
   const replaceText = (selector, text) => {

@@ -461,3 +461,7 @@ btnDeleteInclude.addEventListener('click', async () => {
         await window.electronAPI.deleteInclude(currentFilePath);
     }
 });
+
+document.getElementById('btn-start-test').addEventListener('click', () => {
+    window.electronAPI.startTest();
+});
