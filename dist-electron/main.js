@@ -545,9 +545,10 @@ electron.ipcMain.handle("new-project", async (event) => {
   const win = electron.BrowserWindow.fromWebContents(event.sender);
   win.webContents.send("show-new-project-modal");
 });
-electron.ipcMain.handle("select-folder", async (event) => {
+electron.ipcMain.handle("select-folder", async (event, defaultPath) => {
   const win = electron.BrowserWindow.fromWebContents(event.sender);
   const { canceled, filePaths } = await electron.dialog.showOpenDialog(win, {
+    defaultPath,
     properties: ["openDirectory", "createDirectory"]
   });
   if (!canceled && filePaths.length > 0) {

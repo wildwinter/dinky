@@ -327,6 +327,19 @@ btnCreate.addEventListener('click', async () => {
 
 inputName.addEventListener('input', validateForm);
 
+// Keyboard shortcuts for New Project Modal
+modalOverlay.addEventListener('keydown', (e) => {
+    if (modalOverlay.style.display === 'none') return;
+
+    if (e.key === 'Enter') {
+        if (!btnCreate.disabled) {
+            btnCreate.click();
+        }
+    } else if (e.key === 'Escape') {
+        closeModal();
+    }
+});
+
 // --- New Include Modal Logic ---
 const modalIncludeOverlay = document.getElementById('modal-include-overlay');
 const inputIncludeName = document.getElementById('new-include-name');
@@ -358,7 +371,7 @@ window.electronAPI.onShowNewIncludeModal((defaultFolder) => {
 });
 
 btnSelectIncludeFolder.addEventListener('click', async () => {
-    const path = await window.electronAPI.selectFolder();
+    const path = await window.electronAPI.selectFolder(inputIncludeFolder.value);
     if (path) {
         inputIncludeFolder.value = path;
         validateIncludeForm();
@@ -384,3 +397,16 @@ btnCreateInclude.addEventListener('click', async () => {
 });
 
 inputIncludeName.addEventListener('input', validateIncludeForm);
+
+// Keyboard shortcuts for New Include Modal
+modalIncludeOverlay.addEventListener('keydown', (e) => {
+    if (modalIncludeOverlay.style.display === 'none') return;
+
+    if (e.key === 'Enter') {
+        if (!btnCreateInclude.disabled) {
+            btnCreateInclude.click();
+        }
+    } else if (e.key === 'Escape') {
+        closeIncludeModal();
+    }
+});

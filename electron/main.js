@@ -109,9 +109,10 @@ ipcMain.handle('new-project', async (event) => {
     win.webContents.send('show-new-project-modal');
 });
 
-ipcMain.handle('select-folder', async (event) => {
+ipcMain.handle('select-folder', async (event, defaultPath) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+        defaultPath: defaultPath,
         properties: ['openDirectory', 'createDirectory']
     });
     if (!canceled && filePaths.length > 0) {

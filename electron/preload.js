@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     log: (...args) => ipcRenderer.send('renderer-log', ...args),
     openProject: () => ipcRenderer.invoke('open-project'),
     newProject: () => ipcRenderer.invoke('new-project'),
-    selectFolder: () => ipcRenderer.invoke('select-folder'),
+    selectFolder: (defaultPath) => ipcRenderer.invoke('select-folder', defaultPath),
     createNewProject: (name, parentPath) => ipcRenderer.invoke('create-new-project', name, parentPath),
     onShowNewProjectModal: (callback) => ipcRenderer.on('show-new-project-modal', (_event, value) => callback(value)),
     createNewInclude: (name, folderPath) => ipcRenderer.invoke('create-new-include', name, folderPath),
