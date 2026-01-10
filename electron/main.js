@@ -198,8 +198,8 @@ ipcMain.handle('delete-include', async (event, filePath) => {
     return await deleteInclude(win, filePath);
 });
 
-ipcMain.handle('start-test', () => {
-    openTestWindow();
+ipcMain.handle('start-test', (event, rootPath, projectFiles) => {
+    openTestWindow(rootPath, projectFiles);
 });
 
 app.on('window-all-closed', () => {

@@ -1,12 +1,17 @@
 import { BrowserWindow, nativeTheme } from 'electron'
 import path from 'path'
+import { compileStory } from './compiler'
 
 let testWindow = null
 
-export function openTestWindow() {
+export async function openTestWindow(rootPath, projectFiles) {
     if (testWindow) {
         testWindow.show()
         testWindow.focus()
+        // If args provided, re-run test
+        if (rootPath && projectFiles) {
+            await runTestSequence(rootPath, projectFiles);
+        }
         return
     }
 
@@ -29,7 +34,8 @@ export function openTestWindow() {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
             contextIsolation: true,
-        }
+        },
+        show: false
     })
 
     const updateTheme = () => {
@@ -47,14 +53,47 @@ export function openTestWindow() {
         testWindow = null
     })
 
-    testWindow.webContents.on('did-finish-load', () => {
+    testWindow.once('ready-to-show', () => {
+        testWindow.show();
+    });
+
+    // Wait for load to finish before running test if we have data
+    testWindow.webContents.on('did-finish-load', async () => {
         updateTheme()
+        if (rootPath && projectFiles) {
+            await runTestSequence(rootPath, projectFiles);
+        }
     })
 
     if (process.env.VITE_DEV_SERVER_URL) {
-        testWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}test-window.html`)
+        await testWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}test-window.html`)
     } else {
         const indexPath = path.join(__dirname, '../dist/test-window.html')
-        testWindow.loadFile(indexPath).catch(e => console.error('Failed to load test-window.html:', e))
+        await testWindow.loadFile(indexPath).catch(e => console.error('Failed to load test-window.html:', e))
+    }
+}
+
+async function runTestSequence(rootPath, projectFiles) {
+    if (!testWindow || testWindow.isDestroyed()) return;
+
+    // Get content from projectFiles map
+    const rootContent = projectFiles[rootPath];
+    if (!rootContent) {
+        console.error('Root file content not found in projectFiles for path:', rootPath);
+        return;
+    }
+
+    try {
+        const storyJson = await compileStory(rootContent, rootPath, projectFiles);
+        if (testWindow && !testWindow.isDestroyed()) {
+            testWindow.webContents.send('start-story', storyJson);
+        }
+    } catch (e) {
+        console.error('Test compilation failed:', e);
+        // TODO: Send error to renderer?
+        if (testWindow && !testWindow.isDestroyed()) {
+            // Maybe a specific error channel or just log console
+            testWindow.webContents.executeJavaScript(`console.error("Compilation failed: ${e.message.replace(/"/g, '\\"')}")`);
+        }
     }
 }

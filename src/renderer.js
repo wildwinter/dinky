@@ -462,6 +462,13 @@ btnDeleteInclude.addEventListener('click', async () => {
     }
 });
 
-document.getElementById('btn-start-test').addEventListener('click', () => {
-    window.electronAPI.startTest();
+document.getElementById('btn-start-test').addEventListener('click', async () => {
+    if (!rootInkPath) return;
+
+    const projectFiles = {};
+    for (const [path, file] of loadedInkFiles) {
+        projectFiles[path] = file.content;
+    }
+
+    await window.electronAPI.startTest(rootInkPath, projectFiles);
 });

@@ -262,11 +262,184 @@ async function deleteInclude(win, filePathToDelete) {
     return false;
   }
 }
+async function compileInk(content, filePath, projectFiles = {}) {
+  if (content && typeof content === "string" && content.charCodeAt(0) === 65279) {
+    content = content.slice(1);
+  }
+  const collectedErrors = [];
+  let parseError = null;
+  try {
+    const fileHandler = {
+      ResolveInkFilename: (filename) => {
+        const baseDir = filePath ? path.dirname(filePath) : process.cwd();
+        const resolved = path.resolve(baseDir, filename);
+        return resolved;
+      },
+      LoadInkFileContents: (filename) => {
+        if (projectFiles && projectFiles[filename]) {
+          let val = projectFiles[filename];
+          if (val && typeof val === "string" && val.charCodeAt(0) === 65279) {
+            val = val.slice(1);
+          }
+          return val;
+        }
+        try {
+          return fsSync.readFileSync(filename, "utf-8");
+        } catch (e) {
+          console.error("Failed to load included file:", filename, e);
+          return "";
+        }
+      }
+    };
+    const errorHandler = (message, errorType) => {
+      collectedErrors.push(message);
+    };
+    let options;
+    if (inkjs.CompilerOptions) {
+      options = new inkjs.CompilerOptions(
+        filePath,
+        // sourceFilename passed for better context
+        [],
+        // pluginNames
+        false,
+        // countAllVisits
+        errorHandler,
+        fileHandler
+      );
+    } else {
+      options = {
+        sourceFilename: filePath,
+        fileHandler,
+        errorHandler
+      };
+    }
+    const compiler = new inkjs.Compiler(content, options);
+    compiler.Compile();
+  } catch (error) {
+    if (collectedErrors.length === 0) {
+      console.error("Compilation failed (unexpected):", error);
+    }
+    parseError = error;
+  }
+  const errors = [];
+  if (collectedErrors.length > 0) {
+    collectedErrors.forEach((errStr) => {
+      const severity = errStr.includes("WARNING") ? 4 : 8;
+      const parts = errStr.match(/^(?:ERROR: )?(?:'([^']+)' )?line (\d+): (.+)/i);
+      if (parts) {
+        const errFilePath = parts[1] || null;
+        const line = parseInt(parts[2]);
+        const msg = parts[3];
+        errors.push({
+          startLineNumber: line,
+          endLineNumber: line,
+          startColumn: 1,
+          endColumn: 1e3,
+          message: msg,
+          severity,
+          filePath: errFilePath
+        });
+      } else {
+        errors.push({
+          startLineNumber: 1,
+          endLineNumber: 1,
+          startColumn: 1,
+          endColumn: 1e3,
+          message: errStr,
+          severity,
+          filePath: null
+        });
+      }
+    });
+  }
+  if (errors.length > 0) {
+    return errors;
+  }
+  if (parseError) {
+    let errorLine = 1;
+    let errorMsg = "Compiler Error: " + parseError.message;
+    if (parseError.message.includes("not a function") || parseError.message.includes("undefined")) {
+      const lines = content.split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === "~") {
+          errorLine = i + 1;
+          errorMsg = "Syntax Error: Incomplete logic line. '~' must be followed by code.";
+          break;
+        }
+      }
+    }
+    return [{
+      startLineNumber: errorLine,
+      endLineNumber: errorLine,
+      startColumn: 1,
+      endColumn: 1e3,
+      message: errorMsg,
+      severity: 8
+    }];
+  }
+  return [];
+}
+async function compileStory(content, filePath, projectFiles = {}) {
+  if (content && typeof content === "string" && content.charCodeAt(0) === 65279) {
+    content = content.slice(1);
+  }
+  const collectedErrors = [];
+  const fileHandler = {
+    ResolveInkFilename: (filename) => {
+      const baseDir = filePath ? path.dirname(filePath) : process.cwd();
+      const resolved = path.resolve(baseDir, filename);
+      return resolved;
+    },
+    LoadInkFileContents: (filename) => {
+      if (projectFiles && projectFiles[filename]) {
+        let val = projectFiles[filename];
+        if (val && typeof val === "string" && val.charCodeAt(0) === 65279) {
+          val = val.slice(1);
+        }
+        return val;
+      }
+      try {
+        return fsSync.readFileSync(filename, "utf-8");
+      } catch (e) {
+        console.error("Failed to load included file:", filename, e);
+        return "";
+      }
+    }
+  };
+  const errorHandler = (message, errorType) => {
+    collectedErrors.push(message);
+  };
+  let options;
+  if (inkjs.CompilerOptions) {
+    options = new inkjs.CompilerOptions(
+      filePath,
+      [],
+      false,
+      errorHandler,
+      fileHandler
+    );
+  } else {
+    options = {
+      sourceFilename: filePath,
+      fileHandler,
+      errorHandler
+    };
+  }
+  const compiler = new inkjs.Compiler(content, options);
+  const story = compiler.Compile();
+  if (!story) {
+    throw new Error("Compilation failed: " + collectedErrors.join("\n"));
+  }
+  return story.ToJson();
+}
 let testWindow = null;
-function openTestWindow() {
+async function openTestWindow(rootPath, projectFiles) {
   if (testWindow) {
     testWindow.show();
     testWindow.focus();
+    if (rootPath && projectFiles) {
+      await runTestSequence(rootPath, projectFiles);
+    }
     return;
   }
   let x, y;
@@ -287,7 +460,8 @@ function openTestWindow() {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true
-    }
+    },
+    show: false
   });
   const updateTheme = () => {
     if (!testWindow || testWindow.isDestroyed()) return;
@@ -301,14 +475,39 @@ function openTestWindow() {
     electron.nativeTheme.off("updated", themeListener);
     testWindow = null;
   });
-  testWindow.webContents.on("did-finish-load", () => {
+  testWindow.once("ready-to-show", () => {
+    testWindow.show();
+  });
+  testWindow.webContents.on("did-finish-load", async () => {
     updateTheme();
+    if (rootPath && projectFiles) {
+      await runTestSequence(rootPath, projectFiles);
+    }
   });
   if (process.env.VITE_DEV_SERVER_URL) {
-    testWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}test-window.html`);
+    await testWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}test-window.html`);
   } else {
     const indexPath = path.join(__dirname, "../dist/test-window.html");
-    testWindow.loadFile(indexPath).catch((e) => console.error("Failed to load test-window.html:", e));
+    await testWindow.loadFile(indexPath).catch((e) => console.error("Failed to load test-window.html:", e));
+  }
+}
+async function runTestSequence(rootPath, projectFiles) {
+  if (!testWindow || testWindow.isDestroyed()) return;
+  const rootContent = projectFiles[rootPath];
+  if (!rootContent) {
+    console.error("Root file content not found in projectFiles for path:", rootPath);
+    return;
+  }
+  try {
+    const storyJson = await compileStory(rootContent, rootPath, projectFiles);
+    if (testWindow && !testWindow.isDestroyed()) {
+      testWindow.webContents.send("start-story", storyJson);
+    }
+  } catch (e) {
+    console.error("Test compilation failed:", e);
+    if (testWindow && !testWindow.isDestroyed()) {
+      testWindow.webContents.executeJavaScript(`console.error("Compilation failed: ${e.message.replace(/"/g, '\\"')}")`);
+    }
   }
 }
 async function buildMenu(win) {
@@ -481,123 +680,6 @@ async function buildMenu(win) {
   const menu = electron.Menu.buildFromTemplate(template);
   electron.Menu.setApplicationMenu(menu);
 }
-async function compileInk(content, filePath, projectFiles = {}) {
-  if (content && typeof content === "string" && content.charCodeAt(0) === 65279) {
-    content = content.slice(1);
-  }
-  const collectedErrors = [];
-  let parseError = null;
-  try {
-    const fileHandler = {
-      ResolveInkFilename: (filename) => {
-        const baseDir = filePath ? path.dirname(filePath) : process.cwd();
-        const resolved = path.resolve(baseDir, filename);
-        return resolved;
-      },
-      LoadInkFileContents: (filename) => {
-        if (projectFiles && projectFiles[filename]) {
-          let val = projectFiles[filename];
-          if (val && typeof val === "string" && val.charCodeAt(0) === 65279) {
-            val = val.slice(1);
-          }
-          return val;
-        }
-        try {
-          return fsSync.readFileSync(filename, "utf-8");
-        } catch (e) {
-          console.error("Failed to load included file:", filename, e);
-          return "";
-        }
-      }
-    };
-    const errorHandler = (message, errorType) => {
-      collectedErrors.push(message);
-    };
-    let options;
-    if (inkjs.CompilerOptions) {
-      options = new inkjs.CompilerOptions(
-        filePath,
-        // sourceFilename passed for better context
-        [],
-        // pluginNames
-        false,
-        // countAllVisits
-        errorHandler,
-        fileHandler
-      );
-    } else {
-      options = {
-        sourceFilename: filePath,
-        fileHandler,
-        errorHandler
-      };
-    }
-    const compiler = new inkjs.Compiler(content, options);
-    compiler.Compile();
-  } catch (error) {
-    if (collectedErrors.length === 0) {
-      console.error("Compilation failed (unexpected):", error);
-    }
-    parseError = error;
-  }
-  const errors = [];
-  if (collectedErrors.length > 0) {
-    collectedErrors.forEach((errStr) => {
-      const severity = errStr.includes("WARNING") ? 4 : 8;
-      const parts = errStr.match(/^(?:ERROR: )?(?:'([^']+)' )?line (\d+): (.+)/i);
-      if (parts) {
-        const errFilePath = parts[1] || null;
-        const line = parseInt(parts[2]);
-        const msg = parts[3];
-        errors.push({
-          startLineNumber: line,
-          endLineNumber: line,
-          startColumn: 1,
-          endColumn: 1e3,
-          message: msg,
-          severity,
-          filePath: errFilePath
-        });
-      } else {
-        errors.push({
-          startLineNumber: 1,
-          endLineNumber: 1,
-          startColumn: 1,
-          endColumn: 1e3,
-          message: errStr,
-          severity,
-          filePath: null
-        });
-      }
-    });
-  }
-  if (errors.length > 0) {
-    return errors;
-  }
-  if (parseError) {
-    let errorLine = 1;
-    let errorMsg = "Compiler Error: " + parseError.message;
-    if (parseError.message.includes("not a function") || parseError.message.includes("undefined")) {
-      const lines = content.split(/\r?\n/);
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].trim() === "~") {
-          errorLine = i + 1;
-          errorMsg = "Syntax Error: Incomplete logic line. '~' must be followed by code.";
-          break;
-        }
-      }
-    }
-    return [{
-      startLineNumber: errorLine,
-      endLineNumber: errorLine,
-      startColumn: 1,
-      endColumn: 1e3,
-      message: errorMsg,
-      severity: 8
-    }];
-  }
-  return [];
-}
 electron.app.setName("Dinky");
 setMenuRebuildCallback(buildMenu);
 async function createWindow() {
@@ -744,8 +826,8 @@ electron.ipcMain.handle("delete-include", async (event, filePath) => {
   const win = electron.BrowserWindow.fromWebContents(event.sender);
   return await deleteInclude(win, filePath);
 });
-electron.ipcMain.handle("start-test", () => {
-  openTestWindow();
+electron.ipcMain.handle("start-test", (event, rootPath, projectFiles) => {
+  openTestWindow(rootPath, projectFiles);
 });
 electron.app.on("window-all-closed", () => {
   electron.app.quit();
