@@ -287,7 +287,9 @@ function closeModal() {
 function validateForm() {
     const name = inputName.value.trim();
     const folder = inputFolder.value.trim();
-    btnCreate.disabled = !(name && folder);
+    // Disallow periods in name
+    const isValidName = name && !name.includes('.');
+    btnCreate.disabled = !(isValidName && folder);
 }
 
 // Event Listeners

@@ -212,9 +212,11 @@ async function buildMenu(win) {
             }
           }
         },
-        { label: "Save", accelerator: isMac ? "Cmd+S" : "Ctrl+S", click: async () => {
-          win.webContents.send("save-all");
-        } },
+        {
+          label: "Save All", accelerator: isMac ? "Cmd+S" : "Ctrl+S", click: async () => {
+            win.webContents.send("save-all");
+          }
+        },
         ...isMac ? [] : [{ role: "quit" }]
       ]
     },
