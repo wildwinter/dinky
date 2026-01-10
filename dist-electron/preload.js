@@ -2,7 +2,7 @@
 const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("electronAPI", {
   onFileOpened: (callback) => ipcRenderer.on("file-opened", (_event, value) => callback(value)),
-  onProjectLoaded: (callback) => ipcRenderer.on("project-loaded", (_event, value) => callback(value)),
+  onRootInkLoaded: (callback) => ipcRenderer.on("root-ink-loaded", (_event, value) => callback(value)),
   onSaveAll: (callback) => ipcRenderer.on("save-all", (_event, ...args) => callback(...args)),
   saveFiles: (files) => ipcRenderer.invoke("save-files", files),
   compileInk: (content, filePath, projectFiles) => ipcRenderer.invoke("compile-ink", content, filePath, projectFiles),

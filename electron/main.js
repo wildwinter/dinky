@@ -102,7 +102,7 @@ async function createWindow() {
             label: 'File',
             submenu: [
                 {
-                    label: 'Open...',
+                    label: 'Open Ink Root...',
                     accelerator: 'CmdOrCtrl+O',
                     click: async () => {
                         const { canceled, filePaths } = await dialog.showOpenDialog(win, {

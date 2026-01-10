@@ -3,7 +3,7 @@ const { app, BrowserWindow, Menu, dialog, nativeTheme, ipcMain } = require("elec
 const path = require("path");
 const fs = require("fs/promises");
 app.setName("Dinky");
-async function loadInkProject(rootFilePath) {
+async function loadRootInk(rootFilePath) {
   const rootDir = path.dirname(rootFilePath);
   const files = [];
   const visited = /* @__PURE__ */ new Set();
@@ -84,7 +84,7 @@ async function createWindow() {
       label: "File",
       submenu: [
         {
-          label: "Open...",
+          label: "Open Ink Root...",
           accelerator: "CmdOrCtrl+O",
           click: async () => {
             const { canceled, filePaths } = await dialog.showOpenDialog(win, {
@@ -92,8 +92,8 @@ async function createWindow() {
               filters: [{ name: "Ink Files", extensions: ["ink"] }]
             });
             if (!canceled && filePaths.length > 0) {
-              const files = await loadInkProject(filePaths[0]);
-              win.webContents.send("project-loaded", files);
+              const files = await loadRootInk(filePaths[0]);
+              win.webContents.send("root-ink-loaded", files);
             }
           }
         },
