@@ -221,8 +221,8 @@ async function createNewInclude(win, name, folderPath) {
 
         return true;
     } catch (e) {
-        console.error('Failed to create new include:', e);
-        dialog.showErrorBox('Error', `Failed to create new include: ${e.message}`);
+        console.error('Failed to add new include:', e);
+        dialog.showErrorBox('Error', `Failed to add new include: ${e.message}`);
         return false;
     }
 }

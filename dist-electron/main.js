@@ -198,8 +198,8 @@ async function createNewInclude(win, name, folderPath) {
     win.webContents.send("root-ink-loaded", files);
     return true;
   } catch (e) {
-    console.error("Failed to create new include:", e);
-    electron.dialog.showErrorBox("Error", `Failed to create new include: ${e.message}`);
+    console.error("Failed to add new include:", e);
+    electron.dialog.showErrorBox("Error", `Failed to add new include: ${e.message}`);
     return false;
   }
 }
@@ -292,7 +292,7 @@ async function buildMenu(win) {
           }
         },
         {
-          label: "Create New Include...",
+          label: "Add New Include...",
           click: async () => {
             openNewIncludeUI(win);
           }

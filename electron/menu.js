@@ -91,7 +91,7 @@ async function buildMenu(win) {
                     }
                 },
                 {
-                    label: 'Create New Include...',
+                    label: 'Add New Include...',
                     click: async () => {
                         // Use helper
                         openNewIncludeUI(win);
