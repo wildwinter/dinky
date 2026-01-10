@@ -35,12 +35,16 @@ body {
 }
 
 #sidebar {
-    width: 200px;
+    width: 250px;
+    /* Increased slightly for search controls */
     background-color: var(--sidebar-bg);
     border-right: 1px solid var(--sidebar-border);
     color: var(--text-color);
     padding: 10px;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 #file-list {
@@ -165,4 +169,45 @@ button.secondary {
     padding: 6px 14px;
     border: 1px solid var(--sidebar-border);
     cursor: pointer;
+}
+
+#search-panel input {
+    box-sizing: border-box;
+    padding: 4px 6px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--sidebar-border);
+}
+
+#search-results-list li {
+    padding: 4px 8px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--sidebar-border);
+}
+
+#search-results-list li:hover {
+    background-color: var(--sidebar-hover);
+}
+
+#search-results-list .result-file {
+    font-weight: bold;
+    font-size: 11px;
+    color: #61afef;
+    /* Logic blue */
+}
+
+#search-results-list .result-line {
+    font-size: 11px;
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#search-results-container {
+    font-size: 12px;
+    overflow-y: auto;
+    max-height: 250px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
 }

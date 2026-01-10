@@ -152,7 +152,10 @@ async function createNewProject(win, name, parentPath) {
   const inkFile = path.join(projectDir, "main.ink");
   try {
     await fs.mkdir(projectDir, { recursive: true });
-    await fs.writeFile(projectFile, "{}", "utf-8");
+    const projectContent = {
+      source: "main.ink"
+    };
+    await fs.writeFile(projectFile, JSON.stringify(projectContent, null, 2), "utf-8");
     await fs.writeFile(inkFile, "// Add Ink content here", "utf-8");
     await setProjectSetting(projectFile, "lastInkRoot", inkFile);
     await loadProject(win, projectFile);
@@ -516,6 +519,34 @@ async function buildMenu(win) {
         { role: "quit" }
       ]
     }] : [],
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "delete" },
+        { type: "separator" },
+        { role: "selectAll" },
+        { type: "separator" },
+        { label: "Find", accelerator: "CmdOrCtrl+F", click: (menuItem, browserWindow) => {
+          browserWindow.webContents.send("menu-find");
+        } },
+        { label: "Replace", accelerator: "CmdOrCtrl+Alt+F", click: (menuItem, browserWindow) => {
+          browserWindow.webContents.send("menu-replace");
+        } },
+        { type: "separator" },
+        { label: "Find In Files", accelerator: "CmdOrCtrl+Shift+F", click: (menuItem, browserWindow) => {
+          browserWindow.webContents.send("menu-find-in-files");
+        } },
+        { label: "Replace In Files", accelerator: "CmdOrCtrl+Shift+H", click: (menuItem, browserWindow) => {
+          browserWindow.webContents.send("menu-replace-in-files");
+        } }
+      ]
+    },
     {
       label: "File",
       submenu: [

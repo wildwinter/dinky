@@ -41,6 +41,26 @@ async function buildMenu(win) {
             ]
         }] : []),
         {
+            label: 'Edit',
+            submenu: [
+                { role: 'undo' },
+                { role: 'redo' },
+                { type: 'separator' },
+                { role: 'cut' },
+                { role: 'copy' },
+                { role: 'paste' },
+                { role: 'delete' },
+                { type: 'separator' },
+                { role: 'selectAll' },
+                { type: 'separator' },
+                { label: 'Find', accelerator: 'CmdOrCtrl+F', click: (menuItem, browserWindow) => { browserWindow.webContents.send('menu-find'); } },
+                { label: 'Replace', accelerator: 'CmdOrCtrl+Alt+F', click: (menuItem, browserWindow) => { browserWindow.webContents.send('menu-replace'); } },
+                { type: 'separator' },
+                { label: 'Find In Files', accelerator: 'CmdOrCtrl+Shift+F', click: (menuItem, browserWindow) => { browserWindow.webContents.send('menu-find-in-files'); } },
+                { label: 'Replace In Files', accelerator: 'CmdOrCtrl+Shift+H', click: (menuItem, browserWindow) => { browserWindow.webContents.send('menu-replace-in-files'); } }
+            ]
+        },
+        {
             label: 'File',
             submenu: [
                 {

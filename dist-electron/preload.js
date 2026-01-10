@@ -25,7 +25,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onStartStory: (callback) => ipcRenderer.on("start-story", (_event, value) => callback(value)),
   onTriggerStartTest: (callback) => ipcRenderer.on("trigger-start-test", (_event) => callback()),
   onCompilationError: (callback) => ipcRenderer.on("compilation-error", (_event, message) => callback(message)),
-  requestTestRestart: () => ipcRenderer.send("request-test-restart")
+  requestTestRestart: () => ipcRenderer.send("request-test-restart"),
+  onMenuFind: (callback) => ipcRenderer.on("menu-find", (_event) => callback()),
+  onMenuReplace: (callback) => ipcRenderer.on("menu-replace", (_event) => callback()),
+  onMenuFindInFiles: (callback) => ipcRenderer.on("menu-find-in-files", (_event) => callback()),
+  onMenuReplaceInFiles: (callback) => ipcRenderer.on("menu-replace-in-files", (_event) => callback())
 });
 window.addEventListener("DOMContentLoaded", () => {
   const replaceText = (selector, text) => {

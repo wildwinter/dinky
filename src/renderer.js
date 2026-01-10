@@ -471,3 +471,138 @@ document.getElementById('btn-start-test').addEventListener('click', async () => 
 window.electronAPI.onTriggerStartTest(async () => {
     await handleStartTest();
 });
+
+// --- Search and Replace logic ---
+const findInFilesInput = document.getElementById('find-in-files-input');
+const replaceInFilesInput = document.getElementById('replace-in-files-input');
+const btnFindInFiles = document.getElementById('btn-find-in-files');
+const btnReplaceInFiles = document.getElementById('btn-replace-in-files');
+const searchResultsList = document.getElementById('search-results-list');
+
+window.electronAPI.onMenuFind(() => {
+    editor.trigger('keyboard', 'actions.find');
+});
+
+window.electronAPI.onMenuReplace(() => {
+    editor.trigger('keyboard', 'editor.action.startFindReplaceAction');
+});
+
+window.electronAPI.onMenuFindInFiles(() => {
+    findInFilesInput.focus();
+    findInFilesInput.select();
+});
+
+window.electronAPI.onMenuReplaceInFiles(() => {
+    replaceInFilesInput.focus();
+    replaceInFilesInput.select();
+});
+
+function performFindInFiles() {
+    const query = findInFilesInput.value;
+    if (!query) return;
+
+    searchResultsList.innerHTML = '';
+    const matches = [];
+
+    for (const [path, file] of loadedInkFiles) {
+        const lines = file.content.split('\n');
+        lines.forEach((line, index) => {
+            if (line.includes(query)) {
+                matches.push({
+                    path,
+                    relativePath: file.relativePath,
+                    line: index + 1,
+                    content: line.trim()
+                });
+            }
+        });
+    }
+
+    matches.forEach(match => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div class="result-file">${match.relativePath}:${match.line}</div>
+            <div class="result-line">${match.content}</div>
+        `;
+        li.onclick = () => {
+            openFileAndSelectLine(match.path, match.line, query);
+        };
+        searchResultsList.appendChild(li);
+    });
+
+    if (matches.length === 0) {
+        searchResultsList.innerHTML = '<li style="cursor: default; border: none; opacity: 0.5;">No results found</li>';
+    }
+}
+
+function openFileAndSelectLine(filePath, line, query) {
+    const file = loadedInkFiles.get(filePath);
+    if (!file) return;
+
+    // Trigger file click to select it in the sidebar and editor
+    if (file.listItem) {
+        file.listItem.click();
+    }
+
+    // Scroll to and select the line
+    const model = editor.getModel();
+    if (model) {
+        const fullContent = editor.getValue();
+        const lines = fullContent.split('\n');
+        const lineContent = lines[line - 1];
+        const colStart = lineContent.indexOf(query) + 1;
+        const colEnd = colStart + query.length;
+
+        editor.revealLineInCenter(line);
+        editor.setSelection({
+            startLineNumber: line,
+            startColumn: colStart,
+            endLineNumber: line,
+            endColumn: colEnd
+        });
+        editor.focus();
+    }
+}
+
+btnFindInFiles.addEventListener('click', performFindInFiles);
+
+findInFilesInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') performFindInFiles();
+});
+
+btnReplaceInFiles.addEventListener('click', async () => {
+    const query = findInFilesInput.value;
+    const replacement = replaceInFilesInput.value;
+    if (!query) return;
+
+    let totalReplacements = 0;
+    for (const [path, file] of loadedInkFiles) {
+        if (file.content.includes(query)) {
+            const count = (file.content.match(new RegExp(escapeRegExp(query), 'g')) || []).length;
+            totalReplacements += count;
+
+            const newContent = file.content.split(query).join(replacement);
+            file.content = newContent;
+
+            if (path === currentFilePath) {
+                isUpdatingContent = true;
+                editor.setValue(newContent);
+                isUpdatingContent = false;
+            }
+
+            if (file.listItem) {
+                const isModified = file.content !== file.originalContent;
+                file.listItem.textContent = file.relativePath + (isModified ? '*' : '');
+            }
+        }
+    }
+
+    if (totalReplacements > 0) {
+        performFindInFiles();
+        checkSyntax();
+    }
+});
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
