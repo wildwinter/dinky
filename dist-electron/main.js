@@ -62,9 +62,6 @@ function setMenuRebuildCallback(fn) {
 function getCurrentProject() {
   return currentDinkProject;
 }
-function getCurrentInkRoot() {
-  return currentInkRoot;
-}
 async function loadRootInk(rootFilePath) {
   const rootDir = path.dirname(rootFilePath);
   const files = [];
@@ -206,6 +203,14 @@ async function createNewInclude(win, name, folderPath) {
     return false;
   }
 }
+function openNewIncludeUI(win) {
+  if (!currentInkRoot) {
+    electron.dialog.showErrorBox("Error", "No Ink Root loaded so where should I put the INCLUDE? Please open an Ink file first.");
+    return;
+  }
+  const defaultFolder = path.dirname(currentInkRoot);
+  win.webContents.send("show-new-include-modal", defaultFolder);
+}
 async function buildMenu(win) {
   const recentProjects = await getRecentProjects();
   const isMac = process.platform === "darwin";
@@ -289,13 +294,7 @@ async function buildMenu(win) {
         {
           label: "Create New Include...",
           click: async () => {
-            const currentInkRoot2 = getCurrentInkRoot();
-            if (!currentInkRoot2) {
-              electron.dialog.showErrorBox("Error", "No Ink Root loaded so where should I put the INCLUDE? Please open an Ink file first.");
-              return;
-            }
-            const defaultFolder = path.dirname(currentInkRoot2);
-            win.webContents.send("show-new-include-modal", defaultFolder);
+            openNewIncludeUI(win);
           }
         },
         { label: "Save", accelerator: isMac ? "Cmd+S" : "Ctrl+S", click: async () => {
@@ -571,6 +570,10 @@ electron.app.whenReady().then(() => {
 electron.ipcMain.handle("create-new-include", async (event, name, folderPath) => {
   const win = electron.BrowserWindow.fromWebContents(event.sender);
   return await createNewInclude(win, name, folderPath);
+});
+electron.ipcMain.handle("open-new-include-ui", (event) => {
+  const win = electron.BrowserWindow.fromWebContents(event.sender);
+  openNewIncludeUI(win);
 });
 electron.app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {

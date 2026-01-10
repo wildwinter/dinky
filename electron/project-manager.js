@@ -228,6 +228,15 @@ async function createNewInclude(win, name, folderPath) {
 }
 
 
+function openNewIncludeUI(win) {
+    if (!currentInkRoot) {
+        dialog.showErrorBox('Error', 'No Ink Root loaded so where should I put the INCLUDE? Please open an Ink file first.');
+        return;
+    }
+    const defaultFolder = path.dirname(currentInkRoot);
+    win.webContents.send('show-new-include-modal', defaultFolder);
+}
+
 export {
     loadProject,
     createNewProject,
@@ -235,5 +244,6 @@ export {
     getCurrentProject,
     setMenuRebuildCallback,
     getCurrentInkRoot,
-    createNewInclude
+    createNewInclude,
+    openNewIncludeUI
 }

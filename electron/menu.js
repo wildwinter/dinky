@@ -1,7 +1,7 @@
 import { app, Menu, dialog, nativeTheme } from 'electron'
 import path from 'path'
 import { getRecentProjects, saveSettings, setProjectSetting } from './config'
-import { loadProject, loadRootInk, getCurrentProject, getCurrentInkRoot } from './project-manager'
+import { loadProject, loadRootInk, getCurrentProject, getCurrentInkRoot, openNewIncludeUI } from './project-manager'
 
 async function buildMenu(win) {
     const recentProjects = await getRecentProjects();
@@ -93,14 +93,8 @@ async function buildMenu(win) {
                 {
                     label: 'Create New Include...',
                     click: async () => {
-                        // We imported getCurrentInkRoot at top, use it directly
-                        const currentInkRoot = getCurrentInkRoot();
-                        if (!currentInkRoot) {
-                            dialog.showErrorBox('Error', 'No Ink Root loaded so where should I put the INCLUDE? Please open an Ink file first.');
-                            return;
-                        }
-                        const defaultFolder = path.dirname(currentInkRoot);
-                        win.webContents.send('show-new-include-modal', defaultFolder);
+                        // Use helper
+                        openNewIncludeUI(win);
                     }
                 },
                 { label: 'Save', accelerator: isMac ? 'Cmd+S' : 'Ctrl+S', click: async () => { win.webContents.send('save-all'); } },

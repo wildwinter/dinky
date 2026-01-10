@@ -410,3 +410,7 @@ modalIncludeOverlay.addEventListener('keydown', (e) => {
         closeIncludeModal();
     }
 });
+
+document.getElementById('btn-add-include').addEventListener('click', () => {
+    window.electronAPI.openNewIncludeUI();
+});
