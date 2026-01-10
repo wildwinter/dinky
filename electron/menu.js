@@ -4,6 +4,7 @@ import { getRecentProjects, saveSettings, setProjectSetting } from './config'
 import { loadProject, loadRootInk, getCurrentProject, getCurrentInkRoot, openNewIncludeUI } from './project-manager'
 import { openTestWindow } from './test-runner'
 import { openSearchWindow } from './search'
+import { safeSend } from './utils'
 
 async function buildMenu(win) {
     const recentProjects = await getRecentProjects();
@@ -47,9 +48,7 @@ async function buildMenu(win) {
                 {
                     label: 'New Project...',
                     click: async () => {
-                        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-                            win.webContents.send('show-new-project-modal');
-                        }
+                        safeSend(win, 'show-new-project-modal');
                     }
                 },
                 {
@@ -83,9 +82,7 @@ async function buildMenu(win) {
                         })
                         if (!canceled && filePaths.length > 0) {
                             const files = await loadRootInk(filePaths[0])
-                            if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-                                win.webContents.send('root-ink-loaded', files)
-                            }
+                            safeSend(win, 'root-ink-loaded', files)
 
                             // Save as preference if a project is open
                             const currentDinkProject = getCurrentProject();
@@ -103,7 +100,7 @@ async function buildMenu(win) {
                         openNewIncludeUI(win);
                     }
                 },
-                { label: 'Save', accelerator: isMac ? 'Cmd+S' : 'Ctrl+S', click: async () => { if (!win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('save-all'); } },
+                { label: 'Save', accelerator: isMac ? 'Cmd+S' : 'Ctrl+S', click: async () => { safeSend(win, 'save-all'); } },
                 ...(isMac ? [] : [{ role: 'quit' }])
             ]
         },
@@ -120,8 +117,8 @@ async function buildMenu(win) {
                 { type: 'separator' },
                 { role: 'selectAll' },
                 { type: 'separator' },
-                { label: 'Find', accelerator: 'CmdOrCtrl+F', click: (menuItem, browserWindow) => { browserWindow.webContents.send('menu-find'); } },
-                { label: 'Replace', accelerator: 'CmdOrCtrl+Alt+F', click: (menuItem, browserWindow) => { browserWindow.webContents.send('menu-replace'); } },
+                { label: 'Find', accelerator: 'CmdOrCtrl+F', click: (menuItem, browserWindow) => { safeSend(browserWindow, 'menu-find'); } },
+                { label: 'Replace', accelerator: 'CmdOrCtrl+Alt+F', click: (menuItem, browserWindow) => { safeSend(browserWindow, 'menu-replace'); } },
                 { type: 'separator' },
                 { label: 'Find In Files', accelerator: 'CmdOrCtrl+Shift+F', click: () => { openSearchWindow(); } },
                 { label: 'Replace In Files', accelerator: 'CmdOrCtrl+Shift+H', click: () => { openSearchWindow(); } }
@@ -181,9 +178,7 @@ async function buildMenu(win) {
                     label: 'Start Test',
                     accelerator: 'CmdOrCtrl+T',
                     click: () => {
-                        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-                            win.webContents.send('trigger-start-test');
-                        }
+                        safeSend(win, 'trigger-start-test');
                     }
                 }
             ]

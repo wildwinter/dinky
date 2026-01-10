@@ -6,8 +6,9 @@ import { loadSettings, getRecentProjects, removeFromRecentProjects } from './con
 import { buildMenu } from './menu'
 import { compileInk } from './compiler'
 import { openTestWindow } from './test-runner'
-import { loadProject, createNewProject, setMenuRebuildCallback, createNewInclude, openNewIncludeUI, deleteInclude } from './project-manager'
+import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, deleteInclude, setMenuRebuildCallback } from './project-manager'
 import { initSearch } from './search'
+import { safeSend } from './utils'
 
 app.setName('Dinky')
 
@@ -40,9 +41,8 @@ async function createWindow() {
 
     // Theme handling
     const updateTheme = () => {
-        if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return
         const theme = nativeTheme.shouldUseDarkColors ? 'vs-dark' : 'vs'
-        win.webContents.send('theme-updated', theme)
+        safeSend(win, 'theme-updated', theme)
     }
 
     nativeTheme.on('updated', updateTheme)
@@ -83,7 +83,7 @@ async function createWindow() {
         if (win.forceClose) return;
         if (win.webContents.isDestroyed()) return;
         e.preventDefault();
-        win.webContents.send('check-unsaved');
+        safeSend(win, 'check-unsaved');
     });
 }
 
@@ -108,9 +108,7 @@ ipcMain.on('unsaved-status', (event, hasUnsaved) => {
         });
 
         if (choice === 0) { // Save
-            if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-                win.webContents.send('save-and-exit');
-            }
+            safeSend(win, 'save-and-exit');
         } else if (choice === 1) { // Discard
             win.forceClose = true;
             win.close();
@@ -163,9 +161,7 @@ ipcMain.handle('new-project', async (event) => {
     // This is called from the renderer "New Project" button in empty state
     // We want to reuse the same modal flow
     const win = BrowserWindow.fromWebContents(event.sender);
-    if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
-        win.webContents.send('show-new-project-modal');
-    }
+    safeSend(win, 'show-new-project-modal');
 });
 
 ipcMain.handle('select-folder', async (event, defaultPath) => {
@@ -202,9 +198,7 @@ ipcMain.handle('create-new-include', async (event, name, folderPath) => {
 
 ipcMain.handle('open-new-include-ui', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
-        openNewIncludeUI(win);
-    }
+    if (win) openNewIncludeUI(win);
 });
 
 ipcMain.handle('delete-include', async (event, filePath) => {
@@ -216,9 +210,7 @@ ipcMain.handle('start-test', (event, rootPath, projectFiles) => {
     openTestWindow(rootPath, projectFiles);
 });
 ipcMain.on('request-test-restart', () => {
-    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-        mainWindow.webContents.send('trigger-start-test');
-    }
+    safeSend(mainWindow, 'trigger-start-test');
 });
 
 app.on('window-all-closed', () => {

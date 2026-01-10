@@ -1,6 +1,7 @@
 import { BrowserWindow, nativeTheme } from 'electron'
 import path from 'path'
 import { compileStory } from './compiler'
+import { safeSend } from './utils'
 
 let testWindow = null
 
@@ -38,10 +39,11 @@ export async function openTestWindow(rootPath, projectFiles) {
     })
 
     const updateTheme = () => {
-        if (!testWindow || testWindow.isDestroyed() || testWindow.webContents.isDestroyed()) return
         const theme = nativeTheme.shouldUseDarkColors ? 'vs-dark' : 'vs'
-        testWindow.webContents.send('theme-updated', theme)
-        testWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#ffffff')
+        const sent = safeSend(testWindow, 'theme-updated', theme);
+        if (sent) {
+            testWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#ffffff')
+        }
     }
 
     const themeListener = () => updateTheme()
@@ -82,13 +84,9 @@ async function runTestSequence(rootPath, projectFiles) {
 
     try {
         const storyJson = await compileStory(rootContent, rootPath, projectFiles);
-        if (testWindow && !testWindow.isDestroyed()) {
-            testWindow.webContents.send('start-story', storyJson);
-        }
+        safeSend(testWindow, 'start-story', storyJson);
     } catch (e) {
         console.error('Test compilation failed:', e);
-        if (testWindow && !testWindow.isDestroyed()) {
-            testWindow.webContents.send('compilation-error', e.message);
-        }
+        safeSend(testWindow, 'compilation-error', e.message);
     }
 }

@@ -2,6 +2,7 @@ import { dialog } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import { addToRecentProjects, getProjectSetting, removeFromRecentProjects, setProjectSetting } from './config'
+import { safeSend } from './utils'
 
 let currentDinkProject = null;
 let currentInkRoot = null;
@@ -113,9 +114,7 @@ async function loadProject(win, filePath) {
         if (inkFileToLoad) {
             currentInkRoot = inkFileToLoad;
             const files = await loadRootInk(inkFileToLoad);
-            if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-                win.webContents.send('root-ink-loaded', files);
-            }
+            safeSend(win, 'root-ink-loaded', files);
         }
 
         return true;
@@ -217,9 +216,7 @@ async function createNewInclude(win, name, folderPath) {
         await fs.writeFile(currentInkRoot, newContent, 'utf-8');
 
         const files = await loadRootInk(currentInkRoot);
-        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-            win.webContents.send('root-ink-loaded', files);
-        }
+        safeSend(win, 'root-ink-loaded', files);
 
         return true;
     } catch (e) {
@@ -236,9 +233,7 @@ function openNewIncludeUI(win) {
         return;
     }
     const defaultFolder = path.dirname(currentInkRoot);
-    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-        win.webContents.send('show-new-include-modal', defaultFolder);
-    }
+    safeSend(win, 'show-new-include-modal', defaultFolder);
 }
 
 export {
@@ -315,9 +310,7 @@ async function deleteInclude(win, filePathToDelete) {
 
         // Reload project
         const files = await loadRootInk(currentInkRoot);
-        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-            win.webContents.send('root-ink-loaded', files);
-        }
+        safeSend(win, 'root-ink-loaded', files);
 
         return true;
 

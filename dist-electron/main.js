@@ -53,6 +53,13 @@ async function removeFromRecentProjects(filePath) {
   recent = recent.filter((p) => p !== filePath);
   await saveSettings({ recentProjects: recent });
 }
+function safeSend(win, channel, ...args) {
+  if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+    win.webContents.send(channel, ...args);
+    return true;
+  }
+  return false;
+}
 let currentDinkProject = null;
 let currentInkRoot = null;
 let rebuildMenuCallback = null;
@@ -104,7 +111,9 @@ async function loadProject(win, filePath) {
     const jsonContent = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
     currentDinkProject = { path: filePath, content: JSON.parse(jsonContent) };
     console.log("Loaded project:", filePath);
-    win.setTitle(`Dinky - ${path.basename(filePath, ".dinkproj")}`);
+    if (!win.isDestroyed()) {
+      win.setTitle(`Dinky - ${path.basename(filePath, ".dinkproj")}`);
+    }
     await addToRecentProjects(filePath);
     if (rebuildMenuCallback) await rebuildMenuCallback(win);
     const lastInkRoot = await getProjectSetting(filePath, "lastInkRoot");
@@ -131,7 +140,7 @@ async function loadProject(win, filePath) {
     if (inkFileToLoad) {
       currentInkRoot = inkFileToLoad;
       const files = await loadRootInk(inkFileToLoad);
-      win.webContents.send("root-ink-loaded", files);
+      safeSend(win, "root-ink-loaded", files);
     }
     return true;
   } catch (e) {
@@ -198,7 +207,7 @@ async function createNewInclude(win, name, folderPath) {
     const newContent = lines.join("\n");
     await fs.writeFile(currentInkRoot, newContent, "utf-8");
     const files = await loadRootInk(currentInkRoot);
-    win.webContents.send("root-ink-loaded", files);
+    safeSend(win, "root-ink-loaded", files);
     return true;
   } catch (e) {
     console.error("Failed to add new include:", e);
@@ -212,7 +221,7 @@ function openNewIncludeUI(win) {
     return;
   }
   const defaultFolder = path.dirname(currentInkRoot);
-  win.webContents.send("show-new-include-modal", defaultFolder);
+  safeSend(win, "show-new-include-modal", defaultFolder);
 }
 async function deleteInclude(win, filePathToDelete) {
   if (!currentInkRoot || !filePathToDelete) return false;
@@ -257,7 +266,7 @@ async function deleteInclude(win, filePathToDelete) {
     await fs.writeFile(currentInkRoot, newContent, "utf-8");
     await fs.unlink(filePathToDelete);
     const files = await loadRootInk(currentInkRoot);
-    win.webContents.send("root-ink-loaded", files);
+    safeSend(win, "root-ink-loaded", files);
     return true;
   } catch (e) {
     console.error("Failed to delete include:", e);
@@ -441,10 +450,11 @@ async function openTestWindow(rootPath, projectFiles) {
     show: false
   });
   const updateTheme = () => {
-    if (!testWindow || testWindow.isDestroyed()) return;
     const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
-    testWindow.webContents.send("theme-updated", theme);
-    testWindow.setBackgroundColor(electron.nativeTheme.shouldUseDarkColors ? "#1e1e1e" : "#ffffff");
+    const sent = safeSend(testWindow, "theme-updated", theme);
+    if (sent) {
+      testWindow.setBackgroundColor(electron.nativeTheme.shouldUseDarkColors ? "#1e1e1e" : "#ffffff");
+    }
   };
   const themeListener = () => updateTheme();
   electron.nativeTheme.on("updated", themeListener);
@@ -477,14 +487,10 @@ async function runTestSequence(rootPath, projectFiles) {
   }
   try {
     const storyJson = await compileStory(rootContent, rootPath, projectFiles);
-    if (testWindow && !testWindow.isDestroyed()) {
-      testWindow.webContents.send("start-story", storyJson);
-    }
+    safeSend(testWindow, "start-story", storyJson);
   } catch (e) {
     console.error("Test compilation failed:", e);
-    if (testWindow && !testWindow.isDestroyed()) {
-      testWindow.webContents.send("compilation-error", e.message);
-    }
+    safeSend(testWindow, "compilation-error", e.message);
   }
 }
 let searchWindow = null;
@@ -495,23 +501,21 @@ function initSearch(win) {
     openSearchWindow();
   });
   electron.ipcMain.handle("perform-search", async (event, { query, caseSensitive }) => {
-    if (!mainWindow$1) return [];
     return await new Promise((resolve) => {
-      mainWindow$1.webContents.send("request-search-results", { query, caseSensitive });
+      const sent = safeSend(mainWindow$1, "request-search-results", { query, caseSensitive });
+      if (!sent) return resolve([]);
       electron.ipcMain.once("search-results-ready", (_event, results) => {
         resolve(results);
       });
     });
   });
   electron.ipcMain.on("navigate-to-result", (event, { path: path2, line, query }) => {
-    if (mainWindow$1) {
-      mainWindow$1.webContents.send("navigate-to-match", { path: path2, line, query });
-    }
+    safeSend(mainWindow$1, "navigate-to-match", { path: path2, line, query });
   });
   electron.ipcMain.handle("perform-replace-all", async (event, { query, replacement, caseSensitive }) => {
-    if (!mainWindow$1) return 0;
     return await new Promise((resolve) => {
-      mainWindow$1.webContents.send("request-replace-all", { query, replacement, caseSensitive });
+      const sent = safeSend(mainWindow$1, "request-replace-all", { query, replacement, caseSensitive });
+      if (!sent) return resolve(0);
       electron.ipcMain.once("replace-all-complete", (_event, count) => {
         resolve(count);
       });
@@ -519,10 +523,10 @@ function initSearch(win) {
   });
 }
 function openSearchWindow() {
-  if (searchWindow) {
+  if (searchWindow && !searchWindow.isDestroyed()) {
     searchWindow.show();
     searchWindow.focus();
-    searchWindow.webContents.send("focus-search-input");
+    safeSend(searchWindow, "focus-search-input");
     return;
   }
   const currentWindow = mainWindow$1;
@@ -551,19 +555,18 @@ function openSearchWindow() {
     show: false
   });
   const updateTheme = () => {
-    if (!searchWindow || searchWindow.isDestroyed()) return;
     const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
-    searchWindow.webContents.send("theme-updated", theme);
-    searchWindow.setBackgroundColor(electron.nativeTheme.shouldUseDarkColors ? "#252526" : "#f3f3f3");
+    const sent = safeSend(searchWindow, "theme-updated", theme);
+    if (sent) {
+      searchWindow.setBackgroundColor(electron.nativeTheme.shouldUseDarkColors ? "#252526" : "#f3f3f3");
+    }
   };
   const themeListener = () => updateTheme();
   electron.nativeTheme.on("updated", themeListener);
   searchWindow.on("closed", () => {
     electron.nativeTheme.off("updated", themeListener);
     searchWindow = null;
-    if (mainWindow$1) {
-      mainWindow$1.webContents.send("clear-search-highlights");
-    }
+    safeSend(mainWindow$1, "clear-search-highlights");
   });
   searchWindow.once("ready-to-show", () => {
     searchWindow.show();
@@ -614,7 +617,7 @@ async function buildMenu(win) {
         {
           label: "New Project...",
           click: async () => {
-            win.webContents.send("show-new-project-modal");
+            safeSend(win, "show-new-project-modal");
           }
         },
         {
@@ -647,7 +650,7 @@ async function buildMenu(win) {
             });
             if (!canceled && filePaths.length > 0) {
               const files = await loadRootInk(filePaths[0]);
-              win.webContents.send("root-ink-loaded", files);
+              safeSend(win, "root-ink-loaded", files);
               const currentDinkProject2 = getCurrentProject();
               if (currentDinkProject2) {
                 await setProjectSetting(currentDinkProject2.path, "lastInkRoot", filePaths[0]);
@@ -663,7 +666,7 @@ async function buildMenu(win) {
           }
         },
         { label: "Save", accelerator: isMac ? "Cmd+S" : "Ctrl+S", click: async () => {
-          win.webContents.send("save-all");
+          safeSend(win, "save-all");
         } },
         ...isMac ? [] : [{ role: "quit" }]
       ]
@@ -682,10 +685,10 @@ async function buildMenu(win) {
         { role: "selectAll" },
         { type: "separator" },
         { label: "Find", accelerator: "CmdOrCtrl+F", click: (menuItem, browserWindow) => {
-          browserWindow.webContents.send("menu-find");
+          safeSend(browserWindow, "menu-find");
         } },
         { label: "Replace", accelerator: "CmdOrCtrl+Alt+F", click: (menuItem, browserWindow) => {
-          browserWindow.webContents.send("menu-replace");
+          safeSend(browserWindow, "menu-replace");
         } },
         { type: "separator" },
         { label: "Find In Files", accelerator: "CmdOrCtrl+Shift+F", click: () => {
@@ -750,7 +753,7 @@ async function buildMenu(win) {
           label: "Start Test",
           accelerator: "CmdOrCtrl+T",
           click: () => {
-            win.webContents.send("trigger-start-test");
+            safeSend(win, "trigger-start-test");
           }
         }
       ]
@@ -795,7 +798,7 @@ async function createWindow() {
   await buildMenu(win);
   const updateTheme = () => {
     const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
-    win.webContents.send("theme-updated", theme);
+    safeSend(win, "theme-updated", theme);
   };
   electron.nativeTheme.on("updated", updateTheme);
   win.webContents.on("did-finish-load", async () => {
@@ -823,8 +826,9 @@ async function createWindow() {
   win.forceClose = false;
   win.on("close", (e) => {
     if (win.forceClose) return;
+    if (win.webContents.isDestroyed()) return;
     e.preventDefault();
-    win.webContents.send("check-unsaved");
+    safeSend(win, "check-unsaved");
   });
 }
 electron.ipcMain.on("unsaved-status", (event, hasUnsaved) => {
@@ -845,7 +849,7 @@ electron.ipcMain.on("unsaved-status", (event, hasUnsaved) => {
       noLink: true
     });
     if (choice === 0) {
-      win.webContents.send("save-and-exit");
+      safeSend(win, "save-and-exit");
     } else if (choice === 1) {
       win.forceClose = true;
       win.close();
@@ -886,7 +890,7 @@ electron.ipcMain.handle("open-project", async (event) => {
 });
 electron.ipcMain.handle("new-project", async (event) => {
   const win = electron.BrowserWindow.fromWebContents(event.sender);
-  win.webContents.send("show-new-project-modal");
+  safeSend(win, "show-new-project-modal");
 });
 electron.ipcMain.handle("select-folder", async (event, defaultPath) => {
   const win = electron.BrowserWindow.fromWebContents(event.sender);
@@ -917,7 +921,7 @@ electron.ipcMain.handle("create-new-include", async (event, name, folderPath) =>
 });
 electron.ipcMain.handle("open-new-include-ui", (event) => {
   const win = electron.BrowserWindow.fromWebContents(event.sender);
-  openNewIncludeUI(win);
+  if (win) openNewIncludeUI(win);
 });
 electron.ipcMain.handle("delete-include", async (event, filePath) => {
   const win = electron.BrowserWindow.fromWebContents(event.sender);
@@ -927,9 +931,7 @@ electron.ipcMain.handle("start-test", (event, rootPath, projectFiles) => {
   openTestWindow(rootPath, projectFiles);
 });
 electron.ipcMain.on("request-test-restart", () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("trigger-start-test");
-  }
+  safeSend(mainWindow, "trigger-start-test");
 });
 electron.app.on("window-all-closed", () => {
   electron.app.quit();

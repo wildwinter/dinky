@@ -1,5 +1,6 @@
 import { BrowserWindow, nativeTheme, ipcMain } from 'electron'
 import path from 'path'
+import { safeSend } from './utils'
 
 let searchWindow = null
 let mainWindow = null
@@ -12,9 +13,10 @@ export function initSearch(win) {
     });
 
     ipcMain.handle('perform-search', async (event, { query, caseSensitive }) => {
-        if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return [];
         return await new Promise((resolve) => {
-            mainWindow.webContents.send('request-search-results', { query, caseSensitive });
+            const sent = safeSend(mainWindow, 'request-search-results', { query, caseSensitive });
+            if (!sent) return resolve([]);
+
             ipcMain.once('search-results-ready', (_event, results) => {
                 resolve(results);
             });
@@ -22,15 +24,14 @@ export function initSearch(win) {
     });
 
     ipcMain.on('navigate-to-result', (event, { path, line, query }) => {
-        if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-            mainWindow.webContents.send('navigate-to-match', { path, line, query });
-        }
+        safeSend(mainWindow, 'navigate-to-match', { path, line, query });
     });
 
     ipcMain.handle('perform-replace-all', async (event, { query, replacement, caseSensitive }) => {
-        if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return 0;
         return await new Promise((resolve) => {
-            mainWindow.webContents.send('request-replace-all', { query, replacement, caseSensitive });
+            const sent = safeSend(mainWindow, 'request-replace-all', { query, replacement, caseSensitive });
+            if (!sent) return resolve(0);
+
             ipcMain.once('replace-all-complete', (_event, count) => {
                 resolve(count);
             });
@@ -42,9 +43,7 @@ export function openSearchWindow() {
     if (searchWindow && !searchWindow.isDestroyed()) {
         searchWindow.show()
         searchWindow.focus()
-        if (!searchWindow.webContents.isDestroyed()) {
-            searchWindow.webContents.send('focus-search-input');
-        }
+        safeSend(searchWindow, 'focus-search-input');
         return
     }
 
@@ -76,10 +75,11 @@ export function openSearchWindow() {
     })
 
     const updateTheme = () => {
-        if (!searchWindow || searchWindow.isDestroyed() || searchWindow.webContents.isDestroyed()) return
         const theme = nativeTheme.shouldUseDarkColors ? 'vs-dark' : 'vs'
-        searchWindow.webContents.send('theme-updated', theme)
-        searchWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#252526' : '#f3f3f3')
+        const sent = safeSend(searchWindow, 'theme-updated', theme)
+        if (sent) {
+            searchWindow.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#252526' : '#f3f3f3')
+        }
     }
 
     const themeListener = () => updateTheme()
@@ -88,9 +88,7 @@ export function openSearchWindow() {
     searchWindow.on('closed', () => {
         nativeTheme.off('updated', themeListener)
         searchWindow = null
-        if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
-            mainWindow.webContents.send('clear-search-highlights');
-        }
+        safeSend(mainWindow, 'clear-search-highlights');
     })
 
     searchWindow.once('ready-to-show', () => {
