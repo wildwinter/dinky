@@ -211,6 +211,57 @@ function openNewIncludeUI(win) {
   const defaultFolder = path.dirname(currentInkRoot);
   win.webContents.send("show-new-include-modal", defaultFolder);
 }
+async function deleteInclude(win, filePathToDelete) {
+  if (!currentInkRoot || !filePathToDelete) return false;
+  if (filePathToDelete === currentInkRoot) {
+    electron.dialog.showErrorBox("Error", "Cannot delete the main Ink Root file.");
+    return false;
+  }
+  const fileName = path.basename(filePathToDelete);
+  const { response } = await electron.dialog.showMessageBox(win, {
+    type: "question",
+    buttons: ["Cancel", "Delete"],
+    defaultId: 0,
+    title: "Delete File",
+    message: `Are you sure you want to delete file "${fileName}"?`,
+    detail: "This action cannot be undone. The file will be deleted and the CREATE line removed from the root file."
+  });
+  if (response === 0) {
+    return false;
+  }
+  try {
+    const rootContent = await fs.readFile(currentInkRoot, "utf-8");
+    const lines = rootContent.split(/\r?\n/);
+    const relativeToDelete = path.relative(path.dirname(currentInkRoot), filePathToDelete);
+    const normalizedRelative = relativeToDelete.replace(/\\/g, "/");
+    let entryFound = false;
+    const newLines = lines.filter((line) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("INCLUDE ")) {
+        const includePath = trimmed.substring(8).trim();
+        const resolvedIncludePath = path.resolve(path.dirname(currentInkRoot), includePath);
+        if (resolvedIncludePath === filePathToDelete) {
+          entryFound = true;
+          return false;
+        }
+      }
+      return true;
+    });
+    if (!entryFound) {
+      console.warn("Could not find corresponding INCLUDE line for", normalizedRelative);
+    }
+    const newContent = newLines.join("\n");
+    await fs.writeFile(currentInkRoot, newContent, "utf-8");
+    await fs.unlink(filePathToDelete);
+    const files = await loadRootInk(currentInkRoot);
+    win.webContents.send("root-ink-loaded", files);
+    return true;
+  } catch (e) {
+    console.error("Failed to delete include:", e);
+    electron.dialog.showErrorBox("Error", `Failed to delete file: ${e.message}`);
+    return false;
+  }
+}
 async function buildMenu(win) {
   const recentProjects = await getRecentProjects();
   const isMac = process.platform === "darwin";
@@ -612,6 +663,10 @@ electron.ipcMain.handle("create-new-include", async (event, name, folderPath) =>
 electron.ipcMain.handle("open-new-include-ui", (event) => {
   const win = electron.BrowserWindow.fromWebContents(event.sender);
   openNewIncludeUI(win);
+});
+electron.ipcMain.handle("delete-include", async (event, filePath) => {
+  const win = electron.BrowserWindow.fromWebContents(event.sender);
+  return await deleteInclude(win, filePath);
 });
 electron.app.on("window-all-closed", () => {
   electron.app.quit();

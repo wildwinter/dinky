@@ -5,7 +5,7 @@ import fs from 'fs/promises'
 import { loadSettings, getRecentProjects, removeFromRecentProjects } from './config'
 import { buildMenu } from './menu'
 import { compileInk } from './compiler'
-import { loadProject, createNewProject, setMenuRebuildCallback, createNewInclude, openNewIncludeUI } from './project-manager'
+import { loadProject, createNewProject, setMenuRebuildCallback, createNewInclude, openNewIncludeUI, deleteInclude } from './project-manager'
 
 app.setName('Dinky')
 
@@ -190,6 +190,11 @@ ipcMain.handle('create-new-include', async (event, name, folderPath) => {
 ipcMain.handle('open-new-include-ui', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     openNewIncludeUI(win);
+});
+
+ipcMain.handle('delete-include', async (event, filePath) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return await deleteInclude(win, filePath);
 });
 
 app.on('window-all-closed', () => {

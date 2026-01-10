@@ -240,5 +240,85 @@ export {
     setMenuRebuildCallback,
     getCurrentInkRoot,
     createNewInclude,
-    openNewIncludeUI
+    openNewIncludeUI,
+    deleteInclude
+}
+
+async function deleteInclude(win, filePathToDelete) {
+    if (!currentInkRoot || !filePathToDelete) return false;
+
+    // Safety check: cannot delete the root itself
+    if (filePathToDelete === currentInkRoot) {
+        dialog.showErrorBox('Error', 'Cannot delete the main Ink Root file.');
+        return false;
+    }
+
+    // Confirmation Dialog
+    const fileName = path.basename(filePathToDelete);
+    const { response } = await dialog.showMessageBox(win, {
+        type: 'question',
+        buttons: ['Cancel', 'Delete'],
+        defaultId: 0,
+        title: 'Delete File',
+        message: `Are you sure you want to delete file "${fileName}"?`,
+        detail: 'This action cannot be undone. The file will be deleted and the CREATE line removed from the root file.'
+    });
+
+    if (response === 0) { // Cancel (0 since it's the first button)
+        return false;
+    }
+
+    try {
+        // 1. Remove INCLUDE line from Ink Root
+        const rootContent = await fs.readFile(currentInkRoot, 'utf-8');
+        const lines = rootContent.split(/\r?\n/);
+
+        const relativeToDelete = path.relative(path.dirname(currentInkRoot), filePathToDelete);
+        // Normalize slashes for matching
+        const normalizedRelative = relativeToDelete.replace(/\\/g, '/');
+
+        let entryFound = false;
+        const newLines = lines.filter(line => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('INCLUDE ')) {
+                const includePath = trimmed.substring(8).trim();
+
+                // Robust check: resolve the include path to absolute path
+                // and compare with the file we want to delete
+                const resolvedIncludePath = path.resolve(path.dirname(currentInkRoot), includePath);
+
+                if (resolvedIncludePath === filePathToDelete) {
+                    entryFound = true;
+                    return false; // Remove this line
+                }
+            }
+            return true;
+        });
+
+        if (!entryFound) {
+            // Try a slightly looser check if exact match failed (e.g. ./ stuff)
+            // or just proceed to delete the file anyway?
+            // Best to warn but maybe still allow deletion? 
+            // Requirement says "relevant INCLUDE line should be removed... then file deleted".
+            // If we can't find the line, maybe we should just log it and proceed to delete file?
+            console.warn('Could not find corresponding INCLUDE line for', normalizedRelative);
+        }
+
+        const newContent = newLines.join('\n');
+        await fs.writeFile(currentInkRoot, newContent, 'utf-8');
+
+        // 2. Delete the file
+        await fs.unlink(filePathToDelete);
+
+        // 3. Reload project
+        const files = await loadRootInk(currentInkRoot);
+        win.webContents.send('root-ink-loaded', files);
+
+        return true;
+
+    } catch (e) {
+        console.error('Failed to delete include:', e);
+        dialog.showErrorBox('Error', `Failed to delete file: ${e.message}`);
+        return false;
+    }
 }

@@ -120,6 +120,10 @@ window.electronAPI.onRootInkLoaded((files) => {
             isUpdatingContent = false;
 
             li.classList.add('active');
+
+            // Update delete button state
+            updateDeleteButtonState(currentFilePath === rootInkPath);
+
             checkSyntax(); // Added: Trigger syntax check on file switch
         };
         fileList.appendChild(li);
@@ -133,6 +137,9 @@ window.electronAPI.onRootInkLoaded((files) => {
 
             li.classList.add('active');
             // checkSyntax call is handled by initial load or manual call below
+
+            // Check if root for delete button state (it is root, index 0)
+            updateDeleteButtonState(true);
         }
     });
 
@@ -435,4 +442,22 @@ modalIncludeOverlay.addEventListener('keydown', (e) => {
 
 document.getElementById('btn-add-include').addEventListener('click', () => {
     window.electronAPI.openNewIncludeUI();
+});
+
+const btnDeleteInclude = document.getElementById('btn-delete-include');
+
+function updateDeleteButtonState(isRoot) {
+    if (isRoot) {
+        btnDeleteInclude.style.opacity = '0.5';
+        btnDeleteInclude.style.pointerEvents = 'none';
+    } else {
+        btnDeleteInclude.style.opacity = '1';
+        btnDeleteInclude.style.pointerEvents = 'auto';
+    }
+}
+
+btnDeleteInclude.addEventListener('click', async () => {
+    if (currentFilePath && currentFilePath !== rootInkPath) {
+        await window.electronAPI.deleteInclude(currentFilePath);
+    }
 });
