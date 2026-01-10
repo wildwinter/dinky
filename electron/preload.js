@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
     onFileOpened: (callback) => ipcRenderer.on('file-opened', (_event, value) => callback(value)),
     onRootInkLoaded: (callback) => ipcRenderer.on('root-ink-loaded', (_event, value) => callback(value)),
+    onProjectLoaded: (callback) => ipcRenderer.on('project-loaded', (_event, value) => callback(value)),
     onSaveAll: (callback) => ipcRenderer.on('save-all', (_event, ...args) => callback(...args)),
     onSaveAndExit: (callback) => ipcRenderer.on('save-and-exit', (_event, ...args) => callback(...args)),
     saveFiles: (files) => ipcRenderer.invoke('save-files', files),
@@ -10,6 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onThemeUpdated: (callback) => ipcRenderer.on('theme-updated', (_event, value) => callback(value)),
     log: (...args) => ipcRenderer.send('renderer-log', ...args),
     openProject: () => ipcRenderer.invoke('open-project'),
+    openInkRoot: () => ipcRenderer.invoke('open-ink-root'),
+    createInkRoot: () => ipcRenderer.invoke('create-ink-root'),
     newProject: () => ipcRenderer.invoke('new-project'),
     selectFolder: (defaultPath) => ipcRenderer.invoke('select-folder', defaultPath),
     createNewProject: (name, parentPath) => ipcRenderer.invoke('create-new-project', name, parentPath),

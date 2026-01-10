@@ -84,6 +84,26 @@ document.getElementById('btn-new-project').addEventListener('click', () => {
     window.electronAPI.newProject();
 });
 
+document.getElementById('btn-set-ink-root').addEventListener('click', () => {
+    window.electronAPI.openInkRoot();
+});
+
+document.getElementById('btn-create-ink-root').addEventListener('click', () => {
+    window.electronAPI.createInkRoot();
+});
+
+window.electronAPI.onProjectLoaded(({ hasRoot }) => {
+    if (!hasRoot) {
+        document.getElementById('empty-state').style.display = 'none';
+        document.getElementById('no-root-state').style.display = 'flex';
+        document.getElementById('editor-container').style.display = 'none';
+    } else {
+        document.getElementById('empty-state').style.display = 'none';
+        document.getElementById('no-root-state').style.display = 'none';
+        // editor-container will be shown by onRootInkLoaded
+    }
+});
+
 window.electronAPI.onRootInkLoaded((files) => {
     loadedInkFiles.clear();
     const fileList = document.getElementById('file-list');
@@ -91,6 +111,7 @@ window.electronAPI.onRootInkLoaded((files) => {
 
     // Toggle view
     document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('no-root-state').style.display = 'none';
     const editorContainer = document.getElementById('editor-container');
     editorContainer.style.display = 'block';
     editor.layout();

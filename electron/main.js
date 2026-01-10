@@ -6,7 +6,7 @@ import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowSta
 import { buildMenu } from './menu'
 import { compileInk } from './compiler'
 import { openTestWindow } from './test-runner'
-import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, deleteInclude, setMenuRebuildCallback } from './project-manager'
+import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, deleteInclude, setMenuRebuildCallback } from './project-manager'
 import { initSearch } from './search'
 import { safeSend } from './utils'
 
@@ -163,6 +163,16 @@ ipcMain.handle('open-project', async (event) => {
     if (!canceled && filePaths.length > 0) {
         await loadProject(win, filePaths[0]);
     }
+});
+
+ipcMain.handle('open-ink-root', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) await openInkRootUI(win);
+});
+
+ipcMain.handle('create-ink-root', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) return await createInkRoot(win);
 });
 
 ipcMain.handle('new-project', async (event) => {

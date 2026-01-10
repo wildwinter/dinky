@@ -72,25 +72,7 @@ async function buildMenu(win) {
                     label: 'Open Ink Root...',
                     accelerator: 'CmdOrCtrl+O',
                     click: async () => {
-                        const currentProject = getCurrentProject();
-                        const defaultPath = currentProject ? path.dirname(currentProject.path) : undefined;
-
-                        const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-                            defaultPath: defaultPath,
-                            properties: ['openFile'],
-                            filters: [{ name: 'Ink Files', extensions: ['ink'] }]
-                        })
-                        if (!canceled && filePaths.length > 0) {
-                            const files = await loadRootInk(filePaths[0])
-                            safeSend(win, 'root-ink-loaded', files)
-
-                            // Save as preference if a project is open
-                            const currentDinkProject = getCurrentProject();
-                            if (currentDinkProject) {
-                                await setProjectSetting(currentDinkProject.path, 'lastInkRoot', filePaths[0]);
-                                console.log('Saved Ink Root preference:', filePaths[0]);
-                            }
-                        }
+                        await openInkRootUI(win);
                     }
                 },
                 {

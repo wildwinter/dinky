@@ -73,7 +73,8 @@ body {
     /* Hidden by default */
 }
 
-#empty-state {
+#empty-state,
+#no-root-state {
     flex-grow: 1;
     height: 100%;
     display: flex;

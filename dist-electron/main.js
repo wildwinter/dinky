@@ -201,6 +201,9 @@ async function loadProject(win, filePath) {
       currentInkRoot = inkFileToLoad;
       const files = await loadRootInk(inkFileToLoad);
       safeSend(win, "root-ink-loaded", files);
+      safeSend(win, "project-loaded", { hasRoot: true });
+    } else {
+      safeSend(win, "project-loaded", { hasRoot: false });
     }
     return true;
   } catch (e) {
@@ -275,6 +278,24 @@ async function createNewInclude(win, name, folderPath) {
     return false;
   }
 }
+async function openInkRootUI$1(win) {
+  const currentProject = getCurrentProject();
+  const defaultPath = currentProject ? path.dirname(currentProject.path) : void 0;
+  const { canceled, filePaths } = await electron.dialog.showOpenDialog(win, {
+    defaultPath,
+    properties: ["openFile"],
+    filters: [{ name: "Ink Files", extensions: ["ink"] }]
+  });
+  if (!canceled && filePaths.length > 0) {
+    const files = await loadRootInk(filePaths[0]);
+    safeSend(win, "root-ink-loaded", files);
+    safeSend(win, "project-loaded", { hasRoot: true });
+    if (currentProject) {
+      await setProjectSetting(currentProject.path, "lastInkRoot", filePaths[0]);
+      console.log("Saved Ink Root preference:", filePaths[0]);
+    }
+  }
+}
 function openNewIncludeUI(win) {
   if (!currentInkRoot) {
     electron.dialog.showErrorBox("Error", "No Ink project loaded. Please open a project first.");
@@ -282,6 +303,42 @@ function openNewIncludeUI(win) {
   }
   const defaultFolder = path.dirname(currentInkRoot);
   safeSend(win, "show-new-include-modal", defaultFolder);
+}
+async function createInkRoot(win) {
+  if (!currentDinkProject) {
+    electron.dialog.showErrorBox("Error", "No project loaded.");
+    return false;
+  }
+  const projectFile = currentDinkProject.path;
+  const projectDir = path.dirname(projectFile);
+  const inkFile = path.join(projectDir, "main.ink");
+  try {
+    try {
+      await fs.access(inkFile);
+      const { response } = await electron.dialog.showMessageBox(win, {
+        type: "warning",
+        buttons: ["Cancel", "Overwrite"],
+        defaultId: 0,
+        title: "File Exists",
+        message: "main.ink already exists. Do you want to overwrite it?"
+      });
+      if (response === 0) return false;
+    } catch {
+    }
+    await fs.writeFile(inkFile, "// Add Ink content here", "utf-8");
+    currentDinkProject.content.source = "main.ink";
+    await fs.writeFile(projectFile, JSON.stringify(currentDinkProject.content, null, 2), "utf-8");
+    await setProjectSetting(projectFile, "lastInkRoot", inkFile);
+    const files = await loadRootInk(inkFile);
+    currentInkRoot = inkFile;
+    safeSend(win, "root-ink-loaded", files);
+    safeSend(win, "project-loaded", { hasRoot: true });
+    return true;
+  } catch (e) {
+    console.error("Failed to create ink root:", e);
+    electron.dialog.showErrorBox("Error", `Failed to create ink root: ${e.message}`);
+    return false;
+  }
 }
 async function deleteInclude(win, filePathToDelete) {
   if (!currentInkRoot || !filePathToDelete) return false;
@@ -697,22 +754,7 @@ async function buildMenu(win) {
           label: "Open Ink Root...",
           accelerator: "CmdOrCtrl+O",
           click: async () => {
-            const currentProject = getCurrentProject();
-            const defaultPath = currentProject ? path.dirname(currentProject.path) : void 0;
-            const { canceled, filePaths } = await electron.dialog.showOpenDialog(win, {
-              defaultPath,
-              properties: ["openFile"],
-              filters: [{ name: "Ink Files", extensions: ["ink"] }]
-            });
-            if (!canceled && filePaths.length > 0) {
-              const files = await loadRootInk(filePaths[0]);
-              safeSend(win, "root-ink-loaded", files);
-              const currentDinkProject2 = getCurrentProject();
-              if (currentDinkProject2) {
-                await setProjectSetting(currentDinkProject2.path, "lastInkRoot", filePaths[0]);
-                console.log("Saved Ink Root preference:", filePaths[0]);
-              }
-            }
+            await openInkRootUI(win);
           }
         },
         {
@@ -948,6 +990,14 @@ electron.ipcMain.handle("open-project", async (event) => {
   if (!canceled && filePaths.length > 0) {
     await loadProject(win, filePaths[0]);
   }
+});
+electron.ipcMain.handle("open-ink-root", async (event) => {
+  const win = electron.BrowserWindow.fromWebContents(event.sender);
+  if (win) await openInkRootUI$1(win);
+});
+electron.ipcMain.handle("create-ink-root", async (event) => {
+  const win = electron.BrowserWindow.fromWebContents(event.sender);
+  if (win) return await createInkRoot(win);
 });
 electron.ipcMain.handle("new-project", async (event) => {
   const win = electron.BrowserWindow.fromWebContents(event.sender);
