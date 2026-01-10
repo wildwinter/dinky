@@ -33,13 +33,32 @@
             background-color: var(--bg-color);
             color: var(--text-color);
         }
+
+        #icon-bar div:hover {
+            background-color: var(--sidebar-border);
+        }
+
+        #icon-bar div:active {
+            opacity: 0.7;
+        }
     </style>
 </head>
 
 <body>
     <div id="test-window">
-        <!-- Icon Bar (currently empty) -->
-        <div id="icon-bar"></div>
+        <!-- Icon Bar -->
+        <div id="icon-bar">
+            <div id="btn-restart" title="Restart"
+                style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                <!-- Phosphor Rewind Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" width="18"
+                    height="18">
+                    <path
+                        d="M216,40V216a8,8,0,0,1-13.66,5.66L112,131.31V216a8,8,0,0,1-13.66,5.66L10.34,133.66a8,8,0,0,1,0-11.32l88-88A8,8,0,0,1,112,40v84.69l90.34-90.35A8,8,0,0,1,216,40ZM96,194.34V61.66L29.66,128ZM200,194.34V61.66L133.66,128Z">
+                    </path>
+                </svg>
+            </div>
+        </div>
 
         <!-- Scrollable Document Area -->
         <div id="content-area">

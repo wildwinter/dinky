@@ -12,7 +12,9 @@ window.electronAPI.onThemeUpdated((theme) => {
 });
 
 const contentArea = document.getElementById('content-area');
+const btnRestart = document.getElementById('btn-restart');
 let story = null;
+let currentStoryJson = null;
 
 function continueStory() {
     if (!story) return;
@@ -56,12 +58,19 @@ function continueStory() {
     }
 }
 
-window.electronAPI.onStartStory((storyJson) => {
+function startStory(storyJson) {
+    if (!storyJson) {
+        console.error('startStory called with null/undefined storyJson');
+        return;
+    }
     console.log('Starting story...');
+    currentStoryJson = storyJson;
     contentArea.innerHTML = ''; // Clear previous
 
     try {
-        story = new Story(storyJson);
+        // Create a new Story instance. Clone JSON to ensure no shared state if inkjs mutates it.
+        const jsonToUse = typeof storyJson === 'string' ? JSON.parse(storyJson) : JSON.parse(JSON.stringify(storyJson));
+        story = new Story(jsonToUse);
         continueStory();
     } catch (e) {
         console.error('Failed to run story:', e);
@@ -70,4 +79,26 @@ window.electronAPI.onStartStory((storyJson) => {
         p.textContent = 'Runtime Error: ' + e.message;
         contentArea.appendChild(p);
     }
+}
+
+window.electronAPI.onStartStory((storyJson) => {
+    console.log('onStartStory received');
+    startStory(storyJson);
 });
+
+if (btnRestart) {
+    console.log('Attaching click handler to btnRestart');
+    btnRestart.onclick = (e) => {
+        console.log('Restart button clicked');
+        e.preventDefault();
+        e.stopPropagation();
+        if (currentStoryJson) {
+            console.log('Restarting with stored story JSON');
+            startStory(currentStoryJson);
+        } else {
+            console.warn('Cannot restart: currentStoryJson is null');
+        }
+    };
+} else {
+    console.error('btn-restart element not found!');
+}
