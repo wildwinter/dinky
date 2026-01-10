@@ -100,7 +100,16 @@
             <ul id="file-list"></ul>
         </div>
         <div id="editor-container"></div>
-        <div id="empty-state">Load Project</div>
+        <div id="empty-state">
+            <div style="display: flex; gap: 10px;">
+                <button id="btn-load-project"
+                    style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">Load
+                    Project...</button>
+                <button id="btn-new-project"
+                    style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">New
+                    Project...</button>
+            </div>
+        </div>
     </div>
     <script type="module" src="/src/renderer.js"></script>
 </body>

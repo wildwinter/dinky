@@ -76,6 +76,14 @@ let currentFilePath = null; // Added: To store the absolute path of the currentl
 let rootInkPath = null; // Renamed from rootFilePath
 let isUpdatingContent = false; // Added: To prevent recursive updates during file switching
 
+document.getElementById('btn-load-project').addEventListener('click', () => {
+    window.electronAPI.openProject();
+});
+
+document.getElementById('btn-new-project').addEventListener('click', () => {
+    window.electronAPI.newProject();
+});
+
 window.electronAPI.onRootInkLoaded((files) => {
     loadedInkFiles.clear();
     const fileList = document.getElementById('file-list');

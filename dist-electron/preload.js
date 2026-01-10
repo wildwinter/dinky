@@ -7,7 +7,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   saveFiles: (files) => ipcRenderer.invoke("save-files", files),
   compileInk: (content, filePath, projectFiles) => ipcRenderer.invoke("compile-ink", content, filePath, projectFiles),
   onThemeUpdated: (callback) => ipcRenderer.on("theme-updated", (_event, value) => callback(value)),
-  log: (...args) => ipcRenderer.send("renderer-log", ...args)
+  log: (...args) => ipcRenderer.send("renderer-log", ...args),
+  openProject: () => ipcRenderer.invoke("open-project"),
+  newProject: () => ipcRenderer.invoke("new-project")
 });
 window.addEventListener("DOMContentLoaded", () => {
   const replaceText = (selector, text) => {

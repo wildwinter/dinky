@@ -97,6 +97,16 @@ ${e.message}`);
     return false;
   }
 }
+async function handleNewProject(win, filePath) {
+  try {
+    const initialContent = {};
+    await fs.writeFile(filePath, JSON.stringify(initialContent, null, 4), "utf-8");
+    await loadProject(win, filePath);
+  } catch (e) {
+    console.error("Failed to create new project:", e);
+    dialog.showErrorBox("Error", "Failed to create new project file.");
+  }
+}
 async function buildMenu(win) {
   const recentProjects = await getRecentProjects();
   const isMac = process.platform === "darwin";
@@ -133,25 +143,18 @@ async function buildMenu(win) {
       label: "File",
       submenu: [
         {
-          label: "New Dink Project...",
+          label: "New Project...",
           click: async () => {
             const { canceled, filePath } = await dialog.showSaveDialog(win, {
               filters: [{ name: "Dink Project", extensions: ["dinkproj"] }]
             });
             if (!canceled && filePath) {
-              try {
-                const initialContent = {};
-                await fs.writeFile(filePath, JSON.stringify(initialContent, null, 4), "utf-8");
-                await loadProject(win, filePath);
-              } catch (e) {
-                console.error("Failed to create new project:", e);
-                dialog.showErrorBox("Error", "Failed to create new project file.");
-              }
+              await handleNewProject(win, filePath);
             }
           }
         },
         {
-          label: "Open Dink Project...",
+          label: "Open Project...",
           click: async () => {
             const { canceled, filePaths } = await dialog.showOpenDialog(win, {
               properties: ["openFile"],
@@ -163,7 +166,7 @@ async function buildMenu(win) {
           }
         },
         {
-          label: "Open Recent",
+          label: "Open Recent Project",
           submenu: recentMenu
         },
         { type: "separator" },
@@ -410,6 +413,25 @@ ipcMain.handle("save-files", async (event, files) => {
     } catch (e) {
       console.error("Failed to save file", filePath, e);
     }
+  }
+});
+ipcMain.handle("open-project", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    properties: ["openFile"],
+    filters: [{ name: "Dink Project", extensions: ["dinkproj"] }]
+  });
+  if (!canceled && filePaths.length > 0) {
+    await loadProject(win, filePaths[0]);
+  }
+});
+ipcMain.handle("new-project", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    filters: [{ name: "Dink Project", extensions: ["dinkproj"] }]
+  });
+  if (!canceled && filePath) {
+    await handleNewProject(win, filePath);
   }
 });
 app.whenReady().then(() => {
