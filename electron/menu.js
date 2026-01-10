@@ -69,7 +69,11 @@ async function buildMenu(win) {
                     label: 'Open Ink Root...',
                     accelerator: 'CmdOrCtrl+O',
                     click: async () => {
+                        const currentProject = getCurrentProject();
+                        const defaultPath = currentProject ? path.dirname(currentProject.path) : undefined;
+
                         const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+                            defaultPath: defaultPath,
                             properties: ['openFile'],
                             filters: [{ name: 'Ink Files', extensions: ['ink'] }]
                         })

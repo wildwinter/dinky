@@ -223,7 +223,10 @@ async function buildMenu(win) {
           label: "Open Ink Root...",
           accelerator: "CmdOrCtrl+O",
           click: async () => {
+            const currentProject = getCurrentProject();
+            const defaultPath = currentProject ? path.dirname(currentProject.path) : void 0;
             const { canceled, filePaths } = await electron.dialog.showOpenDialog(win, {
+              defaultPath,
               properties: ["openFile"],
               filters: [{ name: "Ink Files", extensions: ["ink"] }]
             });
