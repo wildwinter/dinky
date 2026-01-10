@@ -282,12 +282,34 @@ function openTestWindow() {
     height: 600,
     x,
     y,
-    backgroundColor: "#ffffff"
+    backgroundColor: electron.nativeTheme.shouldUseDarkColors ? "#1e1e1e" : "#ffffff",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
   });
+  const updateTheme = () => {
+    if (!testWindow || testWindow.isDestroyed()) return;
+    const theme = electron.nativeTheme.shouldUseDarkColors ? "vs-dark" : "vs";
+    testWindow.webContents.send("theme-updated", theme);
+    testWindow.setBackgroundColor(electron.nativeTheme.shouldUseDarkColors ? "#1e1e1e" : "#ffffff");
+  };
+  const themeListener = () => updateTheme();
+  electron.nativeTheme.on("updated", themeListener);
   testWindow.on("closed", () => {
+    electron.nativeTheme.off("updated", themeListener);
     testWindow = null;
   });
-  testWindow.loadURL("data:text/html,<html><body></body></html>");
+  testWindow.webContents.on("did-finish-load", () => {
+    updateTheme();
+  });
+  if (process.env.VITE_DEV_SERVER_URL) {
+    testWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}test-window.html`);
+  } else {
+    const indexPath = path.join(__dirname, "../dist/test-window.html");
+    testWindow.loadFile(indexPath).catch((e) => console.error("Failed to load test-window.html:", e));
+  }
 }
 async function buildMenu(win) {
   const recentProjects = await getRecentProjects();

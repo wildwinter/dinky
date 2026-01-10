@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval';">
+    <title>Test Window</title>
+    <link rel="stylesheet" href="/src/styles.css">
+    <style>
+        #test-window {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #icon-bar {
+            height: 40px;
+            background-color: var(--sidebar-bg);
+            border-bottom: 1px solid var(--sidebar-border);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            flex-shrink: 0;
+        }
+
+        #content-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="test-window">
+        <!-- Icon Bar (currently empty) -->
+        <div id="icon-bar"></div>
+
+        <!-- Scrollable Document Area -->
+        <div id="content-area">
+            <!-- Content will go here -->
+        </div>
+    </div>
+    <script type="module" src="/src/test-renderer.js"></script>
+</body>
+
+</html>
