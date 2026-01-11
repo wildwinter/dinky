@@ -24,6 +24,76 @@ self.MonacoEnvironment = {
     },
 };
 
+class ModalHelper {
+    constructor(config) {
+        this.overlay = document.getElementById(config.overlayId);
+        this.confirmBtn = document.getElementById(config.confirmBtnId);
+        this.cancelBtn = document.getElementById(config.cancelBtnId);
+        this.onConfirm = config.onConfirm;
+        this.onValidate = config.onValidate || (() => true);
+        this.onShow = config.onShow || (() => { });
+        this.onCancel = config.onCancel || (() => { });
+
+        this._initListeners();
+    }
+
+    _initListeners() {
+        this.confirmBtn.addEventListener('click', async () => {
+            if (this.confirmBtn.disabled) return;
+            this.confirmBtn.disabled = true; // Prevent double submission
+            try {
+                const success = await this.onConfirm();
+                if (success) {
+                    this.close();
+                } else {
+                    this.validate(); // Re-enable based on validation if failed
+                }
+            } catch (e) {
+                console.error("Modal confirm action failed", e);
+                this.validate();
+            }
+        });
+
+        this.cancelBtn.addEventListener('click', () => {
+            this.onCancel();
+            this.close();
+        });
+
+        this.overlay.addEventListener('keydown', (e) => {
+            if (this.overlay.style.display === 'none') return;
+            if (e.key === 'Enter') {
+                if (!this.confirmBtn.disabled) {
+                    this.confirmBtn.click();
+                }
+            } else if (e.key === 'Escape') {
+                this.onCancel();
+                this.close();
+            }
+        });
+    }
+
+    open(...args) {
+        this.onShow(...args);
+        this.overlay.style.display = 'flex';
+        this.validate();
+        const input = this.overlay.querySelector('input');
+        if (input) {
+            input.focus();
+            if (input.value) input.select();
+        }
+    }
+
+    close() {
+        this.overlay.style.display = 'none';
+        // Reset button state slightly delayed or immediately ensure clean state
+        this.confirmBtn.disabled = false;
+    }
+
+    validate() {
+        this.confirmBtn.disabled = !this.onValidate();
+    }
+}
+
 
 // Define custom themes
 monaco.editor.defineTheme('dinky-dark', {
@@ -197,7 +267,7 @@ function checkSpelling() {
     monaco.editor.setModelMarkers(model, 'spellcheck', markers);
 }
 
-// removed duplicate definition
+
 
 let loadedInkFiles = new Map();
 let currentFilePath = null;
@@ -290,163 +360,99 @@ window.electronAPI.onRootInkLoaded(async (files) => {
 
 
 // -- Rename Include Logic --
-const renameModalOverlay = document.getElementById('modal-rename-include-overlay');
-const renameInput = document.getElementById('rename-include-name');
-const btnConfirmRename = document.getElementById('btn-confirm-rename');
-const btnCancelRename = document.getElementById('btn-cancel-rename');
 let currentRenamePath = null;
+const renameIncludeModal = new ModalHelper({
+    overlayId: 'modal-rename-include-overlay',
+    confirmBtnId: 'btn-confirm-rename',
+    cancelBtnId: 'btn-cancel-rename',
+    onShow: (filePath) => {
+        currentRenamePath = filePath;
+        const parts = currentRenamePath.split(/[/\\]/);
+        const fileName = parts[parts.length - 1];
+        document.getElementById('rename-include-name').value = fileName.replace(/\.ink$/i, '');
+    },
+    onValidate: () => !!document.getElementById('rename-include-name').value.trim(),
+    onConfirm: async () => {
+        const newName = document.getElementById('rename-include-name').value.trim();
+        if (currentRenamePath && newName) {
+            return await window.electronAPI.renameInclude(currentRenamePath, newName);
+        }
+        return false;
+    },
+    onCancel: () => { currentRenamePath = null; }
+});
+
+document.getElementById('rename-include-name').addEventListener('input', () => renameIncludeModal.validate());
 
 document.getElementById('btn-rename-include').addEventListener('click', () => {
     if (!currentFilePath) return;
-
-    currentRenamePath = currentFilePath;
-    // Extract base name without extension
-    const parts = currentRenamePath.split(/[/\\]/);
-    const fileName = parts[parts.length - 1];
-    const baseName = fileName.replace(/\.ink$/i, '');
-
-    renameInput.value = baseName;
-    renameModalOverlay.style.display = 'flex';
-    renameInput.focus();
-    renameInput.select();
-});
-
-btnCancelRename.addEventListener('click', () => {
-    renameModalOverlay.style.display = 'none';
-    currentRenamePath = null;
-});
-
-btnConfirmRename.addEventListener('click', () => {
-    const newName = renameInput.value.trim();
-    if (!newName) return;
-
-    if (currentRenamePath) {
-        window.electronAPI.renameInclude(currentRenamePath, newName);
-    }
-    renameModalOverlay.style.display = 'none';
-    currentRenamePath = null;
-});
-
-// Allow Enter to submit rename
-renameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        btnConfirmRename.click();
-    } else if (e.key === 'Escape') {
-        btnCancelRename.click();
-    }
+    renameIncludeModal.open(currentFilePath);
 });
 
 
 // -- Rename Root Logic --
-const renameRootModalOverlay = document.getElementById('modal-rename-root-overlay');
-const renameRootInput = document.getElementById('rename-root-name');
-const btnConfirmRenameRoot = document.getElementById('btn-confirm-rename-root');
-const btnCancelRenameRoot = document.getElementById('btn-cancel-rename-root');
+const renameRootModal = new ModalHelper({
+    overlayId: 'modal-rename-root-overlay',
+    confirmBtnId: 'btn-confirm-rename-root',
+    cancelBtnId: 'btn-cancel-rename-root',
+    onShow: () => {
+        if (!rootInkPath) return;
+        const parts = rootInkPath.split(/[/\\]/);
+        const fileName = parts[parts.length - 1];
+        document.getElementById('rename-root-name').value = fileName.replace(/\.ink$/i, '');
+    },
+    onValidate: () => !!document.getElementById('rename-root-name').value.trim(),
+    onConfirm: async () => {
+        const newName = document.getElementById('rename-root-name').value.trim();
+        if (newName) {
+            return await window.electronAPI.renameInkRoot(newName);
+        }
+        return false;
+    }
+});
+
+document.getElementById('rename-root-name').addEventListener('input', () => renameRootModal.validate());
 
 document.getElementById('btn-rename-root').addEventListener('click', () => {
     if (!rootInkPath) return;
-
-    // Extract base name without extension
-    const parts = rootInkPath.split(/[/\\]/);
-    const fileName = parts[parts.length - 1];
-    const baseName = fileName.replace(/\.ink$/i, '');
-
-    renameRootInput.value = baseName;
-    renameRootModalOverlay.style.display = 'flex';
-    renameRootInput.focus();
-    renameRootInput.select();
-});
-
-btnCancelRenameRoot.addEventListener('click', () => {
-    renameRootModalOverlay.style.display = 'none';
-});
-
-btnConfirmRenameRoot.addEventListener('click', () => {
-    const newName = renameRootInput.value.trim();
-    if (!newName) return;
-
-    window.electronAPI.renameInkRoot(newName);
-    renameRootModalOverlay.style.display = 'none';
-});
-
-// Allow Enter to submit root rename
-renameRootInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        btnConfirmRenameRoot.click();
-    } else if (e.key === 'Escape') {
-        btnCancelRenameRoot.click();
-    }
+    renameRootModal.open();
 });
 
 
 // -- New Ink Root Logic --
-const modalNewInkRootOverlay = document.getElementById('modal-new-ink-root-overlay');
+const newInkRootModal = new ModalHelper({
+    overlayId: 'modal-new-ink-root-overlay',
+    confirmBtnId: 'btn-confirm-new-ink-root',
+    cancelBtnId: 'btn-cancel-new-ink-root',
+    onShow: (defaultFolder) => {
+        document.getElementById('new-ink-root-name').value = '';
+        document.getElementById('new-ink-root-folder').value = defaultFolder || '';
+    },
+    onValidate: () => {
+        const name = document.getElementById('new-ink-root-name').value.trim();
+        const folder = document.getElementById('new-ink-root-folder').value.trim();
+        return name && folder;
+    },
+    onConfirm: async () => {
+        const name = document.getElementById('new-ink-root-name').value.trim();
+        const folder = document.getElementById('new-ink-root-folder').value.trim();
+        return await window.electronAPI.createNewInkRoot(name, folder);
+    }
+});
+
 const inputNewInkRootName = document.getElementById('new-ink-root-name');
-const inputNewInkRootFolder = document.getElementById('new-ink-root-folder');
-const btnSelectNewInkRootFolder = document.getElementById('btn-select-ink-root-folder');
-const btnCancelNewInkRoot = document.getElementById('btn-cancel-new-ink-root');
-const btnCreateNewInkRoot = document.getElementById('btn-confirm-new-ink-root');
-
-function openNewInkRootModal(defaultFolder) {
-    inputNewInkRootName.value = '';
-    inputNewInkRootFolder.value = defaultFolder || '';
-    validateNewInkRootForm();
-    modalNewInkRootOverlay.style.display = 'flex';
-    inputNewInkRootName.focus();
-}
-
-function closeNewInkRootModal() {
-    modalNewInkRootOverlay.style.display = 'none';
-}
-
-function validateNewInkRootForm() {
-    const name = inputNewInkRootName.value.trim();
-    const folder = inputNewInkRootFolder.value.trim();
-    btnCreateNewInkRoot.disabled = !(name && folder);
-}
+inputNewInkRootName.addEventListener('input', () => newInkRootModal.validate());
 
 window.electronAPI.onShowNewInkRootModal((defaultFolder) => {
-    openNewInkRootModal(defaultFolder);
+    newInkRootModal.open(defaultFolder);
 });
 
-btnSelectNewInkRootFolder.addEventListener('click', async () => {
-    const path = await window.electronAPI.selectFolder(inputNewInkRootFolder.value);
+document.getElementById('btn-select-ink-root-folder').addEventListener('click', async () => {
+    const input = document.getElementById('new-ink-root-folder');
+    const path = await window.electronAPI.selectFolder(input.value);
     if (path) {
-        inputNewInkRootFolder.value = path;
-        validateNewInkRootForm();
-    }
-});
-
-btnCancelNewInkRoot.addEventListener('click', () => {
-    closeNewInkRootModal();
-});
-
-btnCreateNewInkRoot.addEventListener('click', async () => {
-    const name = inputNewInkRootName.value.trim();
-    const folder = inputNewInkRootFolder.value.trim();
-    if (name && folder) {
-        btnCreateNewInkRoot.disabled = true;
-        const success = await window.electronAPI.createNewInkRoot(name, folder);
-        if (success) {
-            closeNewInkRootModal();
-        } else {
-            btnCreateNewInkRoot.disabled = false;
-        }
-    }
-});
-
-inputNewInkRootName.addEventListener('input', validateNewInkRootForm);
-
-// Keyboard shortcuts for New Ink Root Modal
-modalNewInkRootOverlay.addEventListener('keydown', (e) => {
-    if (modalNewInkRootOverlay.style.display === 'none') return;
-
-    if (e.key === 'Enter') {
-        if (!btnCreateNewInkRoot.disabled) {
-            btnCreateNewInkRoot.click();
-        }
-    } else if (e.key === 'Escape') {
-        closeNewInkRootModal();
+        input.value = path;
+        newInkRootModal.validate();
     }
 });
 
@@ -684,149 +690,76 @@ window.electronAPI.onCheckUnsaved(() => {
 checkSyntax();
 
 // --- New Project Modal Logic ---
-const modalOverlay = document.getElementById('modal-overlay');
-const inputName = document.getElementById('new-project-name');
-const inputFolder = document.getElementById('new-project-folder');
-const btnSelectFolder = document.getElementById('btn-select-folder');
-const btnCancel = document.getElementById('btn-cancel-create');
-const btnCreate = document.getElementById('btn-confirm-create');
-
-function openModal() {
-    inputName.value = '';
-    inputFolder.value = '';
-    validateForm();
-    modalOverlay.style.display = 'flex';
-    inputName.focus();
-}
-
-function closeModal() {
-    modalOverlay.style.display = 'none';
-}
-
-function validateForm() {
-    const name = inputName.value.trim();
-    const folder = inputFolder.value.trim();
-    // Disallow periods in name
-    const isValidName = name && !name.includes('.');
-    btnCreate.disabled = !(isValidName && folder);
-}
-
-// Event Listeners
-window.electronAPI.onShowNewProjectModal(() => {
-    openModal();
+const newProjectModal = new ModalHelper({
+    overlayId: 'modal-overlay',
+    confirmBtnId: 'btn-confirm-create',
+    cancelBtnId: 'btn-cancel-create',
+    onShow: () => {
+        document.getElementById('new-project-name').value = '';
+        document.getElementById('new-project-folder').value = '';
+    },
+    onValidate: () => {
+        const name = document.getElementById('new-project-name').value.trim();
+        const folder = document.getElementById('new-project-folder').value.trim();
+        // Disallow periods in name
+        const isValidName = name && !name.includes('.');
+        return isValidName && folder;
+    },
+    onConfirm: async () => {
+        const name = document.getElementById('new-project-name').value.trim();
+        const folder = document.getElementById('new-project-folder').value.trim();
+        return await window.electronAPI.createNewProject(name, folder);
+    }
 });
 
-btnSelectFolder.addEventListener('click', async () => {
+document.getElementById('new-project-name').addEventListener('input', () => newProjectModal.validate());
+
+window.electronAPI.onShowNewProjectModal(() => {
+    newProjectModal.open();
+});
+
+document.getElementById('btn-select-folder').addEventListener('click', async () => {
+    const input = document.getElementById('new-project-folder');
     const path = await window.electronAPI.selectFolder();
     if (path) {
-        inputFolder.value = path;
-        validateForm();
-    }
-});
-
-btnCancel.addEventListener('click', () => {
-    closeModal();
-});
-
-btnCreate.addEventListener('click', async () => {
-    const name = inputName.value.trim();
-    const folder = inputFolder.value.trim();
-    if (name && folder) {
-        // Disable button to prevent double submit
-        btnCreate.disabled = true;
-        const success = await window.electronAPI.createNewProject(name, folder);
-        if (success) {
-            closeModal();
-        } else {
-            // Re-enable if failed (though main process shows error box usually)
-            btnCreate.disabled = false;
-        }
-    }
-});
-
-inputName.addEventListener('input', validateForm);
-
-// Keyboard shortcuts for New Project Modal
-modalOverlay.addEventListener('keydown', (e) => {
-    if (modalOverlay.style.display === 'none') return;
-
-    if (e.key === 'Enter') {
-        if (!btnCreate.disabled) {
-            btnCreate.click();
-        }
-    } else if (e.key === 'Escape') {
-        closeModal();
+        input.value = path;
+        newProjectModal.validate();
     }
 });
 
 // --- New Include Modal Logic ---
-const modalIncludeOverlay = document.getElementById('modal-include-overlay');
-const inputIncludeName = document.getElementById('new-include-name');
-const inputIncludeFolder = document.getElementById('new-include-folder');
-const btnSelectIncludeFolder = document.getElementById('btn-select-include-folder');
-const btnCancelInclude = document.getElementById('btn-cancel-include');
-const btnCreateInclude = document.getElementById('btn-confirm-include');
+const newIncludeModal = new ModalHelper({
+    overlayId: 'modal-include-overlay',
+    confirmBtnId: 'btn-confirm-include',
+    cancelBtnId: 'btn-cancel-include',
+    onShow: (defaultFolder) => {
+        document.getElementById('new-include-name').value = '';
+        document.getElementById('new-include-folder').value = defaultFolder || '';
+    },
+    onValidate: () => {
+        const name = document.getElementById('new-include-name').value.trim();
+        const folder = document.getElementById('new-include-folder').value.trim();
+        return name && folder;
+    },
+    onConfirm: async () => {
+        const name = document.getElementById('new-include-name').value.trim();
+        const folder = document.getElementById('new-include-folder').value.trim();
+        return await window.electronAPI.createNewInclude(name, folder);
+    }
+});
 
-function openIncludeModal(defaultFolder) {
-    inputIncludeName.value = '';
-    inputIncludeFolder.value = defaultFolder || '';
-    validateIncludeForm();
-    modalIncludeOverlay.style.display = 'flex';
-    inputIncludeName.focus();
-}
-
-function closeIncludeModal() {
-    modalIncludeOverlay.style.display = 'none';
-}
-
-function validateIncludeForm() {
-    const name = inputIncludeName.value.trim();
-    const folder = inputIncludeFolder.value.trim();
-    btnCreateInclude.disabled = !(name && folder);
-}
+document.getElementById('new-include-name').addEventListener('input', () => newIncludeModal.validate());
 
 window.electronAPI.onShowNewIncludeModal((defaultFolder) => {
-    openIncludeModal(defaultFolder);
+    newIncludeModal.open(defaultFolder);
 });
 
-btnSelectIncludeFolder.addEventListener('click', async () => {
-    const path = await window.electronAPI.selectFolder(inputIncludeFolder.value);
+document.getElementById('btn-select-include-folder').addEventListener('click', async () => {
+    const input = document.getElementById('new-include-folder');
+    const path = await window.electronAPI.selectFolder(input.value);
     if (path) {
-        inputIncludeFolder.value = path;
-        validateIncludeForm();
-    }
-});
-
-btnCancelInclude.addEventListener('click', () => {
-    closeIncludeModal();
-});
-
-btnCreateInclude.addEventListener('click', async () => {
-    const name = inputIncludeName.value.trim();
-    const folder = inputIncludeFolder.value.trim();
-    if (name && folder) {
-        btnCreateInclude.disabled = true;
-        const success = await window.electronAPI.createNewInclude(name, folder);
-        if (success) {
-            closeIncludeModal();
-        } else {
-            btnCreateInclude.disabled = false;
-        }
-    }
-});
-
-inputIncludeName.addEventListener('input', validateIncludeForm);
-
-// Keyboard shortcuts for New Include Modal
-modalIncludeOverlay.addEventListener('keydown', (e) => {
-    if (modalIncludeOverlay.style.display === 'none') return;
-
-    if (e.key === 'Enter') {
-        if (!btnCreateInclude.disabled) {
-            btnCreateInclude.click();
-        }
-    } else if (e.key === 'Escape') {
-        closeIncludeModal();
+        input.value = path;
+        newIncludeModal.validate();
     }
 });
 
