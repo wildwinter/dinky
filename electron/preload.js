@@ -20,7 +20,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createNewInclude: (name, folderPath) => ipcRenderer.invoke('create-new-include', name, folderPath),
     onShowNewIncludeModal: (callback) => ipcRenderer.on('show-new-include-modal', (_event, value) => callback(value)),
     openNewIncludeUI: () => ipcRenderer.invoke('open-new-include-ui'),
-    deleteInclude: (filePath) => ipcRenderer.invoke('delete-include', filePath),
+    deleteInclude: (filePath) => ipcRenderer.invoke('delete-include', filePath), // Deprecated but kept for safety if needed, though removed from main
+    removeInclude: (filePath) => ipcRenderer.invoke('remove-include', filePath),
+    chooseExistingInclude: () => ipcRenderer.invoke('choose-existing-include'),
     onCheckUnsaved: (callback) => ipcRenderer.on('check-unsaved', (_event) => callback()),
     sendUnsavedStatus: (status) => ipcRenderer.send('unsaved-status', status),
     sendSaveExitComplete: () => ipcRenderer.send('save-exit-complete'),

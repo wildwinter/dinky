@@ -6,7 +6,7 @@ import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowSta
 import { buildMenu } from './menu'
 import { compileInk } from './compiler'
 import { openTestWindow } from './test-runner'
-import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, deleteInclude, setMenuRebuildCallback } from './project-manager'
+import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, setMenuRebuildCallback } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
 import { safeSend, setupThemeListener } from './utils'
 
@@ -225,9 +225,14 @@ ipcMain.handle('open-new-include-ui', (event) => {
     if (win) openNewIncludeUI(win);
 });
 
-ipcMain.handle('delete-include', async (event, filePath) => {
+ipcMain.handle('choose-existing-include', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-    return await deleteInclude(win, filePath);
+    return await chooseExistingInclude(win);
+});
+
+ipcMain.handle('remove-include', async (event, filePath) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return await removeInclude(win, filePath);
 });
 
 ipcMain.handle('start-test', (event, rootPath, projectFiles) => {

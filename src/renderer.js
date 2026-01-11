@@ -130,19 +130,19 @@ window.electronAPI.onRootInkLoaded((files) => {
             // Root File
             file.listItem = rootFileStepInfo;
             rootFileStepInfo.textContent = file.relativePath;
-            
+
             rootFileStepInfo.onclick = () => {
-                loadFileToEditor(file, rootFileStepInfo);
+                loadFileToEditor(file, rootFileStepInfo, false);
             };
 
             // Initial load
-            loadFileToEditor(file, rootFileStepInfo);
+            loadFileToEditor(file, rootFileStepInfo, true);
         } else {
             // Include Files
             const li = document.createElement('li');
             file.listItem = li;
             li.textContent = file.relativePath;
-            
+
             li.onclick = () => {
                 loadFileToEditor(file, li);
             };
@@ -155,7 +155,7 @@ window.electronAPI.onRootInkLoaded((files) => {
     }
 });
 
-function loadFileToEditor(file, element) {
+function loadFileToEditor(file, element, forceRefresh = false) {
     // UI updates: remove active class from everything
     document.getElementById('ink-root-file-item').classList.remove('active');
     const fileList = document.getElementById('file-list');
@@ -164,7 +164,7 @@ function loadFileToEditor(file, element) {
     // Add active to current
     element.classList.add('active');
 
-    if (currentFilePath === file.absolutePath) return;
+    if (!forceRefresh && currentFilePath === file.absolutePath) return;
 
     isUpdatingContent = true;
     currentFilePath = file.absolutePath;
@@ -469,21 +469,27 @@ document.getElementById('btn-add-include').addEventListener('click', () => {
     window.electronAPI.openNewIncludeUI();
 });
 
+document.getElementById('btn-choose-include').addEventListener('click', () => {
+    window.electronAPI.chooseExistingInclude();
+});
+
 const btnDeleteInclude = document.getElementById('btn-delete-include');
 
 function updateDeleteButtonState(isRoot) {
     if (isRoot) {
         btnDeleteInclude.style.opacity = '0.5';
         btnDeleteInclude.style.pointerEvents = 'none';
+        btnDeleteInclude.title = "Delete Include"
     } else {
         btnDeleteInclude.style.opacity = '1';
         btnDeleteInclude.style.pointerEvents = 'auto';
+        btnDeleteInclude.title = "Remove Include..."
     }
 }
 
 btnDeleteInclude.addEventListener('click', async () => {
     if (currentFilePath && currentFilePath !== rootInkPath) {
-        await window.electronAPI.deleteInclude(currentFilePath);
+        await window.electronAPI.removeInclude(currentFilePath);
     }
 });
 

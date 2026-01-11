@@ -51,7 +51,15 @@ async function loadRootInk(rootFilePath) {
                 }
             }
         } catch (error) {
-            // Still add it to list
+            console.error('Error loading ink file:', currentPath, error);
+            // Still add it to list if possible? No, we can't get content.
+            // Maybe add a placeholder?
+            files.push({
+                absolutePath: currentPath,
+                relativePath: path.relative(rootDir, currentPath) || path.basename(currentPath),
+                content: `// Error reading file: ${error.message}`,
+                error: true
+            });
         }
     }
 
@@ -317,40 +325,119 @@ export {
     openNewIncludeUI,
     openInkRootUI,
     createInkRoot,
-    deleteInclude
+    removeInclude,
+    chooseExistingInclude
 }
 
-async function deleteInclude(win, filePathToDelete) {
-    if (!currentInkRoot || !filePathToDelete) return false;
-
-    // Safety check: cannot delete the root itself
-    if (filePathToDelete === currentInkRoot) {
-        dialog.showErrorBox('Error', 'Cannot delete the main Ink Root file.');
+async function chooseExistingInclude(win) {
+    if (!currentInkRoot) {
+        dialog.showErrorBox('Error', 'No Ink project loaded.');
         return false;
     }
 
-    // Confirmation Dialog
-    const fileName = path.basename(filePathToDelete);
-    const { response } = await dialog.showMessageBox(win, {
-        type: 'question',
-        buttons: ['Cancel', 'Delete'],
-        defaultId: 0,
-        title: 'Delete File',
-        message: `Are you sure you want to delete file "${fileName}"?`,
-        detail: 'This action cannot be undone. The file will be deleted and the INCLUDE line removed from the root file.'
+    const defaultPath = path.dirname(currentInkRoot);
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+        defaultPath: defaultPath,
+        properties: ['openFile'],
+        filters: [{ name: 'Ink Files', extensions: ['ink'] }]
     });
 
-    if (response === 0) { // Cancel (0 since it's the first button)
+    if (canceled || filePaths.length === 0) return false;
+
+    const selectedFile = filePaths[0];
+
+    // Prevent recursive include of root
+    if (selectedFile === currentInkRoot) {
+        dialog.showErrorBox('Error', 'Cannot include the root file into itself.');
         return false;
     }
 
     try {
-        // Remove INCLUDE line from Ink Root
+        // Add INCLUDE line
         const rootContent = await fs.readFile(currentInkRoot, 'utf-8');
         const lines = rootContent.split(/\r?\n/);
+        const relativePath = path.relative(path.dirname(currentInkRoot), selectedFile);
 
+        // Ensure forward slashes
+        const includeLine = `INCLUDE ${relativePath.replace(/\\/g, '/')}`;
+
+        // Check if already included
+        if (rootContent.includes(includeLine)) {
+            dialog.showMessageBox(win, {
+                type: 'info',
+                message: 'File is already included.',
+            });
+            return false;
+        }
+
+        // Reuse insertion logic (simplified duplication here for safety, or we could refactor)
+        let insertIndex = -1;
+        for (let i = lines.length - 1; i >= 0; i--) {
+            if (lines[i].trim().startsWith('INCLUDE ')) {
+                insertIndex = i + 1;
+                break;
+            }
+        }
+
+        if (insertIndex === -1) {
+            insertIndex = 0;
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line.startsWith('//') || line === '') {
+                    insertIndex = i + 1;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        lines.splice(insertIndex, 0, includeLine);
+        const newContent = lines.join('\n');
+
+        await fs.writeFile(currentInkRoot, newContent, 'utf-8');
+
+        const files = await loadRootInk(currentInkRoot);
+        safeSend(win, 'root-ink-loaded', files);
+
+        return true;
+
+    } catch (e) {
+        console.error('Failed to choose existing include:', e);
+        dialog.showErrorBox('Error', `Failed to include file: ${e.message}`);
+        return false;
+    }
+}
+
+async function removeInclude(win, filePathToDelete) {
+    if (!currentInkRoot || !filePathToDelete) return false;
+
+    if (filePathToDelete === currentInkRoot) {
+        dialog.showErrorBox('Error', 'Cannot remove the main Ink Root file.');
+        return false;
+    }
+
+    const fileName = path.basename(filePathToDelete);
+    const { response } = await dialog.showMessageBox(win, {
+        type: 'question',
+        buttons: ['Delete File', 'Remove from Project', 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+        title: 'Remove Include',
+        message: `What do you want to do with "${fileName}"?`,
+        detail: 'Deleting the file will permanently remove it from your disk.\nRemoving it from project will only remove the INCLUDE reference.'
+    });
+
+    if (response === 2) { // Cancel
+        return false;
+    }
+
+    const shouldDeleteFile = (response === 0);
+
+    try {
+        // Remove INCLUDE line
+        const rootContent = await fs.readFile(currentInkRoot, 'utf-8');
+        const lines = rootContent.split(/\r?\n/);
         const relativeToDelete = path.relative(path.dirname(currentInkRoot), filePathToDelete);
-        // Normalize slashes for matching
         const normalizedRelative = relativeToDelete.replace(/\\/g, '/');
 
         let entryFound = false;
@@ -358,18 +445,15 @@ async function deleteInclude(win, filePathToDelete) {
             const trimmed = line.trim();
             if (trimmed.startsWith('INCLUDE ')) {
                 const includePath = trimmed.substring(8).trim();
-
-                // Robust check: resolve the include path to absolute path
-                // and compare with the file we want to delete
                 const resolvedIncludePath = path.resolve(path.dirname(currentInkRoot), includePath);
-
                 if (resolvedIncludePath === filePathToDelete) {
                     entryFound = true;
-                    return false; // Remove this line
+                    return false;
                 }
             }
             return true;
         });
+
         if (!entryFound) {
             console.warn('Could not find corresponding INCLUDE line for', normalizedRelative);
         }
@@ -377,18 +461,18 @@ async function deleteInclude(win, filePathToDelete) {
         const newContent = newLines.join('\n');
         await fs.writeFile(currentInkRoot, newContent, 'utf-8');
 
-        // Delete the file
-        await fs.unlink(filePathToDelete);
+        if (shouldDeleteFile) {
+            await fs.unlink(filePathToDelete);
+        }
 
-        // Reload project
         const files = await loadRootInk(currentInkRoot);
         safeSend(win, 'root-ink-loaded', files);
 
         return true;
 
     } catch (e) {
-        console.error('Failed to delete include:', e);
-        dialog.showErrorBox('Error', `Failed to delete file: ${e.message}`);
+        console.error('Failed to remove include:', e);
+        dialog.showErrorBox('Error', `Failed to remove include: ${e.message}`);
         return false;
     }
 }
