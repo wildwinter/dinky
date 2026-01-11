@@ -63,43 +63,22 @@ export class DinkySpellChecker {
         }
     }
 
-    checkModel(model) {
+    checkModel(model, monaco) {
         if (!this.spell || !this.dictionariesLoaded) return [];
 
         const markers = [];
         const lineCount = model.getLineCount();
+        const text = model.getValue();
 
-        // Regex for words: Allow letters and apostrophes
+        // Tokenize using Monaco's tokenizer to respect our syntax highlighting rules
+        // This gives us true awareness of 'code', 'comment', etc. as defined in renderer.js
+        const tokenizedLines = monaco.editor.tokenize(text, 'ink');
+
         const wordRegex = /[a-zA-Z']+/g;
 
         for (let i = 1; i <= lineCount; i++) {
             const lineContent = model.getLineContent(i);
-
-            // Skip comments (simple check)
-            // TODO: Better context awareness from tokenizer would be ideal
-            // but for now, let's just avoid spellchecking totally commented lines
-            let trimmed = lineContent.trim();
-
-            // Exclusions:
-            // 1. Comments (start with // or /*)
-            if (trimmed.startsWith('//') || trimmed.startsWith('/*')) continue;
-            // 2. INCLUDE lines
-            if (trimmed.startsWith('INCLUDE ')) continue;
-            // 3. Definitions (VAR, CONST, EXTERNAL)
-            if (trimmed.startsWith('VAR ') || trimmed.startsWith('CONST ') || trimmed.startsWith('EXTERNAL ')) continue;
-            // 4. Code lines (start with ~)
-            if (trimmed.startsWith('~')) continue;
-            // 5. Divert lines (start with ->)
-            if (trimmed.startsWith('->')) continue;
-            // 6. Knot/Stitch lines (start with =)
-            if (trimmed.startsWith('=')) continue;
-
-            // Strip inline comments from the line content before checking
-            // We only handle // comments for inline stripping to stay safe
-            const commentIndex = lineContent.indexOf('//');
-            if (commentIndex !== -1) {
-                lineContent = lineContent.substring(0, commentIndex);
-            }
+            const lineTokens = tokenizedLines[i - 1]; // tokenize returns array matching lines, 0-indexed
 
             wordRegex.lastIndex = 0;
             let match;
@@ -107,9 +86,29 @@ export class DinkySpellChecker {
                 const word = match[0];
                 if (word.length < 2) continue; // Skip single letters
 
-                // Basic heuristic to skip some Ink specific things if possible
-                // e.g. identifiers in upper case (VAR NAMES often) or mixed case might be code
-                // But Ink text is freeform.
+                const startCol = match.index;
+
+                // Find token covering this word
+                // Tokens are objects: { offset: number, type: string, language: string }
+                // We find the token with the largest offset that is <= startCol
+                let tokenType = '';
+                if (lineTokens) {
+                    for (let t = 0; t < lineTokens.length; t++) {
+                        if (lineTokens[t].offset <= startCol) {
+                            tokenType = lineTokens[t].type;
+                        } else {
+                            break; // Sorted by offset, so past this point tokens are irrelevant
+                        }
+                    }
+                }
+
+                // If it's a special token (code, keyword, comment, annotation), skip it.
+                // We change to a blocklist approach to be safer:
+                // If it looks like code, skip it. If it's unknown or empty, check it.
+                const ignoredTypes = ['code', 'keyword', 'comment', 'annotation', 'type', 'delimiter', 'function'];
+                const isIgnored = ignoredTypes.some(t => tokenType.indexOf(t) !== -1);
+
+                if (isIgnored) continue;
 
                 if (!this.spell.correct(word)) {
                     markers.push({

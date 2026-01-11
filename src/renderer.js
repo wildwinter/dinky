@@ -24,6 +24,26 @@ self.MonacoEnvironment = {
     },
 };
 
+
+// Define custom themes
+monaco.editor.defineTheme('dinky-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+        { token: 'code', foreground: 'C586C0' }, // Magenta
+    ],
+    colors: {}
+});
+
+monaco.editor.defineTheme('dinky-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+        { token: 'code', foreground: '800080' }, // Purple
+    ],
+    colors: {}
+});
+
 monaco.languages.register({ id: 'ink' });
 
 monaco.languages.setMonarchTokensProvider('ink', {
@@ -32,6 +52,19 @@ monaco.languages.setMonarchTokensProvider('ink', {
             // Comments (Top priority)
             [/\/\/.*$/, 'comment'],
             [/\/\*/, 'comment', '@comment'],
+
+            // Code Lines - Solitary (No content implies no need to enter mode, or empty logic)
+            [/^\s*~$/, 'code'],
+            [/^\s*(?:INCLUDE|VAR|CONST|LIST)$/, 'code'],
+
+            // Code Lines - Start (Enter codeMode for rest of line)
+            [/^\s*(?:INCLUDE|VAR|CONST|LIST)\b/, 'code', '@codeMode'],
+            [/^\s*~/, 'code', '@codeMode'],
+
+            // Code Blocks: multi-line logic start/end or inline logic
+            [/^\s*\{[^}]*$/, 'code'],         // Line starting with { and not closing
+            [/^[^\{]*\}\s*$/, 'code'],        // Line ending with } and not opening
+            [/\{[^\{\}]*\}/, 'code'],         // Inline logic { ... }
 
             // Diverts: -> matches arrow and target
             [/->\s*[\w_\.]+/, 'keyword'],
@@ -53,8 +86,27 @@ monaco.languages.setMonarchTokensProvider('ink', {
             [/#\s*.*$/, 'annotation'],
 
             // Logic
+            // Note: { and } are now largely handled by 'code' rules above if they form blocks across lines
+            // or inline blocks. Remaining braces might be parts of complex nesting not caught above.
             [/[{}]/, 'delimiter.bracket'],
             [/\w+(?=\()/, 'function'], // Function calls
+        ],
+        codeMode: [
+            [/\/\/.*$/, 'comment', '@pop'],
+            [/\/\*/, 'comment', '@comment'],
+
+            // Content ending at EOL -> POP
+            [/[^/*]+$/, 'code', '@pop'],
+            [/\/(?!\/|\*)$/, 'code', '@pop'], // Lonely slash at EOL
+            [/\*(?!\/)$/, 'code', '@pop'],    // Lonely star at EOL
+
+            // Content NOT ending at EOL -> STAY
+            [/[^/*]+/, 'code'],
+            [/\//, 'code'],
+            [/\*/, 'code'],
+
+            // Fallback EOL catch (e.g. trailing whitespace matched differently or empty)
+            [/$/, 'code', '@pop']
         ],
         comment: [
             [/[^\/*]+/, 'comment'],
@@ -67,7 +119,7 @@ monaco.languages.setMonarchTokensProvider('ink', {
 const editor = monaco.editor.create(document.getElementById('editor-container'), {
     value: '',
     language: 'ink',
-    theme: 'vs-dark',
+    theme: 'dinky-dark',
     automaticLayout: true,
     readOnly: true,
 });
@@ -106,7 +158,7 @@ monaco.languages.registerCodeActionProvider('ink', {
                     });
 
                     const suggestions = spellChecker.getSuggestions(word);
-                    suggestions.slice(0, 5).forEach(s => {
+                    suggestions.slice(5).forEach(s => {
                         actions.push({
                             title: `Replace with "${s}"`,
                             kind: 'quickfix',
@@ -141,7 +193,7 @@ function checkSpelling() {
     if (!model) return;
 
     // We can rely on internal state of spellChecker to know if it's ready
-    const markers = spellChecker.checkModel(model);
+    const markers = spellChecker.checkModel(model, monaco);
     monaco.editor.setModelMarkers(model, 'spellcheck', markers);
 }
 
@@ -577,11 +629,12 @@ editor.onDidChangeModelContent(() => {
 });
 
 window.electronAPI.onThemeUpdated((theme) => {
-    monaco.editor.setTheme(theme);
     if (theme === 'vs') {
+        monaco.editor.setTheme('dinky-light');
         document.body.classList.add('light');
         document.body.classList.remove('dark');
     } else {
+        monaco.editor.setTheme('dinky-dark');
         document.body.classList.add('dark');
         document.body.classList.remove('light');
     }
