@@ -108,6 +108,7 @@ window.electronAPI.onRootInkLoaded((files) => {
     loadedInkFiles.clear();
     const fileList = document.getElementById('file-list');
     fileList.innerHTML = '';
+    const rootFileStepInfo = document.getElementById('ink-root-file-item');
 
     // Toggle view
     document.getElementById('empty-state').style.display = 'none';
@@ -125,38 +126,27 @@ window.electronAPI.onRootInkLoaded((files) => {
         file.originalContent = file.content;
         loadedInkFiles.set(file.absolutePath, file);
 
-        const li = document.createElement('li');
-        file.listItem = li;
-        li.textContent = file.relativePath;
-        li.style.padding = '4px 8px';
-        li.style.cursor = 'pointer';
-
-        li.onclick = () => {
-            // Remove active class from all
-            Array.from(fileList.children).forEach(c => c.classList.remove('active'));
-
-            isUpdatingContent = true;
-            currentFilePath = file.absolutePath;
-            editor.setValue(file.content);
-            isUpdatingContent = false;
-
-            li.classList.add('active');
-
-            // Update delete button state
-            updateDeleteButtonState(currentFilePath === rootInkPath);
-
-            checkSyntax();
-        };
-        fileList.appendChild(li);
-
         if (index === 0) {
-            isUpdatingContent = true;
-            currentFilePath = file.absolutePath;
-            editor.setValue(file.content);
-            isUpdatingContent = false;
+            // Root File
+            file.listItem = rootFileStepInfo;
+            rootFileStepInfo.textContent = file.relativePath;
+            
+            rootFileStepInfo.onclick = () => {
+                loadFileToEditor(file, rootFileStepInfo);
+            };
 
-            li.classList.add('active');
-            updateDeleteButtonState(true);
+            // Initial load
+            loadFileToEditor(file, rootFileStepInfo);
+        } else {
+            // Include Files
+            const li = document.createElement('li');
+            file.listItem = li;
+            li.textContent = file.relativePath;
+            
+            li.onclick = () => {
+                loadFileToEditor(file, li);
+            };
+            fileList.appendChild(li);
         }
     });
 
@@ -164,6 +154,28 @@ window.electronAPI.onRootInkLoaded((files) => {
         checkSyntax();
     }
 });
+
+function loadFileToEditor(file, element) {
+    // UI updates: remove active class from everything
+    document.getElementById('ink-root-file-item').classList.remove('active');
+    const fileList = document.getElementById('file-list');
+    Array.from(fileList.children).forEach(c => c.classList.remove('active'));
+
+    // Add active to current
+    element.classList.add('active');
+
+    if (currentFilePath === file.absolutePath) return;
+
+    isUpdatingContent = true;
+    currentFilePath = file.absolutePath;
+    editor.setValue(file.content);
+    isUpdatingContent = false;
+
+    // Update delete button state
+    updateDeleteButtonState(currentFilePath === rootInkPath);
+
+    checkSyntax();
+}
 
 // Debounce helper
 function debounce(func, wait) {

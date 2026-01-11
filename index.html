@@ -12,6 +12,33 @@
 <body>
     <div id="app">
         <div id="sidebar">
+            <!-- Main Toolbar (Start Test) -->
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+                <div id="btn-start-test" title="Start Test"
+                    style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                    <!-- Custom Play with Arrow Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" width="18"
+                        height="18">
+                        <path
+                            d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.86,15.86,0,0,0,72.12,230a16,16,0,0,0,16.2-.3L232.4,141.51a15.74,15.74,0,0,0,0-27ZM80,216.13V39.87l144,88.13Z">
+                        </path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Ink Root Section -->
+            <div class="sidebar-header">INK ROOT</div>
+            <div id="ink-root-file-container" style="margin-bottom: 20px;">
+                <div id="ink-root-file-item">
+                    <!-- Populated by renderer -->
+                    <span style="opacity: 0.5; font-style: italic;">No Root Selected</span>
+                </div>
+            </div>
+
+            <!-- Includes Section -->
+            <div class="sidebar-header">INCLUDES</div>
+            
+            <!-- Secondary Toolbar (Add/Delete Include) -->
             <div style="display: flex; justify-content: flex-end; margin-bottom: 10px; gap: 4px;">
                 <div id="btn-add-include" title="Add New Include..."
                     style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
@@ -32,21 +59,9 @@
                         </path>
                     </svg>
                 </div>
-                <div id="btn-start-test" title="Start Test"
-                    style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
-                    <!-- Custom Play with Arrow Icon -->
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" width="18"
-                        height="18">
-                        <path
-                            d="M232.4,114.49,88.32,26.35a16,16,0,0,0-16.2-.3A15.86,15.86,0,0,0,64,39.87V216.13A15.86,15.86,0,0,0,72.12,230a16,16,0,0,0,16.2-.3L232.4,141.51a15.74,15.74,0,0,0,0-27ZM80,216.13V39.87l144,88.13Z">
-                        </path>
-                    </svg>
-                </div>
             </div>
+
             <div id="file-list-container" style="flex: 1; overflow-y: auto; min-height: 0;">
-                <div style="font-weight: bold; margin-bottom: 10px; font-size: 12px; text-transform: uppercase;">Open
-                    Files
-                </div>
                 <ul id="file-list"></ul>
             </div>
         </div>
