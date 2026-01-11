@@ -435,9 +435,7 @@ async function checkSyntax() {
 
         const model = editor.getModel();
         if (model) {
-            /* if (errors && errors.length > 0) {
-                window.electronAPI.log('First error sample:', JSON.stringify(errors[0]))
-            } */
+
 
             // Filter errors to display only those relevant to the current file
             const visibleErrors = errors.filter(e => {

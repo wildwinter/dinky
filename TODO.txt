@@ -1,6 +1,5 @@
 TODO:
 -----
-Rename ink file button
 Let the file list slide backwards.
 Add zoom in / zoom out / reset zoom for every window, make persistent
 Add spellchecker/dictionary
@@ -19,3 +18,4 @@ Save window positions and size
 Fix when a project is loaded without a root ink
 Fix window menu
 Lucide icons
+Rename ink file button

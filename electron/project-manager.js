@@ -181,44 +181,13 @@ async function createNewInclude(win, name, folderPath) {
         // Create file with valid Ink comment
         await fs.writeFile(fullIncludePath, '// Type Ink here', 'utf-8');
 
-        // Modify Ink Root to add INCLUDE
         const rootContent = await fs.readFile(currentInkRoot, 'utf-8');
-        const lines = rootContent.split(/\r?\n/);
         const relativePath = path.relative(path.dirname(currentInkRoot), fullIncludePath);
 
         // Ensure forward slashes for cross-platform compatibility in Ink INCLUDE
         const includeLine = `INCLUDE ${relativePath.replace(/\\/g, '/')}`;
 
-        // Find insertion point
-        let insertIndex = -1;
-
-        // Find last existing INCLUDE
-        for (let i = lines.length - 1; i >= 0; i--) {
-            if (lines[i].trim().startsWith('INCLUDE ')) {
-                insertIndex = i + 1;
-                break;
-            }
-        }
-
-        if (insertIndex === -1) {
-            // No INCLUDEs found, try to skip header comments
-            // We'll skip lines starting with // or enclosed in /* */
-            // Simple check for line comments and empty lines
-
-            insertIndex = 0;
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (line.startsWith('//') || line === '') {
-                    insertIndex = i + 1;
-                } else {
-                    // Stop at first non-comment code
-                    break;
-                }
-            }
-        }
-
-        lines.splice(insertIndex, 0, includeLine);
-        const newContent = lines.join('\n'); // Standardize on \n
+        const newContent = insertIncludeIntoContent(rootContent, includeLine);
 
         await fs.writeFile(currentInkRoot, newContent, 'utf-8');
 
@@ -394,10 +363,6 @@ async function createNewInkRoot(win, name, folderPath) {
 
         // Update Project settings and source if needed
         // If we are creating a new root via this UI, we assume the user wants to switch to it
-        // We probably should update the 'source' field in the .dinkproj ONLY if it's in the project folder?
-        // Actually, the user can select ANY folder.
-        // If the folder is outside the project root, we might want to warn or just handle it.
-        // But for now, let's just behave like 'Open Ink Root' but with a newly created file.
 
         // Update source in dinkproj if the new file is inside the project directory structure
         const projectDir = path.dirname(currentDinkProject.path);
@@ -481,7 +446,6 @@ async function chooseExistingInclude(win) {
     try {
         // Add INCLUDE line
         const rootContent = await fs.readFile(currentInkRoot, 'utf-8');
-        const lines = rootContent.split(/\r?\n/);
         const relativePath = path.relative(path.dirname(currentInkRoot), selectedFile);
 
         // Ensure forward slashes
@@ -496,29 +460,7 @@ async function chooseExistingInclude(win) {
             return false;
         }
 
-        // Reuse insertion logic (simplified duplication here for safety, or we could refactor)
-        let insertIndex = -1;
-        for (let i = lines.length - 1; i >= 0; i--) {
-            if (lines[i].trim().startsWith('INCLUDE ')) {
-                insertIndex = i + 1;
-                break;
-            }
-        }
-
-        if (insertIndex === -1) {
-            insertIndex = 0;
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (line.startsWith('//') || line === '') {
-                    insertIndex = i + 1;
-                } else {
-                    break;
-                }
-            }
-        }
-
-        lines.splice(insertIndex, 0, includeLine);
-        const newContent = lines.join('\n');
+        const newContent = insertIncludeIntoContent(rootContent, includeLine);
 
         await fs.writeFile(currentInkRoot, newContent, 'utf-8');
 
@@ -640,14 +582,6 @@ async function renameInclude(win, oldPath, newName) {
             if (trimmed.startsWith('INCLUDE ')) {
                 const includePath = trimmed.substring(8).trim();
                 // Check if this include path matches our old file
-                // Note: includePath might handle slashes differently or be relative to a different base if user has nested folders
-                // But Dinky seems to assume includes are relative to root based on loadRootInk logic?
-                // loadRootInk: const nextAbsPath = path.resolve(path.dirname(currentPath), includePath)
-                // So includes are relative to the file containing them. 
-                // Since we only support editing the Root file's top level includes via the UI currently (implied), 
-                // we assume the INCLUDE is in the root file and relative to it.
-
-                // Compare normalized paths
                 if (includePath.replace(/\\/g, '/') === oldRelative) {
                     updated = true;
                     return `INCLUDE ${newRelative}`;
@@ -660,9 +594,6 @@ async function renameInclude(win, oldPath, newName) {
             await fs.writeFile(currentInkRoot, newLines.join('\n'), 'utf-8');
         } else {
             console.warn('Could not find INCLUDE line to update for rename.');
-            // Even if we didn't find the line, the file is renamed. 
-            // The user might have a manual include structure we missed.
-            // We should probably warn them or just reload.
         }
 
         // Reload project
@@ -676,4 +607,40 @@ async function renameInclude(win, oldPath, newName) {
         dialog.showErrorBox('Error', `Failed to rename file: ${e.message}`);
         return false;
     }
+}
+
+/**
+ * Helper to insert an INCLUDE line into ink content
+ * @param {string} content - Current file content
+ * @param {string} includeLine - The full INCLUDE line to insert (e.g. "INCLUDE foo.ink")
+ * @returns {string} New content
+ */
+function insertIncludeIntoContent(content, includeLine) {
+    const lines = content.split(/\r?\n/);
+    let insertIndex = -1;
+
+    // Find last existing INCLUDE
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].trim().startsWith('INCLUDE ')) {
+            insertIndex = i + 1;
+            break;
+        }
+    }
+
+    if (insertIndex === -1) {
+        // No INCLUDEs found, try to skip header comments
+        insertIndex = 0;
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.startsWith('//') || line === '') {
+                insertIndex = i + 1;
+            } else {
+                // Stop at first non-comment code
+                break;
+            }
+        }
+    }
+
+    lines.splice(insertIndex, 0, includeLine);
+    return lines.join('\n');
 }
