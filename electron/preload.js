@@ -53,7 +53,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Search window specific
     onFocusSearchInput: (callback) => ipcRenderer.on('focus-search-input', (_event) => callback()),
-    onClearSearchHighlights: (callback) => ipcRenderer.on('clear-search-highlights', (_event) => callback())
+    onClearSearchHighlights: (callback) => ipcRenderer.on('clear-search-highlights', (_event) => callback()),
+    updateWindowTitle: (details) => ipcRenderer.send('update-window-title', details)
 });
 
 window.addEventListener('DOMContentLoaded', () => {

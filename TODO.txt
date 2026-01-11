@@ -1,7 +1,6 @@
 TODO:
 -----
 Let the file list slide backwards.
-Add zoom in / zoom out / reset zoom for every window, make persistent
 Add spellchecker/dictionary
 Add character list
 Add Dink syntax checking and highlighting
@@ -19,3 +18,4 @@ Fix when a project is loaded without a root ink
 Fix window menu
 Lucide icons
 Rename ink file button
+Add zoom in / zoom out / reset zoom for every window, make persistent

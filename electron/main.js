@@ -6,7 +6,7 @@ import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowSta
 import { buildMenu } from './menu'
 import { compileInk } from './compiler'
 import { openTestWindow } from './test-runner'
-import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback } from './project-manager'
+import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
 import { safeSend, setupThemeListener } from './utils'
 
@@ -263,6 +263,16 @@ ipcMain.on('request-test-restart', () => {
 });
 ipcMain.on('rebuild-menu', () => {
     if (mainWindow) buildMenu(mainWindow);
+});
+
+ipcMain.on('update-window-title', (event, { fileName }) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const project = getCurrentProject();
+    if (project && win) {
+        const projectName = path.basename(project.path, '.dinkproj');
+        const simpleFileName = fileName ? fileName.replace(/\.ink$/i, '') : '';
+        win.setTitle(`Dinky - ${projectName} - ${simpleFileName}`);
+    }
 });
 
 app.on('window-all-closed', () => {

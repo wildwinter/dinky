@@ -357,6 +357,8 @@ function loadFileToEditor(file, element, forceRefresh = false) {
 
     if (!forceRefresh && currentFilePath === file.absolutePath) return;
 
+    window.electronAPI.updateWindowTitle({ fileName: file.relativePath });
+
     isUpdatingContent = true;
     currentFilePath = file.absolutePath;
     editor.setValue(file.content);
