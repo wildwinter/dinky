@@ -314,6 +314,66 @@ async function createInkRoot(win) {
     }
 }
 
+async function renameInkRoot(win, newName) {
+    if (!currentInkRoot || !newName) return false;
+
+    // Ensure .ink extension
+    const validName = newName.endsWith('.ink') ? newName : `${newName}.ink`;
+    const newPath = path.join(path.dirname(currentInkRoot), validName);
+
+    if (currentInkRoot === newPath) return false;
+
+    try {
+        // Check destination
+        try {
+            await fs.access(newPath);
+            dialog.showErrorBox('Error', 'A file with that name already exists.');
+            return false;
+        } catch {
+            // Safe
+        }
+
+        // Rename file
+        await fs.rename(currentInkRoot, newPath);
+
+        // Update Project settings and source if needed
+        const oldRootPath = currentInkRoot;
+        currentInkRoot = newPath; // Update global tracking first
+
+        if (currentDinkProject) {
+            // Update lastInkRoot preference
+            await setProjectSetting(currentDinkProject.path, 'lastInkRoot', newPath);
+
+            // Check if source needs update
+            if (currentDinkProject.content.source) {
+                // Check if the old source points to our old file
+                const projectDir = path.dirname(currentDinkProject.path);
+                const resolvedSource = path.resolve(projectDir, currentDinkProject.content.source);
+
+                if (resolvedSource === oldRootPath) {
+                    // It matched! Update source.
+                    // Calculate new relative path for source
+                    const newRelativeSource = path.relative(projectDir, newPath);
+                    currentDinkProject.content.source = newRelativeSource.replace(/\\/g, '/'); // Normalize slashes
+
+                    // Save proj file
+                    await fs.writeFile(currentDinkProject.path, JSON.stringify(currentDinkProject.content, null, 2), 'utf-8');
+                }
+            }
+        }
+
+        // Reload
+        const files = await loadRootInk(currentInkRoot);
+        safeSend(win, 'root-ink-loaded', files);
+
+        return true;
+    } catch (e) {
+        console.error('Failed to rename ink root:', e);
+        dialog.showErrorBox('Error', `Failed to rename ink root: ${e.message}`);
+        return false;
+    }
+}
+
 export {
     loadProject,
     createNewProject,
@@ -327,7 +387,8 @@ export {
     createInkRoot,
     removeInclude,
     chooseExistingInclude,
-    renameInclude
+    renameInclude,
+    renameInkRoot
 }
 
 async function chooseExistingInclude(win) {

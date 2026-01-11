@@ -203,6 +203,49 @@ renameInput.addEventListener('keydown', (e) => {
     }
 });
 
+
+// -- Rename Root Logic --
+const renameRootModalOverlay = document.getElementById('modal-rename-root-overlay');
+const renameRootInput = document.getElementById('rename-root-name');
+const btnConfirmRenameRoot = document.getElementById('btn-confirm-rename-root');
+const btnCancelRenameRoot = document.getElementById('btn-cancel-rename-root');
+
+document.getElementById('btn-rename-root').addEventListener('click', () => {
+    if (!rootInkPath) return;
+
+    // Extract base name without extension
+    const parts = rootInkPath.split(/[/\\]/);
+    const fileName = parts[parts.length - 1];
+    const baseName = fileName.replace(/\.ink$/i, '');
+
+    renameRootInput.value = baseName;
+    renameRootModalOverlay.style.display = 'flex';
+    renameRootInput.focus();
+    renameRootInput.select();
+});
+
+btnCancelRenameRoot.addEventListener('click', () => {
+    renameRootModalOverlay.style.display = 'none';
+});
+
+btnConfirmRenameRoot.addEventListener('click', () => {
+    const newName = renameRootInput.value.trim();
+    if (!newName) return;
+
+    window.electronAPI.renameInkRoot(newName);
+    renameRootModalOverlay.style.display = 'none';
+});
+
+// Allow Enter to submit root rename
+renameRootInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        btnConfirmRenameRoot.click();
+    } else if (e.key === 'Escape') {
+        btnCancelRenameRoot.click();
+    }
+});
+
+
 // Update loadFileToEditor to handle rename button state
 function loadFileToEditor(file, element, forceRefresh = false) {
     // UI updates: remove active class from everything
@@ -242,6 +285,7 @@ function loadFileToEditor(file, element, forceRefresh = false) {
 }
 
 function updateDeleteButtonState(isRoot) {
+    // Logic for Include buttons
     const deleteBtn = document.getElementById('btn-delete-include');
     if (isRoot) {
         deleteBtn.title = "Delete Include (Disabled for Root)";
@@ -252,7 +296,26 @@ function updateDeleteButtonState(isRoot) {
         deleteBtn.style.opacity = '1';
         deleteBtn.style.pointerEvents = 'auto';
     }
+
+    // Logic for Rename Root button
+    // It should be enabled if we have a root (which we should if isRoot is true, primarily)
+    // But this function is called when selecting ANY file.
+    // The Rename Root button should arguably ALWAYS be enabled if a root exists?
+    // Or only when the root is selected? User request was "Rename icon to the INK ROOT icons", implying it lives in the header.
+    // So it should probably just be enabled if `rootInkPath` exists, regardless of selection.
+
+    // However, we want to update its state based on whether a root is loaded at all.
+    // Let's check rootInkPath global.
+    const renameRootBtn = document.getElementById('btn-rename-root');
+    if (rootInkPath) {
+        renameRootBtn.style.opacity = '1';
+        renameRootBtn.style.pointerEvents = 'auto';
+    } else {
+        renameRootBtn.style.opacity = '0.5';
+        renameRootBtn.style.pointerEvents = 'none';
+    }
 }
+
 
 
 // Debounce helper

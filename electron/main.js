@@ -6,7 +6,7 @@ import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowSta
 import { buildMenu } from './menu'
 import { compileInk } from './compiler'
 import { openTestWindow } from './test-runner'
-import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, setMenuRebuildCallback } from './project-manager'
+import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, setMenuRebuildCallback } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
 import { safeSend, setupThemeListener } from './utils'
 
@@ -238,6 +238,11 @@ ipcMain.handle('remove-include', async (event, filePath) => {
 ipcMain.handle('rename-include', async (event, oldPath, newName) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     return await renameInclude(win, oldPath, newName);
+});
+
+ipcMain.handle('rename-ink-root', async (event, newName) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return await renameInkRoot(win, newName);
 });
 
 ipcMain.handle('start-test', (event, rootPath, projectFiles) => {
