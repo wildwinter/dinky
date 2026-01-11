@@ -374,6 +374,68 @@ async function renameInkRoot(win, newName) {
     }
 }
 
+async function createNewInkRoot(win, name, folderPath) {
+    if (!currentDinkProject || !name || !folderPath) return false;
+
+    const validName = name.endsWith('.ink') ? name : `${name}.ink`;
+    const inkFile = path.join(folderPath, validName);
+
+    try {
+        // Create file
+        try {
+            await fs.access(inkFile);
+            dialog.showErrorBox('Error', 'A file with that name already exists.');
+            return false;
+        } catch {
+            // Good
+        }
+
+        await fs.writeFile(inkFile, '// Add Ink content here', 'utf-8');
+
+        // Update Project settings and source if needed
+        // If we are creating a new root via this UI, we assume the user wants to switch to it
+        // We probably should update the 'source' field in the .dinkproj ONLY if it's in the project folder?
+        // Actually, the user can select ANY folder.
+        // If the folder is outside the project root, we might want to warn or just handle it.
+        // But for now, let's just behave like 'Open Ink Root' but with a newly created file.
+
+        // Update source in dinkproj if the new file is inside the project directory structure
+        const projectDir = path.dirname(currentDinkProject.path);
+        const relative = path.relative(projectDir, inkFile);
+
+        // Check if it's actually inside (not starting with ..)
+        if (!relative.startsWith('..') && !path.isAbsolute(relative)) {
+            currentDinkProject.content.source = relative.replace(/\\/g, '/');
+            await fs.writeFile(currentDinkProject.path, JSON.stringify(currentDinkProject.content, null, 2), 'utf-8');
+        }
+
+        // Set preference
+        await setProjectSetting(currentDinkProject.path, 'lastInkRoot', inkFile);
+
+        // Load it
+        currentInkRoot = inkFile;
+        const files = await loadRootInk(inkFile);
+        safeSend(win, 'root-ink-loaded', files);
+        safeSend(win, 'project-loaded', { hasRoot: true });
+
+        return true;
+    } catch (e) {
+        console.error('Failed to create new ink root:', e);
+        dialog.showErrorBox('Error', `Failed to create ink root: ${e.message}`);
+        return false;
+    }
+}
+
+function openNewInkRootUI(win) {
+    if (!currentDinkProject) {
+        dialog.showErrorBox('Error', 'No project loaded.');
+        return;
+    }
+    // Default to project dir
+    const defaultFolder = path.dirname(currentDinkProject.path);
+    safeSend(win, 'show-new-ink-root-modal', defaultFolder);
+}
+
 export {
     loadProject,
     createNewProject,
@@ -388,7 +450,9 @@ export {
     removeInclude,
     chooseExistingInclude,
     renameInclude,
-    renameInkRoot
+    renameInkRoot,
+    createNewInkRoot,
+    openNewInkRootUI
 }
 
 async function chooseExistingInclude(win) {

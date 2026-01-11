@@ -16,6 +16,28 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div class="sidebar-header" style="margin-bottom: 0;">INK ROOT</div>
                 <div style="display: flex; gap: 0;">
+                    <div id="btn-add-ink-root" title="Add New Ink Root..."
+                        style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                        <!-- Lucide File Plus -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="12" y1="18" x2="12" y2="12" />
+                            <line x1="9" y1="15" x2="15" y2="15" />
+                        </svg>
+                    </div>
+                    <div id="btn-switch-ink-root" title="Switch Ink Root..."
+                        style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                        <!-- Lucide File Up -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <path d="M12 12v6" />
+                            <path d="m15 15-3-3-3 3" />
+                        </svg>
+                    </div>
                     <div id="btn-rename-root" title="Rename Ink Root..."
                         style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: 0.5; pointer-events: none;">
                         <!-- Lucide File Pen -->
@@ -112,7 +134,8 @@
         </div>
         <div id="no-root-state" style="display: none;">
             <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
-                <div style="font-size: 18px; color: var(--text-color); opacity: 0.8;">Project loaded, but no Ink Root
+                <div style="font-size: 18px; color: var(--text-color); opacity: 0.8;">Project loaded, but no Ink
+                    Root
                     file selected.</div>
                 <div style="display: flex; gap: 10px;">
                     <button id="btn-set-ink-root"
@@ -211,6 +234,33 @@
             <div class="modal-actions">
                 <button id="btn-cancel-rename-root" class="secondary">Cancel</button>
                 <button id="btn-confirm-rename-root" class="primary">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Ink Root Modal -->
+    <div id="modal-new-ink-root-overlay"
+        style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); align-items: center; justify-content: center; z-index: 1000;">
+        <div id="new-ink-root-modal"
+            style="background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); padding: 20px; width: 400px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            <div class="modal-header">Add New Ink Root</div>
+
+            <div class="form-group">
+                <label for="new-ink-root-name">Ink File Name</label>
+                <input type="text" id="new-ink-root-name" placeholder="main" />
+            </div>
+
+            <div class="form-group">
+                <label for="new-ink-root-folder">Parent Folder</label>
+                <div class="folder-row">
+                    <input type="text" id="new-ink-root-folder" readonly placeholder="Select a folder..." />
+                    <button id="btn-select-ink-root-folder" class="secondary">...</button>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="btn-cancel-new-ink-root" class="secondary">Cancel</button>
+                <button id="btn-confirm-new-ink-root" class="primary" disabled>Create</button>
             </div>
         </div>
     </div>

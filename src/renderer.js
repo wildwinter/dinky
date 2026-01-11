@@ -246,6 +246,87 @@ renameRootInput.addEventListener('keydown', (e) => {
 });
 
 
+// -- New Ink Root Logic --
+const modalNewInkRootOverlay = document.getElementById('modal-new-ink-root-overlay');
+const inputNewInkRootName = document.getElementById('new-ink-root-name');
+const inputNewInkRootFolder = document.getElementById('new-ink-root-folder');
+const btnSelectNewInkRootFolder = document.getElementById('btn-select-ink-root-folder');
+const btnCancelNewInkRoot = document.getElementById('btn-cancel-new-ink-root');
+const btnCreateNewInkRoot = document.getElementById('btn-confirm-new-ink-root');
+
+function openNewInkRootModal(defaultFolder) {
+    inputNewInkRootName.value = '';
+    inputNewInkRootFolder.value = defaultFolder || '';
+    validateNewInkRootForm();
+    modalNewInkRootOverlay.style.display = 'flex';
+    inputNewInkRootName.focus();
+}
+
+function closeNewInkRootModal() {
+    modalNewInkRootOverlay.style.display = 'none';
+}
+
+function validateNewInkRootForm() {
+    const name = inputNewInkRootName.value.trim();
+    const folder = inputNewInkRootFolder.value.trim();
+    btnCreateNewInkRoot.disabled = !(name && folder);
+}
+
+window.electronAPI.onShowNewInkRootModal((defaultFolder) => {
+    openNewInkRootModal(defaultFolder);
+});
+
+btnSelectNewInkRootFolder.addEventListener('click', async () => {
+    const path = await window.electronAPI.selectFolder(inputNewInkRootFolder.value);
+    if (path) {
+        inputNewInkRootFolder.value = path;
+        validateNewInkRootForm();
+    }
+});
+
+btnCancelNewInkRoot.addEventListener('click', () => {
+    closeNewInkRootModal();
+});
+
+btnCreateNewInkRoot.addEventListener('click', async () => {
+    const name = inputNewInkRootName.value.trim();
+    const folder = inputNewInkRootFolder.value.trim();
+    if (name && folder) {
+        btnCreateNewInkRoot.disabled = true;
+        const success = await window.electronAPI.createNewInkRoot(name, folder);
+        if (success) {
+            closeNewInkRootModal();
+        } else {
+            btnCreateNewInkRoot.disabled = false;
+        }
+    }
+});
+
+inputNewInkRootName.addEventListener('input', validateNewInkRootForm);
+
+// Keyboard shortcuts for New Ink Root Modal
+modalNewInkRootOverlay.addEventListener('keydown', (e) => {
+    if (modalNewInkRootOverlay.style.display === 'none') return;
+
+    if (e.key === 'Enter') {
+        if (!btnCreateNewInkRoot.disabled) {
+            btnCreateNewInkRoot.click();
+        }
+    } else if (e.key === 'Escape') {
+        closeNewInkRootModal();
+    }
+});
+
+document.getElementById('btn-add-ink-root').addEventListener('click', () => {
+    window.electronAPI.openNewInkRootUI();
+});
+
+document.getElementById('btn-switch-ink-root').addEventListener('click', () => {
+    window.electronAPI.openInkRoot();
+});
+
+
+
 // Update loadFileToEditor to handle rename button state
 function loadFileToEditor(file, element, forceRefresh = false) {
     // UI updates: remove active class from everything

@@ -1,8 +1,7 @@
 import { app, Menu, dialog, nativeTheme, BrowserWindow } from 'electron'
 import path from 'path'
-import { getRecentProjects, saveSettings, setProjectSetting } from './config'
-import { loadProject, loadRootInk, getCurrentProject, getCurrentInkRoot, openNewIncludeUI } from './project-manager'
-import { openTestWindow } from './test-runner'
+import { getRecentProjects, saveSettings } from './config'
+import { loadProject, openNewIncludeUI, openNewInkRootUI } from './project-manager'
 import { openSearchWindow } from './search'
 import { safeSend } from './utils'
 
@@ -53,6 +52,7 @@ async function buildMenu(win) {
                 },
                 {
                     label: 'Open Project...',
+                    accelerator: 'CmdOrCtrl+O',
                     click: async () => {
                         const { canceled, filePaths } = await dialog.showOpenDialog(win, {
                             properties: ['openFile'],
@@ -69,8 +69,13 @@ async function buildMenu(win) {
                 },
                 { type: 'separator' },
                 {
-                    label: 'Open Ink Root...',
-                    accelerator: 'CmdOrCtrl+O',
+                    label: 'Add New Ink Root...',
+                    click: async () => {
+                        openNewInkRootUI(win);
+                    }
+                },
+                {
+                    label: 'Switch Ink Root...',
                     click: async () => {
                         await openInkRootUI(win);
                     }
