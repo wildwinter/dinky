@@ -2,6 +2,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
     onFileOpened: (callback) => ipcRenderer.on('file-opened', (_event, value) => callback(value)),
+    loadSettings: () => ipcRenderer.invoke('load-settings'),
+    onUpdateSpellLocale: (callback) => ipcRenderer.on('update-spell-locale', (_event, value) => callback(value)),
     onRootInkLoaded: (callback) => ipcRenderer.on('root-ink-loaded', (_event, value) => callback(value)),
     onProjectLoaded: (callback) => ipcRenderer.on('project-loaded', (_event, value) => callback(value)),
     onSaveAll: (callback) => ipcRenderer.on('save-all', (_event, ...args) => callback(...args)),
@@ -54,7 +56,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Search window specific
     onFocusSearchInput: (callback) => ipcRenderer.on('focus-search-input', (_event) => callback()),
     onClearSearchHighlights: (callback) => ipcRenderer.on('clear-search-highlights', (_event) => callback()),
-    updateWindowTitle: (details) => ipcRenderer.send('update-window-title', details)
+    updateWindowTitle: (details) => ipcRenderer.send('update-window-title', details),
+    loadProjectDictionary: () => ipcRenderer.invoke('load-project-dictionary'),
+    addToProjectDictionary: (word) => ipcRenderer.invoke('add-to-project-dictionary', word)
 });
 
 window.addEventListener('DOMContentLoaded', () => {

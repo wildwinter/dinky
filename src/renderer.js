@@ -1,5 +1,6 @@
 import * as monaco from 'monaco-editor';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+import { DinkySpellChecker } from './spellchecker';
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
@@ -71,6 +72,81 @@ const editor = monaco.editor.create(document.getElementById('editor-container'),
     readOnly: true,
 });
 
+const spellChecker = new DinkySpellChecker();
+window.electronAPI.loadSettings().then(settings => {
+    const locale = settings.spellCheckerLocale || 'en-GB';
+    spellChecker.init(locale);
+});
+
+window.electronAPI.onUpdateSpellLocale(async (locale) => {
+    await spellChecker.switchLocale(locale);
+    checkSpelling();
+});
+
+monaco.languages.registerCodeActionProvider('ink', {
+    provideCodeActions: (model, range, context, token) => {
+        const markers = context.markers.filter(m => m.source === 'spellcheck');
+        if (markers.length === 0) return { actions: [], dispose: () => { } };
+
+        const actions = [];
+        for (const marker of markers) {
+            if (monaco.Range.containsRange(marker, range) || monaco.Range.intersectRanges(marker, range)) {
+                const word = marker.code;
+                if (word) {
+                    actions.push({
+                        title: `Add "${word}" to dictionary`,
+                        kind: 'quickfix',
+                        isPreferred: false,
+                        diagnostics: [marker],
+                        command: {
+                            id: 'add-to-dictionary',
+                            title: 'Add to Dictionary',
+                            arguments: [word]
+                        }
+                    });
+
+                    const suggestions = spellChecker.getSuggestions(word);
+                    suggestions.slice(0, 5).forEach(s => {
+                        actions.push({
+                            title: `Replace with "${s}"`,
+                            kind: 'quickfix',
+                            isPreferred: true,
+                            diagnostics: [marker],
+                            edit: {
+                                edits: [{
+                                    resource: model.uri,
+                                    textEdit: {
+                                        range: marker,
+                                        text: s
+                                    }
+                                }]
+                            }
+                        });
+                    });
+                }
+            }
+        }
+        return { actions: actions, dispose: () => { } };
+    }
+});
+
+monaco.editor.registerCommand('add-to-dictionary', async (accessor, word) => {
+    spellChecker.add(word);
+    await window.electronAPI.addToProjectDictionary(word);
+    checkSpelling();
+});
+
+function checkSpelling() {
+    const model = editor.getModel();
+    if (!model) return;
+
+    // We can rely on internal state of spellChecker to know if it's ready
+    const markers = spellChecker.checkModel(model);
+    monaco.editor.setModelMarkers(model, 'spellcheck', markers);
+}
+
+// removed duplicate definition
+
 let loadedInkFiles = new Map();
 let currentFilePath = null;
 let rootInkPath = null;
@@ -104,7 +180,11 @@ window.electronAPI.onProjectLoaded(({ hasRoot }) => {
     }
 });
 
-window.electronAPI.onRootInkLoaded((files) => {
+window.electronAPI.onRootInkLoaded(async (files) => {
+    // Load project dictionary
+    const projectDict = await window.electronAPI.loadProjectDictionary();
+    spellChecker.loadPersonalDictionary(projectDict);
+
     loadedInkFiles.clear();
     const fileList = document.getElementById('file-list');
     fileList.innerHTML = '';
@@ -152,6 +232,7 @@ window.electronAPI.onRootInkLoaded((files) => {
 
     if (rootInkPath) {
         checkSyntax();
+        checkSpelling();
     }
 });
 
@@ -365,6 +446,7 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     isUpdatingContent = false;
 
     checkSyntax();
+    checkSpelling();
 }
 
 function updateDeleteButtonState(isRoot) {
@@ -469,9 +551,16 @@ async function checkSyntax() {
 }
 
 const debouncedCheck = debounce(checkSyntax, 1000);
+const debouncedCheckSpelling = debounce(checkSpelling, 400);
 
 editor.onDidChangeModelContent(() => {
     if (isUpdatingContent) return;
+
+    // Clear spellcheck markers immediately to avoid visual desync during editing
+    const model = editor.getModel();
+    if (model) {
+        monaco.editor.setModelMarkers(model, 'spellcheck', []);
+    }
 
     // Keep the file model in sync with editor content immediately
     if (currentFilePath && loadedInkFiles.has(currentFilePath)) {
@@ -484,6 +573,7 @@ editor.onDidChangeModelContent(() => {
         }
     }
     debouncedCheck();
+    debouncedCheckSpelling();
 });
 
 window.electronAPI.onThemeUpdated((theme) => {

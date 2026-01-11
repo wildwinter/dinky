@@ -31,7 +31,8 @@
     "description": "",
     "dependencies": {
         "inkjs": "^2.3.2",
-        "monaco-editor": "^0.50.0"
+        "monaco-editor": "^0.50.0",
+        "nspell": "^2.1.5"
     },
     "devDependencies": {
         "electron": "^31.0.0",

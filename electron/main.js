@@ -22,6 +22,10 @@ async function createWindow() {
     const settings = await loadSettings()
     nativeTheme.themeSource = settings.theme || 'system'
 
+    ipcMain.handle('load-settings', async () => {
+        return await loadSettings();
+    });
+
     // Load saved window state
     const windowState = await getWindowState('main');
 
@@ -278,6 +282,35 @@ ipcMain.on('update-window-title', (event, { fileName }) => {
 app.on('window-all-closed', () => {
     app.quit()
 })
+
+ipcMain.handle('load-project-dictionary', async (event) => {
+    const project = getCurrentProject();
+    if (!project) return [];
+
+    const projectDir = path.dirname(project.path);
+    const dictPath = path.join(projectDir, 'project.dictionary');
+
+    try {
+        const content = await fs.readFile(dictPath, 'utf-8');
+        return content.split('\n').map(w => w.trim()).filter(w => w);
+    } catch (e) {
+        return [];
+    }
+});
+
+ipcMain.handle('add-to-project-dictionary', async (event, word) => {
+    const project = getCurrentProject();
+    if (!project) return;
+
+    const projectDir = path.dirname(project.path);
+    const dictPath = path.join(projectDir, 'project.dictionary');
+
+    try {
+        await fs.appendFile(dictPath, word + '\n', 'utf-8');
+    } catch (e) {
+        console.error('Failed to update dictionary', e);
+    }
+});
 
 // Ensure config is saved before quit
 let isQuitting = false;

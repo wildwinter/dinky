@@ -1,12 +1,15 @@
 import { app, Menu, dialog, nativeTheme, BrowserWindow } from 'electron'
 import path from 'path'
-import { getRecentProjects, saveSettings } from './config'
+import { getRecentProjects, saveSettings, loadSettings } from './config'
 import { loadProject, openNewIncludeUI, openNewInkRootUI } from './project-manager'
 import { openSearchWindow } from './search'
 import { safeSend } from './utils'
 
 async function buildMenu(win) {
     const recentProjects = await getRecentProjects();
+    const settings = await loadSettings();
+    const currentLocale = settings.spellCheckerLocale || 'en_GB';
+
     const isMac = process.platform === 'darwin'
 
     const recentMenu = recentProjects.length > 0 ? recentProjects.map(p => ({
@@ -108,7 +111,34 @@ async function buildMenu(win) {
                 { label: 'Replace', accelerator: 'CmdOrCtrl+Alt+F', click: (menuItem, browserWindow) => { safeSend(browserWindow, 'menu-replace'); } },
                 { type: 'separator' },
                 { label: 'Find In Files', accelerator: 'CmdOrCtrl+Shift+F', click: () => { openSearchWindow(); } },
-                { label: 'Replace In Files', accelerator: 'CmdOrCtrl+Shift+H', click: () => { openSearchWindow(); } }
+                { label: 'Replace In Files', accelerator: 'CmdOrCtrl+Shift+H', click: () => { openSearchWindow(); } },
+                { type: 'separator' },
+                {
+                    label: 'Spelling',
+                    submenu: [
+                        {
+                            label: 'English (UK)',
+                            type: 'radio',
+                            checked: currentLocale === 'en_GB',
+                            click: async () => {
+                                await saveSettings({ spellCheckerLocale: 'en_GB' });
+                                safeSend(win, 'update-spell-locale', 'en_GB');
+                                await buildMenu(win);
+                            }
+                        },
+                        {
+                            label: 'English (US)',
+                            type: 'radio',
+                            checked: currentLocale === 'en_US',
+                            click: async () => {
+                                await saveSettings({ spellCheckerLocale: 'en_US' });
+                                safeSend(win, 'update-spell-locale', 'en_US');
+                                // Rebuild menu to update selection state visual
+                                await buildMenu(win);
+                            }
+                        }
+                    ]
+                }
             ]
         },
         {
