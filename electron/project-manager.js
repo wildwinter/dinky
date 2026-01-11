@@ -326,7 +326,8 @@ export {
     openInkRootUI,
     createInkRoot,
     removeInclude,
-    chooseExistingInclude
+    chooseExistingInclude,
+    renameInclude
 }
 
 async function chooseExistingInclude(win) {
@@ -473,6 +474,81 @@ async function removeInclude(win, filePathToDelete) {
     } catch (e) {
         console.error('Failed to remove include:', e);
         dialog.showErrorBox('Error', `Failed to remove include: ${e.message}`);
+        return false;
+    }
+}
+
+async function renameInclude(win, oldPath, newName) {
+    if (!currentInkRoot || !oldPath || !newName) return false;
+
+    // Ensure .ink extension
+    const validName = newName.endsWith('.ink') ? newName : `${newName}.ink`;
+    const newPath = path.join(path.dirname(oldPath), validName);
+
+    if (oldPath === newPath) return false;
+
+    try {
+        // Check if destination exists
+        try {
+            await fs.access(newPath);
+            dialog.showErrorBox('Error', 'A file with that name already exists.');
+            return false;
+        } catch {
+            // Good, it doesn't exist
+        }
+
+        // Rename physical file
+        await fs.rename(oldPath, newPath);
+
+        // Update INCLUDE in Root file
+        // We need to find the include line that corresponds to the old relative path
+        const rootDir = path.dirname(currentInkRoot);
+        const oldRelative = path.relative(rootDir, oldPath).replace(/\\/g, '/');
+        const newRelative = path.relative(rootDir, newPath).replace(/\\/g, '/');
+
+        const rootContent = await fs.readFile(currentInkRoot, 'utf-8');
+        const lines = rootContent.split(/\r?\n/);
+
+        let updated = false;
+        const newLines = lines.map(line => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('INCLUDE ')) {
+                const includePath = trimmed.substring(8).trim();
+                // Check if this include path matches our old file
+                // Note: includePath might handle slashes differently or be relative to a different base if user has nested folders
+                // But Dinky seems to assume includes are relative to root based on loadRootInk logic?
+                // loadRootInk: const nextAbsPath = path.resolve(path.dirname(currentPath), includePath)
+                // So includes are relative to the file containing them. 
+                // Since we only support editing the Root file's top level includes via the UI currently (implied), 
+                // we assume the INCLUDE is in the root file and relative to it.
+
+                // Compare normalized paths
+                if (includePath.replace(/\\/g, '/') === oldRelative) {
+                    updated = true;
+                    return `INCLUDE ${newRelative}`;
+                }
+            }
+            return line;
+        });
+
+        if (updated) {
+            await fs.writeFile(currentInkRoot, newLines.join('\n'), 'utf-8');
+        } else {
+            console.warn('Could not find INCLUDE line to update for rename.');
+            // Even if we didn't find the line, the file is renamed. 
+            // The user might have a manual include structure we missed.
+            // We should probably warn them or just reload.
+        }
+
+        // Reload project
+        const files = await loadRootInk(currentInkRoot);
+        safeSend(win, 'root-ink-loaded', files);
+
+        return true;
+
+    } catch (e) {
+        console.error('Failed to rename include:', e);
+        dialog.showErrorBox('Error', `Failed to rename file: ${e.message}`);
         return false;
     }
 }

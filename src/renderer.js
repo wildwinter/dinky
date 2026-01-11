@@ -155,6 +155,55 @@ window.electronAPI.onRootInkLoaded((files) => {
     }
 });
 
+
+// -- Rename Include Logic --
+const renameModalOverlay = document.getElementById('modal-rename-include-overlay');
+const renameInput = document.getElementById('rename-include-name');
+const btnConfirmRename = document.getElementById('btn-confirm-rename');
+const btnCancelRename = document.getElementById('btn-cancel-rename');
+let currentRenamePath = null;
+
+document.getElementById('btn-rename-include').addEventListener('click', () => {
+    if (!currentFilePath) return;
+
+    currentRenamePath = currentFilePath;
+    // Extract base name without extension
+    const parts = currentRenamePath.split(/[/\\]/);
+    const fileName = parts[parts.length - 1];
+    const baseName = fileName.replace(/\.ink$/i, '');
+
+    renameInput.value = baseName;
+    renameModalOverlay.style.display = 'flex';
+    renameInput.focus();
+    renameInput.select();
+});
+
+btnCancelRename.addEventListener('click', () => {
+    renameModalOverlay.style.display = 'none';
+    currentRenamePath = null;
+});
+
+btnConfirmRename.addEventListener('click', () => {
+    const newName = renameInput.value.trim();
+    if (!newName) return;
+
+    if (currentRenamePath) {
+        window.electronAPI.renameInclude(currentRenamePath, newName);
+    }
+    renameModalOverlay.style.display = 'none';
+    currentRenamePath = null;
+});
+
+// Allow Enter to submit rename
+renameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        btnConfirmRename.click();
+    } else if (e.key === 'Escape') {
+        btnCancelRename.click();
+    }
+});
+
+// Update loadFileToEditor to handle rename button state
 function loadFileToEditor(file, element, forceRefresh = false) {
     // UI updates: remove active class from everything
     document.getElementById('ink-root-file-item').classList.remove('active');
@@ -164,6 +213,24 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     // Add active to current
     element.classList.add('active');
 
+    // Update delete and rename button states
+    // Use setTimeout to ensure this runs after any potential file reloads (though async nature of list loading usually handles this)
+    // Actually, simple sync update is fine here as we just clicked an element
+    const isRoot = (file.absolutePath === rootInkPath);
+
+    // Update delete state
+    updateDeleteButtonState(isRoot);
+
+    // Update rename state (same logic as delete: only for includes)
+    const renameBtn = document.getElementById('btn-rename-include');
+    if (isRoot) {
+        renameBtn.style.opacity = '0.5';
+        renameBtn.style.pointerEvents = 'none';
+    } else {
+        renameBtn.style.opacity = '1';
+        renameBtn.style.pointerEvents = 'auto';
+    }
+
     if (!forceRefresh && currentFilePath === file.absolutePath) return;
 
     isUpdatingContent = true;
@@ -171,11 +238,22 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     editor.setValue(file.content);
     isUpdatingContent = false;
 
-    // Update delete button state
-    updateDeleteButtonState(currentFilePath === rootInkPath);
-
     checkSyntax();
 }
+
+function updateDeleteButtonState(isRoot) {
+    const deleteBtn = document.getElementById('btn-delete-include');
+    if (isRoot) {
+        deleteBtn.title = "Delete Include (Disabled for Root)";
+        deleteBtn.style.opacity = '0.5';
+        deleteBtn.style.pointerEvents = 'none';
+    } else {
+        deleteBtn.title = "Remove Include...";
+        deleteBtn.style.opacity = '1';
+        deleteBtn.style.pointerEvents = 'auto';
+    }
+}
+
 
 // Debounce helper
 function debounce(func, wait) {
@@ -474,18 +552,6 @@ document.getElementById('btn-choose-include').addEventListener('click', () => {
 });
 
 const btnDeleteInclude = document.getElementById('btn-delete-include');
-
-function updateDeleteButtonState(isRoot) {
-    if (isRoot) {
-        btnDeleteInclude.style.opacity = '0.5';
-        btnDeleteInclude.style.pointerEvents = 'none';
-        btnDeleteInclude.title = "Delete Include"
-    } else {
-        btnDeleteInclude.style.opacity = '1';
-        btnDeleteInclude.style.pointerEvents = 'auto';
-        btnDeleteInclude.title = "Remove Include..."
-    }
-}
 
 btnDeleteInclude.addEventListener('click', async () => {
     if (currentFilePath && currentFilePath !== rootInkPath) {

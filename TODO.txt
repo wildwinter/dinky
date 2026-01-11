@@ -18,3 +18,4 @@ Add Replace in Files
 Save window positions and size
 Fix when a project is loaded without a root ink
 Fix window menu
+Lucide icons
