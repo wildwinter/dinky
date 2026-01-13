@@ -7,10 +7,11 @@
         "dev": "vite",
         "start": "npm run dev",
         "build": "vite build",
+        "clean": "rm -rf dist dist-electron release",
         "preview": "npm run build && electron .",
-        "dist-mac": "npm run build && electron-builder --mac",
-        "dist-win": "npm run build && electron-builder --win"
-    },
+        "dist-mac": "npm run clean && npm run build && electron-builder --mac",
+        "dist-win": "npm run clean && npm run build && electron-builder --win --x64"
+      },
     "build": {
         "appId": "net.wildwinter.dinky",
         "productName": "Dinky",
@@ -22,7 +23,14 @@
             "dist/**/*"
         ],
         "directories": {
-            "output": "dist"
+            "output": "release"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true
+        },
+        "win": {
+            "target": "nsis"
         }
     },
     "keywords": [],

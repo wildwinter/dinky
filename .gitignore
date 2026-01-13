@@ -137,3 +137,4 @@ dist
 
 .DS_Store
 dist-electron
+release
