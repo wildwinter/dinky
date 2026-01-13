@@ -1,5 +1,6 @@
 TODO:
 -----
+Add Dink highlighting.
 Add character list
 Line ID handling
 Line ID searching
