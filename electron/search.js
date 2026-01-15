@@ -78,6 +78,10 @@ export async function openSearchWindow() {
         resizable: true,
         alwaysOnTop: true,
         backgroundColor: nativeTheme.shouldUseDarkColors ? '#252526' : '#f3f3f3',
+        titleBarOverlay: {
+            color: nativeTheme.shouldUseDarkColors ? '#252526' : '#f3f3f3',
+            symbolColor: nativeTheme.shouldUseDarkColors ? '#cccccc' : '#333333',
+        },
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
@@ -88,11 +92,23 @@ export async function openSearchWindow() {
 
     const { cleanup: cleanupTheme, update: updateTheme } = setupThemeListener(searchWindow, '#252526', '#f3f3f3');
 
+    const updateOverlay = () => {
+        if (searchWindow && !searchWindow.isDestroyed()) {
+            searchWindow.setTitleBarOverlay({
+                color: nativeTheme.shouldUseDarkColors ? '#252526' : '#f3f3f3',
+                symbolColor: nativeTheme.shouldUseDarkColors ? '#cccccc' : '#333333',
+            })
+        }
+    }
+
+    nativeTheme.on('updated', updateOverlay)
+
     searchWindow.on('move', () => saveWindowState('search', searchWindow.getBounds()));
     searchWindow.on('resize', () => saveWindowState('search', searchWindow.getBounds()));
 
     searchWindow.on('closed', async () => {
         cleanupTheme()
+        nativeTheme.off('updated', updateOverlay)
         searchWindow = null
         safeSend(mainWindow, 'clear-search-highlights');
         await saveSettings({ searchWindowOpen: false });
