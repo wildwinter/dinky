@@ -1,5 +1,7 @@
 TODO:
 -----
+BUG: Close button missing for Search/Replace on Windows
+Test from Knot
 Add Dink highlighting.
 Add character list
 Line ID handling
