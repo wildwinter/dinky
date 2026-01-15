@@ -48,15 +48,6 @@
                             <path d="M10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4Z" />
                         </svg>
                     </div>
-                    <div id="btn-start-test" title="Start Test"
-                        style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
-                        <!-- Lucide Play Icon -->
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-                            fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                            stroke-linejoin="round">
-                            <polygon points="5 3 19 12 5 21 5 3" />
-                        </svg>
-                    </div>
                 </div>
             </div>
 
@@ -121,29 +112,59 @@
                 <ul id="file-list"></ul>
             </div>
         </div>
-        <div id="editor-container"></div>
-        <div id="empty-state">
-            <div style="display: flex; gap: 10px;">
-                <button id="btn-load-project"
-                    style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">Load
-                    Project...</button>
-                <button id="btn-new-project"
-                    style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">New
-                    Project...</button>
+        <div id="main-content">
+            <div id="toolbar">
+                <div id="btn-start-test" title="Test Root"
+                    style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                    <!-- Lucide Play Icon -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                        fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
+                </div>
+                <!-- Separator -->
+                <div style="width: 1px; height: 16px; background-color: var(--sidebar-border); margin: 0 4px;"></div>
+                <div id="btn-test-knot" title="Test Knot"
+                    style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
+                    <!-- Lucide Play + Double Equals (==) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <!-- Play Icon (Same as Test Root) -->
+                        <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none" />
+
+                        <!-- Double Equals Overlay -->
+                        <!-- Line 1 -->
+                        <line x1="14" y1="18" x2="22" y2="18" stroke="currentColor" stroke-width="2" />
+                        <!-- Line 2 -->
+                        <line x1="14" y1="22" x2="22" y2="22" stroke="currentColor" stroke-width="2" />
+                    </svg>
+                </div>
             </div>
-        </div>
-        <div id="no-root-state" style="display: none;">
-            <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
-                <div style="font-size: 18px; color: var(--text-color); opacity: 0.8;">Project loaded, but no Ink
-                    Root
-                    file selected.</div>
+            <div id="editor-container"></div>
+            <div id="empty-state">
                 <div style="display: flex; gap: 10px;">
-                    <button id="btn-set-ink-root"
-                        style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">Set
-                        Ink Root...</button>
-                    <button id="btn-create-ink-root"
-                        style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">Create
-                        Ink Root</button>
+                    <button id="btn-load-project"
+                        style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">Load
+                        Project...</button>
+                    <button id="btn-new-project"
+                        style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">New
+                        Project...</button>
+                </div>
+            </div>
+            <div id="no-root-state" style="display: none;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
+                    <div style="font-size: 18px; color: var(--text-color); opacity: 0.8;">Project loaded, but no Ink
+                        Root
+                        file selected.</div>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btn-set-ink-root"
+                            style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">Set
+                            Ink Root...</button>
+                        <button id="btn-create-ink-root"
+                            style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">Create
+                            Ink Root</button>
+                    </div>
                 </div>
             </div>
         </div>

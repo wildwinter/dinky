@@ -259,11 +259,11 @@ ipcMain.handle('open-new-ink-root-ui', (event) => {
     if (win) openNewInkRootUI(win);
 });
 
-ipcMain.handle('start-test', (event, rootPath, projectFiles) => {
-    openTestWindow(rootPath, projectFiles);
+ipcMain.handle('start-test', (event, rootPath, projectFiles, knotName) => {
+    openTestWindow(rootPath, projectFiles, knotName);
 });
 ipcMain.on('request-test-restart', () => {
-    safeSend(mainWindow, 'trigger-start-test');
+    safeSend(mainWindow, 'trigger-restart-test');
 });
 ipcMain.on('rebuild-menu', () => {
     if (mainWindow) buildMenu(mainWindow);

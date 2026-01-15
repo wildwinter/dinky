@@ -6,12 +6,12 @@ import { getWindowState, saveWindowState, saveSettings } from './config'
 
 let testWindow = null
 
-export async function openTestWindow(rootPath, projectFiles) {
+export async function openTestWindow(rootPath, projectFiles, knotName) {
     if (testWindow) {
         testWindow.show()
         testWindow.focus()
         if (rootPath && projectFiles) {
-            await runTestSequence(rootPath, projectFiles);
+            await runTestSequence(rootPath, projectFiles, knotName);
         }
         await saveSettings({ testWindowOpen: true });
         return
@@ -56,7 +56,10 @@ export async function openTestWindow(rootPath, projectFiles) {
     testWindow.webContents.on('did-finish-load', async () => {
         updateTheme()
         if (rootPath && projectFiles) {
-            await runTestSequence(rootPath, projectFiles);
+            // we assume if it reloads, it might lack context of which knot unless stored, 
+            // but for now we won't persist knotName across window reloads unless requested again
+            // actually, for the initial load, this closure variable IS the requested start knot.
+            await runTestSequence(rootPath, projectFiles, knotName);
         }
     })
 
@@ -68,7 +71,7 @@ export async function openTestWindow(rootPath, projectFiles) {
     }
 }
 
-async function runTestSequence(rootPath, projectFiles) {
+async function runTestSequence(rootPath, projectFiles, knotName) {
     if (!testWindow || testWindow.isDestroyed()) return;
 
     const rootContent = projectFiles[rootPath];
@@ -79,7 +82,7 @@ async function runTestSequence(rootPath, projectFiles) {
 
     try {
         const storyJson = await compileStory(rootContent, rootPath, projectFiles);
-        safeSend(testWindow, 'start-story', storyJson);
+        safeSend(testWindow, 'start-story', { story: storyJson, startKnot: knotName });
     } catch (e) {
         console.error('Test compilation failed:', e);
         safeSend(testWindow, 'compilation-error', e.message);

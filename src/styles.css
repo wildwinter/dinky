@@ -78,9 +78,33 @@ body {
     letter-spacing: 0.5px;
 }
 
+#main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: calc(100% - 200px);
+    /* Fill remaining width */
+    overflow: hidden;
+}
+
+#toolbar {
+    height: 36px;
+    background-color: var(--sidebar-bg);
+    /* Match sidebar or specific color */
+    border-bottom: 1px solid var(--sidebar-border);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    box-sizing: border-box;
+    justify-content: flex-start;
+    /* Align items to the left */
+}
+
 #editor-container {
     flex-grow: 1;
     height: 100%;
+    /* Fill remaining height */
     overflow: hidden;
     display: none;
     /* Hidden by default */

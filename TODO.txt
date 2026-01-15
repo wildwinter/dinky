@@ -1,7 +1,6 @@
 TODO:
 -----
-Test from Knot
-Add Dink highlighting.
+Add Dink syntax checking and highlighting
 Add character list
 Line ID handling
 Line ID searching
@@ -13,6 +12,7 @@ BUG: Close button missing for Search/Replace on Windows
 
 Done:
 ----
+Test from Knot
 Testing.
 Add Search/Replace
 Add Find in Files
@@ -24,4 +24,3 @@ Lucide icons
 Rename ink file button
 Add zoom in / zoom out / reset zoom for every window, make persistent
 Add spellchecker/dictionary
-Add Dink syntax checking and highlighting

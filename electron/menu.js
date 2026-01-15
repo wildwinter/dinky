@@ -192,10 +192,17 @@ async function buildMenu(win) {
             label: 'Test',
             submenu: [
                 {
-                    label: 'Start Test',
+                    label: 'Test Root',
                     accelerator: 'CmdOrCtrl+T',
                     click: () => {
                         safeSend(win, 'trigger-start-test');
+                    }
+                },
+                {
+                    label: 'Test Knot',
+                    accelerator: 'CmdOrCtrl+Shift+T',
+                    click: () => {
+                        safeSend(win, 'trigger-test-knot');
                     }
                 }
             ]

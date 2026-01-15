@@ -141,22 +141,58 @@ function goBack() {
     updateButtonStates();
 }
 
-function startStory(storyJson) {
-    if (!storyJson) {
-        console.error('startStory called with null/undefined storyJson');
+function startStory(storyData) {
+    let storyJson, startKnot;
+
+    // Handle both old format (string) and new format (object) for backward compatibility/safety
+    if (typeof storyData === 'string') {
+        storyJson = storyData;
+    } else if (typeof storyData === 'object' && storyData.story) {
+        storyJson = storyData.story;
+        startKnot = storyData.startKnot;
+    } else {
+        console.error('startStory called with invalid data', storyData);
         return;
     }
-    console.log('Starting story...');
-    currentStoryJson = storyJson;
+
+    if (!storyJson) {
+        console.error('startStory: storyJson is null/undefined');
+        return;
+    }
+    console.log('Starting story...', startKnot ? `at knot: ${startKnot}` : 'from start');
+
+    currentStoryJson = storyData; // Store the raw data for restart
     contentArea.innerHTML = ''; // Clear previous
     stateStack = []; // Clear stack on start/restart
     currentTurnElement = null;
     updateButtonStates();
     console.log('State stack cleared.');
 
+    // Update Window Title
+    if (startKnot) {
+        document.title = `Testing Knot: ${startKnot}`;
+    } else {
+        document.title = 'Testing Root';
+    }
+
     try {
         const jsonToUse = typeof storyJson === 'string' ? JSON.parse(storyJson) : JSON.parse(JSON.stringify(storyJson));
         story = new Story(jsonToUse);
+
+        if (startKnot) {
+            try {
+                story.ChoosePathString(startKnot);
+            } catch (e) {
+                console.error(`Failed to jump to knot ${startKnot}:`, e);
+                // Continue from start if jump failed? app to decide. 
+                // We'll output an error message in UI
+                const p = document.createElement('p');
+                p.style.color = 'orange';
+                p.textContent = `Warning: Could not find knot "${startKnot}". Starting from beginning.`;
+                contentArea.appendChild(p);
+            }
+        }
+
         continueStory();
     } catch (e) {
         console.error('Failed to run story:', e);
@@ -167,8 +203,8 @@ function startStory(storyJson) {
     }
 }
 
-window.electronAPI.onStartStory((storyJson) => {
-    startStory(storyJson);
+window.electronAPI.onStartStory((data) => {
+    startStory(data);
 });
 
 window.electronAPI.onCompilationError((message) => {

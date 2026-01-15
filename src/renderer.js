@@ -273,6 +273,7 @@ let loadedInkFiles = new Map();
 let currentFilePath = null;
 let rootInkPath = null;
 let isUpdatingContent = false;
+let lastTestKnot = null;
 
 document.getElementById('btn-load-project').addEventListener('click', () => {
     window.electronAPI.openProject();
@@ -782,6 +783,9 @@ btnDeleteInclude.addEventListener('click', async () => {
 async function handleStartTest() {
     if (!rootInkPath) return;
 
+    // Reset last test mode to root
+    lastTestKnot = null;
+
     await saveAllFiles();
     const projectFiles = getProjectFilesContent();
 
@@ -794,6 +798,75 @@ document.getElementById('btn-start-test').addEventListener('click', async () => 
 
 window.electronAPI.onTriggerStartTest(async () => {
     await handleStartTest();
+});
+
+async function handleTestKnot() {
+    if (!rootInkPath) return;
+
+    await saveAllFiles();
+    const projectFiles = getProjectFilesContent();
+
+    // Find knot at cursor
+    const model = editor.getModel();
+    const position = editor.getPosition();
+
+    if (!position) {
+        console.warn('handleTestKnot: No cursor position found. Editor might not have focus.');
+        // Try to rely on last known position? Or just fail?
+        // Let's just return for now or alert. 
+        // Attempting to focus and get position again might work but is racey.
+        return;
+    }
+
+    const knotName = findCurrentKnot(model, position);
+
+    if (knotName) {
+        console.log('Testing knot:', knotName);
+        lastTestKnot = knotName;
+        await window.electronAPI.startTest(rootInkPath, projectFiles, knotName);
+    } else {
+        // Fallback to normal start or alert? 
+        // For now, if no knot found, maybe just start from beginning or warn.
+        // Let's just start regular test if no knot found? Or maybe alert.
+        // User behavior "Test Knot" implies they expect a knot.
+        // But finding a knot is heuristic.
+        console.log('No knot found, starting from root');
+        lastTestKnot = null;
+        await window.electronAPI.startTest(rootInkPath, projectFiles);
+    }
+}
+
+function findCurrentKnot(model, position) {
+    // Scan backwards from current line
+    for (let i = position.lineNumber; i >= 1; i--) {
+        const line = model.getLineContent(i);
+        // Regex for knot: === Name === or === Name
+        // We match: ^\s*={2,}\s*([\w_]+)
+        const match = line.match(/^\s*={2,}\s*([\w_]+)/);
+        if (match) {
+            return match[1];
+        }
+    }
+    return null;
+}
+
+document.getElementById('btn-test-knot').addEventListener('click', async () => {
+    await handleTestKnot();
+});
+
+window.electronAPI.onTriggerTestKnot(async () => {
+    await handleTestKnot();
+});
+
+window.electronAPI.onTriggerRestartTest(async () => {
+    if (lastTestKnot) {
+        if (!rootInkPath) return;
+        await saveAllFiles();
+        const projectFiles = getProjectFilesContent();
+        await window.electronAPI.startTest(rootInkPath, projectFiles, lastTestKnot);
+    } else {
+        await handleStartTest();
+    }
 });
 
 window.electronAPI.onMenuFind(() => {
