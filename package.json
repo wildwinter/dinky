@@ -11,7 +11,7 @@
         "preview": "npm run build && electron .",
         "dist-mac": "npm run clean && npm run build && electron-builder --mac",
         "dist-win": "npm run clean && npm run build && electron-builder --win --x64"
-      },
+    },
     "build": {
         "appId": "net.wildwinter.dinky",
         "productName": "Dinky",
@@ -43,9 +43,9 @@
         "nspell": "^2.1.5"
     },
     "devDependencies": {
-        "electron": "^31.0.0",
+        "electron": "^40.0.0",
         "electron-builder": "^26.4.0",
-        "vite": "^5.0.0",
+        "vite": "^7.3.1",
         "vite-plugin-electron": "^0.28.0",
         "vite-plugin-electron-renderer": "^0.14.5"
     }

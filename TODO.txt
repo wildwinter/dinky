@@ -1,6 +1,7 @@
 TODO:
 -----
 BUG: Installer not working on Windows
+BUG: Closing main window didn't exit if Test window wasn't closed.
 Add Dink syntax checking and highlighting
 Add character list
 Line ID handling
