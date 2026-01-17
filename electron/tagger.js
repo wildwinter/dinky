@@ -87,11 +87,9 @@ function generateIdsForUntagged(parsedStory) {
         }
 
         if (obj.typeName === "Choice") {
-            // Choices have specialized content lists that are objects, not arrays directly
-            // effectively: obj.choiceOnlyContent.content -> [Text, ...]
-            // IMPORTANT: The 'parent' for the items inside choiceOnlyContent is the choiceOnlyContent object itself (or its content array owner)
-            // But 'findLocTagId' expects parent.content to work.
-            // choiceOnlyContent IS a ContentList which has .content.
+            const explicitChildren = new Set();
+            if (obj.choiceOnlyContent) explicitChildren.add(obj.choiceOnlyContent);
+            if (obj.innerContent) explicitChildren.add(obj.innerContent);
 
             if (obj.choiceOnlyContent) {
                 // Traverse the ContentList itself so it becomes the 'parent' for its children
@@ -100,6 +98,15 @@ function generateIdsForUntagged(parsedStory) {
             }
             if (obj.innerContent) {
                 traverse(obj.innerContent, obj, currentAncestry, obj);
+            }
+
+            // Traverse remaining generic content (Plain choice text lives here)
+            if (obj.content && Array.isArray(obj.content)) {
+                for (const child of obj.content) {
+                    if (!explicitChildren.has(child)) {
+                        traverse(child, obj, currentAncestry, obj);
+                    }
+                }
             }
         }
 

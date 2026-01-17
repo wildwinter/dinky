@@ -638,22 +638,67 @@ async function autoTag() {
                 // For choices (e.g. * [Choice]), the line content contains more than just the text node's text.
                 // So we check if the line *contains* the text we tagged.
                 if (lineContent.includes(edit.text)) {
-                    // Append ID
-                    // We need to calculate where to insert. 
-                    // To handle comments properly, tagger usually assumes it's just text.
-                    // But if there's a comment, we should probably respect it? 
-                    // The tagger logic in generateIdsForUntagged iterates text nodes. 
-                    // We'll trust the tagger's decision that this line needs an ID.
+                    let insertColumn = -1;
 
-                    // Simple append: add space + tag at end of line
-                    const tagToAdd = ` ${edit.fullTag}`;
-                    const lineLength = lineContent.length;
+                    // PARSE LINE TO DETERMINE INSERTION POINT
+                    // 1. Separate content from comments
+                    const commentIdx = lineContent.indexOf('//');
+                    const contentPart = commentIdx === -1 ? lineContent : lineContent.substring(0, commentIdx);
 
-                    monacoEdits.push({
-                        range: new monaco.Range(edit.line, lineLength + 1, edit.line, lineLength + 1),
-                        text: tagToAdd,
-                        forceMoveMarkers: true
-                    });
+                    // 2. Check for Choice
+                    const trimmedLine = contentPart.trim();
+                    const isChoice = trimmedLine.startsWith('*') || trimmedLine.startsWith('+');
+
+                    if (isChoice) {
+                        const openIdx = contentPart.indexOf('[');
+                        const closeIdx = contentPart.indexOf(']'); // First closing bracket usually closes the choice content
+
+                        // Check for Contained Choice: * [Option]
+                        if (openIdx !== -1 && closeIdx !== -1) {
+                            if (openIdx > closeIdx) {
+                                // Mismatched order ]...[ - Ignore as error
+                                return;
+                            }
+
+                            // Valid pair. Check if our target text is inside.
+                            // Note: contentPart contains the "display text" inside brackets?
+                            // edit.text is what the tagger found.
+                            // If tagger found "Option", and line is `* [Option]`.
+                            const textIdx = contentPart.indexOf(edit.text);
+
+                            if (textIdx > openIdx && textIdx < closeIdx) {
+                                // Text is inside brackets. Insert before closing bracket.
+                                // Insert exactly at closeIdx position (pushes ] to right)
+                                // Monaco columns are 1-based. closeIdx is 0-based index.
+                                // So column = closeIdx + 1.
+                                insertColumn = closeIdx + 1;
+                            } else {
+                                // Text is outside brackets (e.g. output text).
+                                // Insert at end of contentPart.
+                                insertColumn = contentPart.trimEnd().length + 1;
+                            }
+
+                        } else if (openIdx !== -1 || closeIdx !== -1) {
+                            // Mismatched (only one present). Ignore as error.
+                            return;
+                        } else {
+                            // Plain Choice. Insert at end of contentPart.
+                            insertColumn = contentPart.trimEnd().length + 1;
+                        }
+                    } else {
+                        // Regular line. Insert at end of contentPart.
+                        insertColumn = contentPart.trimEnd().length + 1;
+                    }
+
+                    if (insertColumn !== -1) {
+                        const tagToAdd = ` ${edit.fullTag}`;
+
+                        monacoEdits.push({
+                            range: new monaco.Range(edit.line, insertColumn, edit.line, insertColumn),
+                            text: tagToAdd,
+                            forceMoveMarkers: true
+                        });
+                    }
                 }
             });
 
