@@ -29,3 +29,8 @@ Add zoom in / zoom out / reset zoom for every window, make persistent
 Add spellchecker/dictionary
 BUG: Close button missing for Search/Replace on Windows
 BUG: Closing main window didn't exit if Test window wasn't closed.
+
+
+NOTES:
+------
+Remember NVM use for the correct version of Node
