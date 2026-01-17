@@ -4,8 +4,9 @@ import fs from 'fs/promises'
 
 import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowState, saveWindowState, flushSettings } from './config'
 import { buildMenu } from './menu'
-import { compileInk } from './compiler'
+import { compileInk, parseInk } from './compiler'
 import { openTestWindow } from './test-runner'
+import { generateIdsForUntagged } from './tagger'
 import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
 import { safeSend, setupThemeListener } from './utils'
@@ -156,6 +157,21 @@ ipcMain.on('renderer-log', (event, ...args) => {
 // Compile handling
 ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}) => {
     return await compileInk(content, filePath, projectFiles);
+})
+
+// Auto-tag handling
+ipcMain.handle('auto-tag-ink', async (event, content, filePath, projectFiles = {}) => {
+    // 1. Parse the ink content to get the AST
+    const parsedStory = parseInk(content, filePath, projectFiles);
+
+    if (!parsedStory) {
+        return [];
+    }
+
+    // 2. Generate IDs for untagged lines
+    const edits = generateIdsForUntagged(parsedStory);
+
+    return edits;
 })
 
 // Save files handling

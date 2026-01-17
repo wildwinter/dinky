@@ -143,9 +143,10 @@ function findLocTagId(textNode, parent) {
     // Look ahead for tags
     for (let i = idx + 1; i < siblings.length; i++) {
         const sibling = siblings[i];
+        const textVal = sibling.text || "";
 
         if (sibling.typeName === "Tag") {
-            const tagText = sibling.text.trim();
+            const tagText = textVal.trim();
             if (tagText.startsWith(TAG_LOC)) {
                 return tagText.substring(TAG_LOC.length);
             }
@@ -153,9 +154,9 @@ function findLocTagId(textNode, parent) {
         // Stop if we hit a newline or another text node (end of this line's "scope")
         else if (sibling.typeName === "Text") {
             // If it's just a newline, stop.
-            if (sibling.text === "\n") break;
+            if (textVal === "\n") break;
             // If it's actual text, our scope is definitely over.
-            if (sibling.text.trim().length > 0) break;
+            if (textVal.trim().length > 0) break;
         }
     }
     return null;

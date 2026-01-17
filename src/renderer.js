@@ -609,8 +609,69 @@ async function checkSyntax() {
     }
 }
 
+async function autoTag() {
+    if (!rootInkPath || !currentFilePath) return;
+
+    // Use current content
+    const content = editor.getValue();
+
+    // We only pass the current file's content to the tagger for now 
+    // (though in theory it might need project context, usually local is enough for parsing a single file)
+    // However, parseInk in main might expect projectFiles if we want consistent parsing.
+    const projectFiles = getProjectFilesContent();
+
+    try {
+        const edits = await window.electronAPI.autoTagInk(content, currentFilePath, projectFiles);
+        if (edits && edits.length > 0) {
+
+            const model = editor.getModel();
+            if (!model) return;
+
+            const monacoEdits = [];
+
+            edits.forEach(edit => {
+                // Double check the line content matches what we expect
+                // The Monaco buffer might have changed since the debounce fired if the user typed fast.
+                // It's safer to only apply if the line is exactly what we tagged.
+                const lineContent = model.getLineContent(edit.line);
+                if (lineContent.trim() === edit.text) {
+                    // Append ID
+                    // We need to calculate where to insert. 
+                    // To handle comments properly, tagger usually assumes it's just text.
+                    // But if there's a comment, we should probably respect it? 
+                    // The tagger logic in generateIdsForUntagged iterates text nodes. 
+                    // We'll trust the tagger's decision that this line needs an ID.
+
+                    // Simple append: add space + tag at end of line
+                    const tagToAdd = ` ${edit.fullTag}`;
+                    const lineLength = lineContent.length;
+
+                    monacoEdits.push({
+                        range: new monaco.Range(edit.line, lineLength + 1, edit.line, lineLength + 1),
+                        text: tagToAdd,
+                        forceMoveMarkers: true
+                    });
+                }
+            });
+
+            if (monacoEdits.length > 0) {
+                isUpdatingContent = true; // Prevent triggering change events for our own edits
+                model.pushEditOperations(
+                    [],
+                    monacoEdits,
+                    () => null
+                );
+                isUpdatingContent = false;
+            }
+        }
+    } catch (e) {
+        window.electronAPI.log('autoTag failed:', e.toString());
+    }
+}
+
 const debouncedCheck = debounce(checkSyntax, 1000);
 const debouncedCheckSpelling = debounce(checkSpelling, 400);
+const debouncedAutoTag = debounce(autoTag, 2000);
 
 editor.onDidChangeModelContent(() => {
     if (isUpdatingContent) return;
@@ -633,6 +694,7 @@ editor.onDidChangeModelContent(() => {
     }
     debouncedCheck();
     debouncedCheckSpelling();
+    debouncedAutoTag();
 });
 
 window.electronAPI.onThemeUpdated((theme) => {

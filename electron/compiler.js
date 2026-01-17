@@ -186,21 +186,36 @@ function parseInk(content, filePath, projectFiles = {}) {
     content = removeBOM(content);
 
     const fileHandler = createFileHandler(filePath, projectFiles);
-    const errorHandler = (msg, type) => console.error(msg); // Simplified
+    // Silent error handler for parsing - we don't want to spam console for every keystroke
+    const errorHandler = (msg, type) => { };
 
-    const options = new inkjs.CompilerOptions(
-        filePath,
-        [],
-        false,
-        errorHandler,
-        fileHandler
-    );
+    let options;
+    if (inkjs.CompilerOptions) {
+        options = new inkjs.CompilerOptions(
+            filePath,
+            [],
+            false,
+            errorHandler,
+            fileHandler
+        );
+    } else {
+        options = {
+            sourceFilename: filePath,
+            fileHandler,
+            errorHandler
+        };
+    }
 
     const compiler = new inkjs.Compiler(content, options);
 
-    const parsedStory = compiler.Parse();
+    try {
+        // Compile populates _parsedStory
+        compiler.Compile();
+    } catch (e) {
+        // Ignore compilation errors, we just want the AST
+    }
 
-    return parsedStory;
+    return compiler._parsedStory;
 }
 
 export {

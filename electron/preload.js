@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onSaveAndExit: (callback) => ipcRenderer.on('save-and-exit', (_event, ...args) => callback(...args)),
     saveFiles: (files) => ipcRenderer.invoke('save-files', files),
     compileInk: (content, filePath, projectFiles) => ipcRenderer.invoke('compile-ink', content, filePath, projectFiles),
+    autoTagInk: (content, filePath, projectFiles) => ipcRenderer.invoke('auto-tag-ink', content, filePath, projectFiles),
     onThemeUpdated: (callback) => ipcRenderer.on('theme-updated', (_event, value) => callback(value)),
     log: (...args) => ipcRenderer.send('renderer-log', ...args),
     openProject: () => ipcRenderer.invoke('open-project'),
