@@ -41,6 +41,7 @@ async function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
         },
+        icon: path.join(__dirname, '../build/DinkyApp.' + (process.platform === 'win32' ? 'ico' : 'icns'))
     })
 
     mainWindow = win;

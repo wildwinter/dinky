@@ -16,11 +16,13 @@
         "appId": "net.wildwinter.dinky",
         "productName": "Dinky",
         "mac": {
-            "category": "public.app-category.productivity"
+            "category": "public.app-category.productivity",
+            "icon": "build/DinkyApp.icns"
         },
         "files": [
             "dist-electron/**/*",
-            "dist/**/*"
+            "dist/**/*",
+            "build/**/*"
         ],
         "directories": {
             "output": "release"
