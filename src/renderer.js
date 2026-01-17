@@ -634,7 +634,10 @@ async function autoTag() {
                 // The Monaco buffer might have changed since the debounce fired if the user typed fast.
                 // It's safer to only apply if the line is exactly what we tagged.
                 const lineContent = model.getLineContent(edit.line);
-                if (lineContent.trim() === edit.text) {
+
+                // For choices (e.g. * [Choice]), the line content contains more than just the text node's text.
+                // So we check if the line *contains* the text we tagged.
+                if (lineContent.includes(edit.text)) {
                     // Append ID
                     // We need to calculate where to insert. 
                     // To handle comments properly, tagger usually assumes it's just text.
