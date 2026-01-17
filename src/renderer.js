@@ -641,11 +641,11 @@ async function autoTag() {
                     let insertColumn = -1;
 
                     // PARSE LINE TO DETERMINE INSERTION POINT
-                    // 1. Separate content from comments
+                    // Separate content from comments
                     const commentIdx = lineContent.indexOf('//');
                     const contentPart = commentIdx === -1 ? lineContent : lineContent.substring(0, commentIdx);
 
-                    // 2. Check for Choice
+                    // Check for Choice
                     const trimmedLine = contentPart.trim();
                     const isChoice = trimmedLine.startsWith('*') || trimmedLine.startsWith('+');
 

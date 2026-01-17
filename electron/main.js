@@ -161,14 +161,14 @@ ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}
 
 // Auto-tag handling
 ipcMain.handle('auto-tag-ink', async (event, content, filePath, projectFiles = {}) => {
-    // 1. Parse the ink content to get the AST
+    // Parse the ink content to get the AST
     const parsedStory = parseInk(content, filePath, projectFiles);
 
     if (!parsedStory) {
         return [];
     }
 
-    // 2. Generate IDs for untagged lines
+    // Generate IDs for untagged lines
     const edits = generateIdsForUntagged(parsedStory);
 
     return edits;
