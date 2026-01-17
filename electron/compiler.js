@@ -27,10 +27,16 @@ function createFileHandler(filePath, projectFiles) {
     }
 }
 
-async function compileInk(content, filePath, projectFiles = {}) {
+function removeBOM(content) {
     if (content && typeof content === 'string' && content.charCodeAt(0) === 0xFEFF) {
         content = content.slice(1);
     }
+    return content;
+}
+
+
+async function compileInk(content, filePath, projectFiles = {}) {
+    content = removeBOM(content);
 
     const collectedErrors = []
     let parseError = null
@@ -133,9 +139,7 @@ async function compileInk(content, filePath, projectFiles = {}) {
 }
 
 async function compileStory(content, filePath, projectFiles = {}) {
-    if (content && typeof content === 'string' && content.charCodeAt(0) === 0xFEFF) {
-        content = content.slice(1);
-    }
+    content = removeBOM(content);
 
     const collectedErrors = []
 
@@ -178,7 +182,29 @@ async function compileStory(content, filePath, projectFiles = {}) {
     return story.ToJson()
 }
 
+function parseInk(content, filePath, projectFiles = {}) {
+    content = removeBOM(content);
+
+    const fileHandler = createFileHandler(filePath, projectFiles);
+    const errorHandler = (msg, type) => console.error(msg); // Simplified
+
+    const options = new inkjs.CompilerOptions(
+        filePath,
+        [],
+        false,
+        errorHandler,
+        fileHandler
+    );
+
+    const compiler = new inkjs.Compiler(content, options);
+
+    const parsedStory = compiler.Parse();
+
+    return parsedStory;
+}
+
 export {
     compileInk,
-    compileStory
+    compileStory,
+    parseInk
 }
