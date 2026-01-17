@@ -1,6 +1,5 @@
 TODO:
 -----
-Preferences pane
 Hide IDs (+preferences)
 Autogenerate IDs
 Somehow tooltip IDs?
@@ -31,6 +30,7 @@ Add spellchecker/dictionary
 BUG: Close button missing for Search/Replace on Windows
 BUG: Closing main window didn't exit if Test window wasn't closed.
 BUG: Installer not working on Windows
+Settings menu
 
 NOTES:
 ------

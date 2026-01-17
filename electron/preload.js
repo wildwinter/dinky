@@ -61,7 +61,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onClearSearchHighlights: (callback) => ipcRenderer.on('clear-search-highlights', (_event) => callback()),
     updateWindowTitle: (details) => ipcRenderer.send('update-window-title', details),
     loadProjectDictionary: () => ipcRenderer.invoke('load-project-dictionary'),
-    addToProjectDictionary: (word) => ipcRenderer.invoke('add-to-project-dictionary', word)
+    addToProjectDictionary: (word) => ipcRenderer.invoke('add-to-project-dictionary', word),
+    setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
+    onSettingsUpdated: (callback) => ipcRenderer.on('settings-updated', (_event, value) => callback(value))
 });
 
 window.addEventListener('DOMContentLoaded', () => {

@@ -9,7 +9,8 @@ export default defineConfig({
             input: {
                 main: 'index.html',
                 test: 'test-window.html',
-                search: 'search.html'
+                search: 'search.html',
+                settings: 'settings.html'
             }
         }
     },

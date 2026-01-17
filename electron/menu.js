@@ -3,6 +3,7 @@ import path from 'path'
 import { getRecentProjects, saveSettings, loadSettings } from './config'
 import { loadProject, openNewIncludeUI, openNewInkRootUI } from './project-manager'
 import { openSearchWindow } from './search'
+import { openSettingsWindow } from './settings'
 import { safeSend } from './utils'
 
 async function buildMenu(win) {
@@ -34,6 +35,12 @@ async function buildMenu(win) {
             label: app.name,
             submenu: [
                 { role: 'about' },
+                { type: 'separator' },
+                {
+                    label: 'Settings...',
+                    accelerator: 'Cmd+,',
+                    click: () => openSettingsWindow(win)
+                },
                 { type: 'separator' },
                 { role: 'services' },
                 { type: 'separator' },
@@ -138,7 +145,15 @@ async function buildMenu(win) {
                             }
                         }
                     ]
-                }
+                },
+                ...(isMac ? [] : [
+                    { type: 'separator' },
+                    {
+                        label: 'Settings...',
+                        accelerator: 'Ctrl+,',
+                        click: () => openSettingsWindow(win)
+                    }
+                ])
             ]
         },
         {
@@ -151,39 +166,6 @@ async function buildMenu(win) {
                 { role: 'resetZoom' },
                 { role: 'zoomIn' },
                 { role: 'zoomOut' },
-                { type: 'separator' },
-                {
-                    label: 'Theme',
-                    submenu: [
-                        {
-                            label: 'System',
-                            type: 'radio',
-                            checked: nativeTheme.themeSource === 'system',
-                            click: () => {
-                                nativeTheme.themeSource = 'system'
-                                saveSettings({ theme: 'system' })
-                            }
-                        },
-                        {
-                            label: 'Light',
-                            type: 'radio',
-                            checked: nativeTheme.themeSource === 'light',
-                            click: () => {
-                                nativeTheme.themeSource = 'light'
-                                saveSettings({ theme: 'light' })
-                            }
-                        },
-                        {
-                            label: 'Dark',
-                            type: 'radio',
-                            checked: nativeTheme.themeSource === 'dark',
-                            click: () => {
-                                nativeTheme.themeSource = 'dark'
-                                saveSettings({ theme: 'dark' })
-                            }
-                        }
-                    ]
-                },
                 { type: 'separator' },
                 { role: 'togglefullscreen' }
             ]
