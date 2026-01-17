@@ -103,6 +103,11 @@ async function createWindow() {
         e.preventDefault();
         safeSend(win, 'check-unsaved');
     });
+
+    win.on('closed', () => {
+        mainWindow = null;
+        app.quit();
+    });
 }
 
 // IPC Handlers for Unsaved Check

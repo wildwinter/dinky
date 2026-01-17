@@ -1,11 +1,16 @@
 TODO:
 -----
 BUG: Installer not working on Windows
-BUG: Closing main window didn't exit if Test window wasn't closed.
+Preferences pane
+Hide IDs (+preferences)
+Autogenerate IDs
+Somehow tooltip IDs?
 Add Dink syntax checking and highlighting
 Add character list
+Style test for dialogue
 Line ID handling
 Line ID searching
+Play connected audio?
 Let the file list slide backwards.
 
 Done:
@@ -23,3 +28,4 @@ Rename ink file button
 Add zoom in / zoom out / reset zoom for every window, make persistent
 Add spellchecker/dictionary
 BUG: Close button missing for Search/Replace on Windows
+BUG: Closing main window didn't exit if Test window wasn't closed.
