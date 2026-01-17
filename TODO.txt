@@ -1,6 +1,5 @@
 TODO:
 -----
-BUG: Installer not working on Windows
 Preferences pane
 Hide IDs (+preferences)
 Autogenerate IDs
@@ -11,6 +10,8 @@ Style test for dialogue
 Line ID handling
 Line ID searching
 Play connected audio?
+Icons for app and for Installer
+Associate Ink with app?
 Let the file list slide backwards.
 
 Done:
@@ -29,7 +30,7 @@ Add zoom in / zoom out / reset zoom for every window, make persistent
 Add spellchecker/dictionary
 BUG: Close button missing for Search/Replace on Windows
 BUG: Closing main window didn't exit if Test window wasn't closed.
-
+BUG: Installer not working on Windows
 
 NOTES:
 ------

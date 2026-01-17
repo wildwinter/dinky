@@ -28,10 +28,12 @@
         "nsis": {
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
+            "perMachine": true,
             "include": "build/installer.nsh"
         },
         "win": {
-            "target": "nsis"
+            "target": "nsis",
+            "icon": "build/DinkyApp.ico"
         }
     },
     "keywords": [],
