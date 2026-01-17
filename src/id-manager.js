@@ -68,58 +68,53 @@ export class IdHidingManager {
     }
 
     _onContentChanged(e) {
-        if (!this.isEnabled || this.isFixing) return;
-
-        // "Undo that change. I don't want IDs to be edited"
-        // "I don't want material typed next to a tag to become part of that tag"
-        // Logic: if user types immediately adjacent to a hidden ID, insert a space separator.
+        if (this.isFixing) return;
 
         const model = this.editor.getModel();
         const edits = [];
-        const ranges = this.decorations.map(id => model.getDecorationRange(id)).filter(r => r);
 
-        if (edits.length > 0) return; // Should not happen if we clear edits?
+        // Decoration-based guards (only if Hiding is Enabled)
+        if (this.isEnabled) {
+            const ranges = this.decorations.map(id => model.getDecorationRange(id)).filter(r => r);
 
-        // 1. End Guard: Prevent appending to hidden IDs (logic using decorations)
-        e.changes.forEach(change => {
-            if (change.text.length > 0) {
-                const changeStart = new this.monaco.Position(change.range.startLineNumber, change.range.startColumn);
+            e.changes.forEach(change => {
+                if (change.text.length > 0) {
+                    const changeStart = new this.monaco.Position(change.range.startLineNumber, change.range.startColumn);
 
-                for (const range of ranges) {
-                    const rangeEnd = range.getEndPosition();
+                    for (const range of ranges) {
+                        const rangeEnd = range.getEndPosition();
 
-                    // --- END GUARD (Appending) ---
-                    const isAtEnd = rangeEnd.equals(changeStart);
-                    const hasGrownEnd = (rangeEnd.lineNumber === changeStart.lineNumber) &&
-                        ((rangeEnd.column - changeStart.column) === change.text.length);
+                        // End Guard (Appending)
+                        // Checks if typing immediately after a hidden ID (end of range)
+                        const isAtEnd = rangeEnd.equals(changeStart);
+                        const hasGrownEnd = (rangeEnd.lineNumber === changeStart.lineNumber) &&
+                            ((rangeEnd.column - changeStart.column) === change.text.length);
 
-                    if (isAtEnd || hasGrownEnd) {
-                        edits.push({
-                            range: new this.monaco.Range(changeStart.lineNumber, changeStart.column, changeStart.lineNumber, changeStart.column),
-                            text: ' ',
-                            forceMoveMarkers: true
-                        });
-                        break;
+                        if (isAtEnd || hasGrownEnd) {
+                            edits.push({
+                                range: new this.monaco.Range(changeStart.lineNumber, changeStart.column, changeStart.lineNumber, changeStart.column),
+                                text: ' ',
+                                forceMoveMarkers: true
+                            });
+                            break;
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
 
-        // 2. Start Guard: Enforce space before #id: using Regex scan on modified lines
-        // This is more robust than decoration tracking for prepending
+        // Space Enforcer: Enforce space before #id: using Regex scan on modified lines
+        // This runs ALWAYS, ensuring valid ID syntax in memory regardless of hiding state.
         const linesToCheck = new Set(e.changes.map(c => c.range.startLineNumber));
         linesToCheck.forEach(lineNumber => {
             if (lineNumber > model.getLineCount()) return;
             const lineContent = model.getLineContent(lineNumber);
 
-            // Regex: Find #id: that is NOT at start of line and NOT preceded by whitespace
-            // Captures: (group 1: non-whitespace char) (group 2: #id:)
-            const regex = /([^\s])(#id:)/g;
+            // Prefix Guard
+            // Find #id: that is NOT at start of line and NOT preceded by whitespace
+            const prefixRegex = /([^\s])(#id:)/g;
             let match;
-            while ((match = regex.exec(lineContent)) !== null) {
-                // Found a collision. Insert space between group 1 and 2.
-                // Match index is start of group 1.
-                // Insertion point is match.index + group1.length.
+            while ((match = prefixRegex.exec(lineContent)) !== null) {
                 const group1Len = match[1].length;
                 const insertCol = match.index + group1Len + 1; // 1-based column
 
@@ -129,20 +124,58 @@ export class IdHidingManager {
                     forceMoveMarkers: true
                 });
             }
+
+            // Suffix Guard
+            // Find #id:... tags that have been extended with invalid chars
+            // Matches any #id: tag (sequence of alphanumerics/underscore)
+            // Then checks if inside that sequence, there is a valid _XXXX suffix followed by more chars
+            const tagRegex = /#id:[a-zA-Z0-9_]+/g;
+            while ((match = tagRegex.exec(lineContent)) !== null) {
+                const fullTag = match[0];
+
+                // Rule: Valid ID must end with _XXXX (underscore + 4 alphanumerics)
+                // If it ends with that, it's valid.
+                if (/_([a-zA-Z0-9]{4})$/.test(fullTag)) {
+                    continue;
+                }
+
+                // If not, checking if it *contains* a valid suffix that was overrun.
+                // We look for the LAST occurrence of _XXXX.
+                const suffixRegex = /_([a-zA-Z0-9]{4})/g;
+                let suffixMatch;
+                let lastSuffixMatch = null;
+
+                while ((suffixMatch = suffixRegex.exec(fullTag)) !== null) {
+                    lastSuffixMatch = suffixMatch;
+                }
+
+                if (lastSuffixMatch) {
+                    // We found a potential suffix that creates a valid ID prefix.
+                    // Everything after it is overflow.
+                    // lastSuffixMatch.index is start of _XXXX relative to fullTag.
+                    // Length is 5 (_ + 4 chars).
+
+                    const suffixEndIndex = lastSuffixMatch.index + 5;
+
+                    // Sanity check: ensure we are actually splitting the tag
+                    if (suffixEndIndex < fullTag.length) {
+                        const insertCol = match.index + suffixEndIndex + 1; // 1-based column
+
+                        edits.push({
+                            range: new this.monaco.Range(lineNumber, insertCol, lineNumber, insertCol),
+                            text: ' ',
+                            forceMoveMarkers: true
+                        });
+                    }
+                }
+            }
         });
 
         if (edits.length > 0) {
             this.isFixing = true;
             this.editor.executeEdits('id-hiding-seal', edits);
             this.isFixing = false;
-            // Decoration update will happen naturally via the debounced status (or triggered by renderer) 
-            // but we might want to force it or let the debounce handle it.
-            // Since we inserted a space, the previous decoration range is still valid for the ID part.
         }
-
-        // Let the renderer call updateDecorations or trigger it here?
-        // Renderer calls updatedDecorations on change. 
-        // If we trigger another edit, renderer will call it again.
     }
 
     setupCopyInterceptor() {

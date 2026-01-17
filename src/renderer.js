@@ -802,18 +802,61 @@ async function saveAllFiles() {
 
     // Pre-save Sanitization
     for (const [filePath, file] of loadedInkFiles) {
-        // Enforce space before #id: if not at start of line (and not preceded by whitespace)
-        // Regex: any non-whitespace char followed immediately by #id:
-        const sanitizedContent = file.content.replace(/([^\s])(#id:)/g, '$1 $2');
+        let content = file.content;
 
-        if (sanitizedContent !== file.content) {
-            file.content = sanitizedContent;
+        // Prefix Sanitize: Space before #id:
+        content = content.replace(/([^\s])(#id:)/g, '$1 $2');
+
+        // Suffix Sanitize: Space after _XXXX if followed by invalid char
+        // Invalid chars are anything that is NOT space, newline, ], or /
+        // We iterate matches manually because regex replace is tricky with the "Last" requirement
+
+        // Find all ID tags
+        const tagRegex = /#id:[a-zA-Z0-9_]+/g;
+        let match;
+
+        let newContent = content;
+        const insertions = [];
+
+        while ((match = tagRegex.exec(content)) !== null) {
+            const fullTag = match[0];
+            // Rule: Valid ID must end with _XXXX
+            if (/_([a-zA-Z0-9]{4})$/.test(fullTag)) {
+                continue;
+            }
+
+            // Search for last valid suffix
+            const suffixRegex = /_([a-zA-Z0-9]{4})/g;
+            let suffixMatch;
+            let lastSuffixMatch = null;
+            while ((suffixMatch = suffixRegex.exec(fullTag)) !== null) {
+                lastSuffixMatch = suffixMatch;
+            }
+
+            if (lastSuffixMatch) {
+                const suffixEndIndex = lastSuffixMatch.index + 5;
+                if (suffixEndIndex < fullTag.length) {
+                    // Calculate absolute index in content where space should be
+                    const absoluteIndex = match.index + suffixEndIndex;
+                    insertions.push(absoluteIndex);
+                }
+            }
+        }
+
+        // Apply insertions (reverse order)
+        insertions.sort((a, b) => b - a);
+        for (const index of insertions) {
+            newContent = newContent.slice(0, index) + ' ' + newContent.slice(index);
+        }
+
+        if (newContent !== file.content) {
+            file.content = newContent;
 
             // If this is the currently open file, update the editor to match
             // This ensures what you see is what is saved (and valid)
             if (filePath === currentFilePath) {
                 const pos = editor.getPosition();
-                editor.setValue(sanitizedContent);
+                editor.setValue(newContent);
                 if (pos) editor.setPosition(pos);
             }
         }
