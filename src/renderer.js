@@ -537,17 +537,16 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     currentFilePath = file.absolutePath;
 
     // ATOMIC MODEL SWAP STRATEGY
-    // 1. Create new model (detached from editor)
+    // Create new model (detached from editor)
     const newModel = monaco.editor.createModel(file.content, 'ink');
 
-    // 2. Force immediate decoration update on the NEW model
+    // Force immediate decoration update on the NEW model
     idManager.updateDecorations(true, newModel);
 
-    // 3. Swap the model (The editor now renders the model which ALREADY has hidden IDs)
-    const oldModel = editor.getModel();
+    // Swap the model (The editor now renders the model which ALREADY has hidden IDs)
     editor.setModel(newModel);
 
-    // 4. Dispose old model to prevent leaks
+    // Dispose old model to prevent leaks
     if (oldModel) {
         oldModel.dispose();
     }

@@ -59,7 +59,7 @@ function generateIdsForUntagged(parsedStory) {
             const isValidText = text && text.trim().length > 0;
 
             // Ignore if inside logic (VariableAssignment, StringExpression)
-            // Note: In AST, 'parent' tells us if we are in an assignment
+            // In AST, 'parent' tells us if we are in an assignment
             const isLogic = parent && (parent.typeName === "VariableAssignment" || parent.typeName === "StringExpression");
 
             if (isValidText && !isLogic) {
@@ -135,7 +135,7 @@ function generateIdsForUntagged(parsedStory) {
         }
 
 
-        // Note: Some AST nodes like Choices might store content in other properties 
+        // Some AST nodes like Choices might store content in other properties 
         // (e.g., choice.choiceOnlyContent), but standard text usually lives in .content
     }
 
