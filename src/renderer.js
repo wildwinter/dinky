@@ -153,7 +153,7 @@ monaco.languages.setMonarchTokensProvider('ink', {
             [/^\-/, 'keyword'],
 
             // Tags
-            [/#\s*.*$/, 'annotation'],
+            [/#/, 'annotation', '@tagMode'],
 
             // Logic
             // Note: { and } are now largely handled by 'code' rules above if they form blocks across lines
@@ -177,6 +177,21 @@ monaco.languages.setMonarchTokensProvider('ink', {
 
             // Fallback EOL catch (e.g. trailing whitespace matched differently or empty)
             [/$/, 'code', '@pop']
+        ],
+        tagMode: [
+            [/\/\/.*$/, 'comment', '@pop'],
+            [/\/\*/, 'comment', '@comment'],
+            [/\]/, '@rematch', '@pop'],
+
+            // Content ending at EOL -> POP
+            [/[^\]\/]+$/, 'annotation', '@pop'],
+
+            // Content NOT ending at EOL -> STAY
+            [/[^\]\/]+/, 'annotation'],
+            [/\/(?!\/|\*)/, 'annotation'],
+
+            // Fallback
+            [/$/, 'annotation', '@pop']
         ],
         comment: [
             [/[^\/*]+/, 'comment'],
