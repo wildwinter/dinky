@@ -13,10 +13,23 @@ async function init() {
         window.electronAPI.setTheme(newTheme);
     });
 
+    // Hide IDs setup
+    const hideIdsCheckbox = document.getElementById('hide-ids-checkbox');
+    if (settings.hideIds !== undefined) {
+        hideIdsCheckbox.checked = settings.hideIds;
+    }
+
+    hideIdsCheckbox.addEventListener('change', (e) => {
+        window.electronAPI.setSetting('hideIds', e.target.checked);
+    });
+
     // Listen for theme updates from main process
     window.electronAPI.onSettingsUpdated((newSettings) => {
         if (newSettings.theme && newSettings.theme !== themeSelect.value) {
             themeSelect.value = newSettings.theme;
+        }
+        if (newSettings.hideIds !== undefined && newSettings.hideIds !== hideIdsCheckbox.checked) {
+            hideIdsCheckbox.checked = newSettings.hideIds;
         }
     });
 

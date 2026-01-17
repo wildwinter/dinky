@@ -95,3 +95,16 @@ ipcMain.handle('set-theme', async (event, themeMode) => {
         safeSend(settingsWindow, 'settings-updated', { theme: themeMode });
     }
 });
+
+ipcMain.handle('set-setting', async (event, key, value) => {
+    const s = {};
+    s[key] = value;
+    await saveSettings(s);
+    
+    // Broadcast to all windows
+    BrowserWindow.getAllWindows().forEach(w => {
+         if (!w.isDestroyed()) {
+             safeSend(w, 'settings-updated', s);
+         }
+    });
+});

@@ -12,6 +12,7 @@ Play connected audio?
 Icons for app and for Installer
 Associate Ink with app?
 Let the file list slide backwards.
+Code signing (costs money!)
 
 Done:
 ----

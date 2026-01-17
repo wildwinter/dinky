@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadProjectDictionary: () => ipcRenderer.invoke('load-project-dictionary'),
     addToProjectDictionary: (word) => ipcRenderer.invoke('add-to-project-dictionary', word),
     setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
+    setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),
     onSettingsUpdated: (callback) => ipcRenderer.on('settings-updated', (_event, value) => callback(value))
 });
 

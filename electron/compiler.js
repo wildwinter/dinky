@@ -107,6 +107,23 @@ async function compileInk(content, filePath, projectFiles = {}) {
         }
     })
 
+    // Custom Safety Check: Duplicate IDs on a single line
+    const lines = content.split(/\r?\n/)
+    lines.forEach((line, index) => {
+        const idMatches = line.match(/#id:/g);
+        if (idMatches && idMatches.length > 1) {
+            errors.push({
+                startLineNumber: index + 1,
+                endLineNumber: index + 1,
+                startColumn: 1,
+                endColumn: 1000,
+                message: "Multiple ID tags found on this line. Only one ID per line is allowed.",
+                severity: 8,
+                filePath: filePath
+            });
+        }
+    });
+
     if (errors.length > 0) return errors
 
     // Fallback if no errors collected but crashed

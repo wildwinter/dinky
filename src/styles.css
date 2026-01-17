@@ -248,3 +248,31 @@ button.secondary {
     background-color: rgba(0, 0, 0, 0.1);
     border-radius: 4px;
 }
+/* ID Hiding Styles */
+.dinky-id-hidden {
+    color: transparent !important;
+    font-size: 0.1px !important;
+    letter-spacing: -0.5em; /* collapse width */
+    width: 0 !important;
+    display: inline-block;
+}
+
+.dinky-id-chip {
+    opacity: 0.5;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+.dinky-id-chip::after {
+    content: 'ID';
+    background-color: var(--sidebar-border);
+    color: var(--text-color);
+    font-size: 9px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    border: 1px solid var(--sidebar-active);
+}
+
+.dinky-id-chip:hover {
+    opacity: 1;
+}

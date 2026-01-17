@@ -1,6 +1,7 @@
 import * as monaco from 'monaco-editor';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { DinkySpellChecker } from './spellchecker';
+import { IdHidingManager } from './id-manager';
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
@@ -214,6 +215,24 @@ window.electronAPI.loadSettings().then(settings => {
     const locale = settings.spellCheckerLocale || 'en-GB';
     spellChecker.init(locale);
 });
+
+// ID Hiding Manager
+const idManager = new IdHidingManager(editor, monaco);
+idManager.setupCopyInterceptor();
+
+window.electronAPI.onSettingsUpdated((newSettings) => {
+    if (newSettings.hideIds !== undefined) {
+        idManager.setEnabled(newSettings.hideIds);
+    }
+});
+
+// Initial load check
+window.electronAPI.loadSettings().then(settings => {
+    if (settings.hideIds !== undefined) {
+        idManager.setEnabled(settings.hideIds);
+    }
+});
+
 
 window.electronAPI.onUpdateSpellLocale(async (locale) => {
     await spellChecker.switchLocale(locale);
@@ -521,6 +540,7 @@ function loadFileToEditor(file, element, forceRefresh = false) {
 
     checkSyntax();
     checkSpelling();
+    idManager.updateDecorations();
 }
 
 function updateDeleteButtonState(isRoot) {
@@ -725,6 +745,9 @@ async function autoTag() {
                     () => null
                 );
                 isUpdatingContent = false;
+
+                // Explicitly update decorations since we skipped the change event
+                idManager.updateDecorations();
             }
         }
     } catch (e) {
@@ -758,6 +781,7 @@ editor.onDidChangeModelContent(() => {
     debouncedCheck();
     debouncedCheckSpelling();
     debouncedAutoTag();
+    idManager.updateDecorations();
 });
 
 window.electronAPI.onThemeUpdated((theme) => {
@@ -775,9 +799,28 @@ window.electronAPI.onThemeUpdated((theme) => {
 // Save Logic
 async function saveAllFiles() {
     const filesToSave = [];
+
+    // Pre-save Sanitization
     for (const [filePath, file] of loadedInkFiles) {
+        // Enforce space before #id: if not at start of line (and not preceded by whitespace)
+        // Regex: any non-whitespace char followed immediately by #id:
+        const sanitizedContent = file.content.replace(/([^\s])(#id:)/g, '$1 $2');
+
+        if (sanitizedContent !== file.content) {
+            file.content = sanitizedContent;
+
+            // If this is the currently open file, update the editor to match
+            // This ensures what you see is what is saved (and valid)
+            if (filePath === currentFilePath) {
+                const pos = editor.getPosition();
+                editor.setValue(sanitizedContent);
+                if (pos) editor.setPosition(pos);
+            }
+        }
+
         filesToSave.push({ path: filePath, content: file.content });
     }
+
     // Invoke IPC to save files
     await window.electronAPI.saveFiles(filesToSave);
 

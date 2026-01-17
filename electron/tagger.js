@@ -81,7 +81,31 @@ function generateIdsForUntagged(parsedStory) {
 
         // Recurse into content
         if (obj.typeName !== "Choice" && obj.content && Array.isArray(obj.content)) {
-            for (const child of obj.content) {
+            for (let i = 0; i < obj.content.length; i++) {
+                const child = obj.content[i];
+
+                // Check if this is a Tag Start. If so, the next node is likely the Tag Text.
+                // We want to skip that text node so it's not treated as "content to be tagged".
+                const type = child.typeName || child.constructor.name;
+                const isTagStart = (type === "Tag" && child.isStart);
+
+                if (isTagStart) {
+                    const nextChild = obj.content[i + 1];
+                    // Check next child type
+                    const nextType = nextChild ? (nextChild.typeName || nextChild.constructor.name) : "";
+
+                    if (nextChild && nextType === "Text") {
+                        // Skip the text node
+                        // We still traverse the Tag node itself? (It doesn't have content usually)
+                        traverse(child, obj, currentAncestry, choiceNode);
+
+                        // Skip next
+                        i++;
+                        // Do we traverse the text node? NO.
+                        continue;
+                    }
+                }
+
                 traverse(child, obj, currentAncestry, choiceNode);
             }
         }
@@ -193,54 +217,71 @@ function findLocTagId(textNode, parent, choiceNode = null) {
 
 function findTagInSiblings(refNode, container) {
     if (!container || !container.content) return null;
-    const siblings = container.content;
+    let siblings = container.content;
 
     // If refNode is provided, start searching after it.
-    // If refNode is null, search the whole container (useful for innerContent scan).
-    let startIndex = 0;
     if (refNode) {
         const idx = siblings.indexOf(refNode);
         if (idx === -1) return null;
-        startIndex = idx + 1;
+        const startIndex = idx + 1;
+        siblings = siblings.slice(startIndex);
     }
 
-    for (let i = startIndex; i < siblings.length; i++) {
-        const node = siblings[i];
-        const type = node.typeName || node.constructor.name;
-
-        // In InkJS AST, a Tag is represented by a Tag node (marker) followed by a Text node containing the tag value.
-        // Or sometimes just Tag node? Let's handle the sequence found in debug: Tag(isStart=true) -> Text -> Tag(isStart=false)
-
-        if (type === "Tag" && node.isStart) {
-            // Check next sibling for the text
-            const nextNode = siblings[i + 1];
-            if (nextNode && (nextNode.typeName === "Text" || nextNode.constructor.name === "Text")) {
-                const tagText = (nextNode.text || "").trim();
-                if (tagText.startsWith(TAG_LOC)) {
-                    return tagText.substring(TAG_LOC.length);
-                }
+    // Helper generator to Flatten the AST node stream
+    // This allows us to transparently handle nested ContentLists
+    function* iterateNodes(nodeList) {
+        if (!nodeList) return;
+        for (const node of nodeList) {
+            const type = node.typeName || node.constructor.name;
+            if (type === "ContentList" && node.content) {
+                yield* iterateNodes(node.content);
+            } else {
+                yield node;
             }
         }
+    }
 
-        // Also check if the node ITSELF is a text node that looks like a tag (fallback)
-        // or if node.typeName === "Tag" and it has text (fallback)
-        if (type === "Tag" && node.text && node.text.trim().startsWith(TAG_LOC)) {
-            return node.text.trim().substring(TAG_LOC.length);
-        }
+    let pendingTagStart = false;
 
-        // Stop conditions
-        if (type === "Text") {
-            const txt = node.text || "";
-            // If it's the tag value (preceded by Tag marker), we handled it above.
-            // But if we are just iterating, how do we know if this Text is content or tag value?
-            // Since we filter out explicit tag text in start logic, this should be safe.
+    // Iterate through the visible siblings (and their children if they are containers)
+    for (const node of iterateNodes(siblings)) {
+        const type = node.typeName || node.constructor.name;
 
-            if (txt === "\n") break;
-            if (txt.trim().length > 0) {
-                // It's some other text. If we are traversing siblings of the target text, this ends the line scope.
-                if (refNode) break;
-                // If scanning innerContent (refNode null), we continue scanning until end or newline?
-                // Usually tags are at the start of innerContent.
+        if (type === "Tag") {
+            pendingTagStart = node.isStart;
+            // Also check for self-contained text (fallback for some tag formats)
+            if (node.text && node.text.trim().startsWith(TAG_LOC)) {
+                return node.text.trim().substring(TAG_LOC.length);
+            }
+        } else if (type === "Text") {
+            const txt = (node.text || "").trim();
+
+            if (pendingTagStart) {
+                // This text node is the content of the preceding Tag start.
+                if (txt.startsWith(TAG_LOC)) {
+                    // FOUND IT!
+                    return txt.substring(TAG_LOC.length);
+                }
+                // It was a tag, but not our ID tag. 
+                // We consumed the pending tag start state.
+                pendingTagStart = false;
+            } else {
+                // This is normal text content.
+                // If it's non-empty, it means we have hit subsequent content on the same line.
+                // Does this invalidate the search? 
+
+                // If we are searching for an ID for 'refNode', usually the ID must be immediate.
+                // BUT the user reported issues where intervening text broke the link.
+                // To fix the "double tagging" bug where 'Option x #id:123' generates a new ID:
+                // We should NOT break on text if we are just looking for *an* ID on this line segment.
+
+                // However, we must be careful not to consume an ID that belongs to a NEXT line segment 
+                // if Ink considers them separate.
+                // But generally, one line = one ID.
+                // So we will CONTINUE searching even if we see text.
+
+                // Only break on explicit line breaks or ends
+                if (node.text === "\n") break;
             }
         }
     }
