@@ -541,6 +541,7 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     checkSyntax();
     checkSpelling();
     idManager.updateDecorations();
+    autoTag(); // Run tagger immediately on load
 }
 
 function updateDeleteButtonState(isRoot) {
