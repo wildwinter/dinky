@@ -1,5 +1,6 @@
 TODO:
 -----
+# or // at the end of a line breaks coloring
 Hide IDs (+preferences)
 Autogenerate IDs
 Somehow tooltip IDs?

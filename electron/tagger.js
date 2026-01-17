@@ -250,17 +250,23 @@ function findTagInSiblings(refNode, container) {
         if (type === "Tag") {
             pendingTagStart = node.isStart;
             // Also check for self-contained text (fallback for some tag formats)
-            if (node.text && node.text.trim().startsWith(TAG_LOC)) {
-                return node.text.trim().substring(TAG_LOC.length);
+            const txt = (node.text || "").trim();
+            // Lenient check: remove potential leading '#' characters that user might have typed
+            const cleanTxt = txt.replace(/^#+/, '');
+
+            if (cleanTxt.startsWith(TAG_LOC)) {
+                return cleanTxt.substring(TAG_LOC.length);
             }
         } else if (type === "Text") {
             const txt = (node.text || "").trim();
 
             if (pendingTagStart) {
                 // This text node is the content of the preceding Tag start.
-                if (txt.startsWith(TAG_LOC)) {
+                const cleanTxt = txt.replace(/^#+/, '');
+
+                if (cleanTxt.startsWith(TAG_LOC)) {
                     // FOUND IT!
-                    return txt.substring(TAG_LOC.length);
+                    return cleanTxt.substring(TAG_LOC.length);
                 }
                 // It was a tag, but not our ID tag. 
                 // We consumed the pending tag start state.

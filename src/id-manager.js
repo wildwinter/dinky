@@ -5,14 +5,30 @@ export class IdHidingManager {
         this.monaco = monaco;
         this.isEnabled = false;
         this.decorations = [];
+        this.lastKnownIds = []; // Track known ID ranges for immutability check
         this.updateDebounceTimer = null;
         this.isFixing = false;
 
         this._initListeners();
+        // Initial scan to populate lastKnownIds
+        // Models might not be loaded yet if constructor is called early, but render logic calls updateDecorations soon.
+        // We'll trust updateDecorations/onContentChanged loop, but also run a scan if possible.
+        if (this.editor.getModel()) {
+            this._scanIds();
+        }
     }
 
     _initListeners() {
         this.editor.onDidChangeModelContent((e) => this._onContentChanged(e));
+        // Need to rescan when model changes entirely
+        this.editor.onDidChangeModel(() => {
+            // Reset cache for new model
+            if (this.editor.getModel()) {
+                this._scanIds();
+            } else {
+                this.lastKnownIds = [];
+            }
+        });
     }
 
     setEnabled(enabled) {
@@ -98,6 +114,107 @@ export class IdHidingManager {
         if (this.isFixing) return;
 
         const model = this.editor.getModel();
+
+        // ---------------------------------------------------------
+        // IMMUTABILITY GUARD
+        // Check if any change overlaps strictly inside a known ID range.
+        // We use lastKnownIds (captured before this change).
+        // ---------------------------------------------------------
+        // ---------------------------------------------------------
+        // IMMUTABILITY GUARD
+        // Check if any change overlaps strictly inside a known ID range.
+        // We use lastKnownIds (captured before this change).
+        // ---------------------------------------------------------
+        if (this.isEnabled && this.lastKnownIds && this.lastKnownIds.length > 0) {
+            let illegalEdit = false;
+
+            for (const change of e.changes) {
+                // Change range is in valid coordinates relative to the OLD model state (which matches lastKnownIds).
+                const changeRange = change.range;
+
+                for (const idRange of this.lastKnownIds) {
+                    // Check strict intersection:
+                    // Illegal inside edit if:
+                    // 1. Change starts AFTER ID start
+                    // 2. Change ends BEFORE ID end
+                    // (This effectively blocks typing inside, deleting inside, but allows full delete or edge extensions)
+
+                    // Actually, "Strictly Inside" means:
+                    // modification range is contained within ID, but does not equal ID.
+                    // Wait, partial deletion of ID (e.g. deleting first char) is also bad?
+                    // User said "changing the ID". Deleting the ID entirely is usually OK.
+                    // Modifying it (breaking syntax) is bad.
+
+                    // Range intersection logic:
+                    // Intersection must be valid and non-empty? 
+                    // Any overlap that is NOT a full deletion/replacement of the ID tag is suspect.
+
+                    // If range equals ID range -> Full replacement/deletion. ALLOW.
+                    if (idRange.equalsRange(changeRange)) continue;
+
+                    // If range contains ID range -> Deletion of surrounding block. ALLOW.
+                    if (this.monaco.Range.containsRange(changeRange, idRange)) continue;
+
+                    // If ID contains range -> Modification INSIDE ID. BLOCK.
+                    // This covers typing inside, deleting part inside.
+                    if (this.monaco.Range.containsRange(idRange, changeRange)) {
+                        // Edge case: Extending at the very end?
+                        // If appending at end: change start/end == ID end.
+                        // containsRange includes edges.
+                        // We must check strict interior.
+
+                        const isAtStart = (changeRange.startLineNumber === idRange.startLineNumber && changeRange.startColumn === idRange.startColumn);
+                        const isAtEnd = (changeRange.endLineNumber === idRange.endLineNumber && changeRange.endColumn === idRange.endColumn);
+
+                        // If it touches edges, it might be allowed (Prefix/Suffix guards handle formatting).
+                        // e.g. Prepending space -> touches start. Appending space -> touches end.
+                        // If NOT touching edges, it is strictly internal. BLOCK.
+                        if (!isAtStart && !isAtEnd) {
+                            illegalEdit = true;
+                            break;
+                        }
+
+                        // If it touches edges, but has content...
+                        // e.g. typing 'x' at end. Range is empty (at end). intersect?
+                        // Wait, Range.containsRange(range, emptyRange) is true if position inside.
+
+                        // Let's refine:
+                        // If change is an INSERT (text.length > 0, range empty):
+                        //   If pos > start and pos < end -> Internal Insert. BLOCK.
+                        //   If pos == start or pos == end -> Edge Insert. ALLOW.
+
+                        // If change is DELETE/REPLACE:
+                        //   If intersection exists and is not full coverage -> BLOCK.
+                        //   Actually complexity: simpler to say "Don't touch the ID text".
+
+                        // Let's stick thereto:
+                        // Blocks edits where Start > ID.Start AND End < ID.End.
+                        // (Strictly Inner Range).
+
+                        const strictInner =
+                            (changeRange.startLineNumber > idRange.startLineNumber || (changeRange.startLineNumber === idRange.startLineNumber && changeRange.startColumn > idRange.startColumn)) &&
+                            (changeRange.endLineNumber < idRange.endLineNumber || (changeRange.endLineNumber === idRange.endLineNumber && changeRange.endColumn < idRange.endColumn));
+
+                        if (strictInner) {
+                            illegalEdit = true;
+                            break;
+                        }
+                    }
+                }
+                if (illegalEdit) break;
+            }
+
+            if (illegalEdit) {
+                this.isFixing = true;
+                this.editor.trigger('id-guard', 'undo', {});
+                this.isFixing = false;
+
+                // IMPORTANT: Since we undid the change, the model is back to old state.
+                // lastKnownIds remains valid (or should be resynced just in case).
+                return;
+            }
+        }
+
         const edits = [];
 
         // Decoration-based guards (only if Hiding is Enabled)
@@ -110,6 +227,7 @@ export class IdHidingManager {
 
                     for (const range of ranges) {
                         const rangeEnd = range.getEndPosition();
+
 
                         // End Guard (Appending)
                         // Checks if typing immediately after a hidden ID (end of range)
@@ -131,84 +249,137 @@ export class IdHidingManager {
         }
 
         // Space Enforcer: Enforce space before #id: using Regex scan on modified lines
-        // This runs ALWAYS, ensuring valid ID syntax in memory regardless of hiding state.
-        const linesToCheck = new Set(e.changes.map(c => c.range.startLineNumber));
-        linesToCheck.forEach(lineNumber => {
-            if (lineNumber > model.getLineCount()) return;
-            const lineContent = model.getLineContent(lineNumber);
+        // Only run specialized guards if Hiding is ENABLED.
+        // If disabled, user can edit freely (except copy/paste stripping).
+        if (this.isEnabled) {
+            const linesToCheck = new Set(e.changes.map(c => c.range.startLineNumber));
+            linesToCheck.forEach(lineNumber => {
+                if (lineNumber > model.getLineCount()) return;
+                const lineContent = model.getLineContent(lineNumber);
 
-            // Prefix Guard
-            // Find #id: that is NOT at start of line and NOT preceded by whitespace
-            const prefixRegex = /([^\s])(#id:)/g;
-            let match;
-            while ((match = prefixRegex.exec(lineContent)) !== null) {
-                const group1Len = match[1].length;
-                const insertCol = match.index + group1Len + 1; // 1-based column
+                // Prefix Guard
+                const prefixRegex = /([^\s])(#id:)/g;
+                let match;
+                while ((match = prefixRegex.exec(lineContent)) !== null) {
+                    const group1Len = match[1].length;
+                    const insertCol = match.index + group1Len + 1; // 1-based column
 
-                edits.push({
-                    range: new this.monaco.Range(lineNumber, insertCol, lineNumber, insertCol),
-                    text: ' ',
-                    forceMoveMarkers: true
-                });
-            }
-
-            // Suffix Guard
-            // Find #id:... tags that have been extended with invalid chars
-            // Matches any #id: tag (sequence of alphanumerics/underscore)
-            // Then checks if inside that sequence, there is a valid _XXXX suffix followed by more chars
-            const tagRegex = /#id:[a-zA-Z0-9_]+/g;
-            while ((match = tagRegex.exec(lineContent)) !== null) {
-                const fullTag = match[0];
-
-                // Rule: Valid ID must end with _XXXX (underscore + 4 alphanumerics)
-                // If it ends with that, it's valid.
-                if (/_([a-zA-Z0-9]{4})$/.test(fullTag)) {
-                    continue;
+                    edits.push({
+                        range: new this.monaco.Range(lineNumber, insertCol, lineNumber, insertCol),
+                        text: ' ',
+                        forceMoveMarkers: false
+                    });
                 }
 
-                // If not, checking if it *contains* a valid suffix that was overrun.
-                // We look for the LAST occurrence of _XXXX.
-                const suffixRegex = /_([a-zA-Z0-9]{4})/g;
-                let suffixMatch;
-                let lastSuffixMatch = null;
+                // Suffix Guard
+                const tagRegex = /#id:[a-zA-Z0-9_]+/g;
+                while ((match = tagRegex.exec(lineContent)) !== null) {
+                    const fullTag = match[0];
 
-                while ((suffixMatch = suffixRegex.exec(fullTag)) !== null) {
-                    lastSuffixMatch = suffixMatch;
-                }
+                    if (/_([a-zA-Z0-9]{4})$/.test(fullTag)) {
+                        const charAfter = lineContent[match.index + fullTag.length];
+                        if (charAfter && !/[\s\/\]]/.test(charAfter)) {
+                            const insertCol = match.index + fullTag.length + 1;
+                            edits.push({
+                                range: new this.monaco.Range(lineNumber, insertCol, lineNumber, insertCol),
+                                text: ' ',
+                                forceMoveMarkers: true
+                            });
+                        }
+                        continue;
+                    }
 
-                if (lastSuffixMatch) {
-                    // We found a potential suffix that creates a valid ID prefix.
-                    // Everything after it is overflow.
-                    // lastSuffixMatch.index is start of _XXXX relative to fullTag.
-                    // Length is 5 (_ + 4 chars).
+                    // Suffix overflow check
+                    const suffixRegex = /_([a-zA-Z0-9]{4})/g;
+                    let suffixMatch;
+                    let lastSuffixMatch = null;
 
-                    const suffixEndIndex = lastSuffixMatch.index + 5;
+                    while ((suffixMatch = suffixRegex.exec(fullTag)) !== null) {
+                        lastSuffixMatch = suffixMatch;
+                    }
 
-                    // Sanity check: ensure we are actually splitting the tag
-                    if (suffixEndIndex < fullTag.length) {
-                        const insertCol = match.index + suffixEndIndex + 1; // 1-based column
-
-                        edits.push({
-                            range: new this.monaco.Range(lineNumber, insertCol, lineNumber, insertCol),
-                            text: ' ',
-                            forceMoveMarkers: true
-                        });
+                    if (lastSuffixMatch) {
+                        const suffixEndIndex = lastSuffixMatch.index + 5;
+                        if (suffixEndIndex < fullTag.length) {
+                            const insertCol = match.index + suffixEndIndex + 1;
+                            edits.push({
+                                range: new this.monaco.Range(lineNumber, insertCol, lineNumber, insertCol),
+                                text: ' ',
+                                forceMoveMarkers: true
+                            });
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
 
         if (edits.length > 0) {
             this.isFixing = true;
-            this.editor.executeEdits('id-hiding-seal', edits);
+            // Capture current selections before applying edits
+            const currentSelections = this.editor.getSelections();
+
+            this.editor.executeEdits('id-hiding-seal', edits, (inverseEditOperations) => {
+                // Granular Cursor Logic:
+                // We need to return the NEW selections.
+                // For each original selection, we determine if it needs to shift.
+
+                return currentSelections.map(selection => {
+                    let newLine = selection.positionLineNumber;
+                    let newCol = selection.positionColumn;
+
+                    // Check all edits to see if they affect this cursor
+                    edits.forEach(edit => {
+                        // Only care about edits on the same line
+                        if (edit.range.startLineNumber === newLine) {
+                            // If edit is strictly BEFORE the cursor, we shift right.
+                            // Case: Suffix Guard. Cursor is at C. Edit at C-1.
+                            // We inserted 1 char (' '). So cursor should move to C+1.
+                            if (edit.range.startColumn < selection.positionColumn) {
+                                newCol += 1;
+                            }
+                            // If edit is AT the cursor, we typically DO NOT shift (Prefix Guard).
+                            // Case: Prefix Guard. Cursor at C. Edit at C.
+                            // We insert space at C. Valid text starts at C+1.
+                            // We want cursor to stay at C (before the space).
+                            // So we do nothing.
+                        }
+                    });
+
+                    // Return new Selection (collapsed to cursor)
+                    return new this.monaco.Selection(newLine, newCol, newLine, newCol);
+                });
+            });
             this.isFixing = false;
+        }
+    }
+
+    _scanIds() {
+        if (!this.editor) return;
+        const model = this.editor.getModel();
+        if (!model) return;
+
+        const text = model.getValue();
+        const regex = /#id:[a-zA-Z0-9_]+/g;
+        let match;
+        this.lastKnownIds = [];
+
+        while ((match = regex.exec(text)) !== null) {
+            const startPos = model.getPositionAt(match.index);
+            const endPos = model.getPositionAt(match.index + match[0].length);
+            // Store as simple range object (not Monaco class instance to avoid overhead? Monaco Range is fine)
+            // Storing Monaco Range is good for convenience.
+            this.lastKnownIds.push(new this.monaco.Range(startPos.lineNumber, startPos.column, endPos.lineNumber, endPos.column));
         }
     }
 
     setupCopyInterceptor() {
         const container = this.editor.getContainerDomNode();
         container.addEventListener('copy', (e) => {
-            if (!this.isEnabled) return;
+            // ALWAYS INTERCEPT COPY, even if hiding is disabled involved?
+            // User request: "The ONLY special treatment now when UNHIDDEN should be that if any text is pasted from one place to another, any IDs should be removed."
+            // So we allow stripping always.
+            // if (!this.isEnabled) return;
+
             const selection = this.editor.getSelection();
             if (selection.isEmpty()) return;
             let text = this.editor.getModel().getValueInRange(selection);
