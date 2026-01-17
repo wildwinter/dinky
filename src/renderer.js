@@ -535,12 +535,28 @@ function loadFileToEditor(file, element, forceRefresh = false) {
 
     isUpdatingContent = true;
     currentFilePath = file.absolutePath;
-    editor.setValue(file.content);
+
+    // ATOMIC MODEL SWAP STRATEGY
+    // 1. Create new model (detached from editor)
+    const newModel = monaco.editor.createModel(file.content, 'ink');
+
+    // 2. Force immediate decoration update on the NEW model
+    idManager.updateDecorations(true, newModel);
+
+    // 3. Swap the model (The editor now renders the model which ALREADY has hidden IDs)
+    const oldModel = editor.getModel();
+    editor.setModel(newModel);
+
+    // 4. Dispose old model to prevent leaks
+    if (oldModel) {
+        oldModel.dispose();
+    }
+
     isUpdatingContent = false;
 
+    // Run other checks (these update markers, which render on top of text, so flash is less critical)
     checkSyntax();
     checkSpelling();
-    idManager.updateDecorations();
     autoTag(); // Run tagger immediately on load
 }
 

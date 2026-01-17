@@ -248,11 +248,13 @@ button.secondary {
     background-color: rgba(0, 0, 0, 0.1);
     border-radius: 4px;
 }
+
 /* ID Hiding Styles */
 .dinky-id-hidden {
     color: transparent !important;
     font-size: 0.1px !important;
-    letter-spacing: -0.5em; /* collapse width */
+    letter-spacing: -0.5em;
+    /* collapse width */
     width: 0 !important;
     display: inline-block;
 }
@@ -275,4 +277,23 @@ button.secondary {
 
 .dinky-id-chip:hover {
     opacity: 1;
+}
+
+/* Content Loading State */
+.content-loading .monaco-editor {
+    opacity: 0 !important;
+    transition: opacity 0.1s ease;
+}
+
+.monaco-editor {
+    transition: opacity 0.1s ease;
+}
+
+#main-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    height: 100vh;
+    background-color: var(--bg-color);
 }
