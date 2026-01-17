@@ -35,6 +35,25 @@ function removeBOM(content) {
 }
 
 
+
+function createCompilerOptions(filePath, errorHandler, fileHandler) {
+    if (inkjs.CompilerOptions) {
+        return new inkjs.CompilerOptions(
+            filePath, // sourceFilename
+            [],       // pluginNames
+            false,    // countAllVisits
+            errorHandler,
+            fileHandler
+        )
+    } else {
+        return {
+            sourceFilename: filePath,
+            fileHandler,
+            errorHandler
+        }
+    }
+}
+
 async function compileInk(content, filePath, projectFiles = {}) {
     content = removeBOM(content);
 
@@ -48,24 +67,7 @@ async function compileInk(content, filePath, projectFiles = {}) {
             collectedErrors.push(message)
         }
 
-        // Use CompilerOptions class if available to ensure correct structure
-        let options
-        if (inkjs.CompilerOptions) {
-            options = new inkjs.CompilerOptions(
-                filePath, // sourceFilename passed for better context
-                [],   // pluginNames
-                false, // countAllVisits
-                errorHandler,
-                fileHandler
-            )
-        } else {
-            options = {
-                sourceFilename: filePath,
-                fileHandler,
-                errorHandler
-            }
-        }
-
+        const options = createCompilerOptions(filePath, errorHandler, fileHandler);
         const compiler = new inkjs.Compiler(content, options)
         compiler.Compile()
     } catch (error) {
@@ -149,22 +151,7 @@ async function compileStory(content, filePath, projectFiles = {}) {
         collectedErrors.push(message)
     }
 
-    let options
-    if (inkjs.CompilerOptions) {
-        options = new inkjs.CompilerOptions(
-            filePath,
-            [],
-            false,
-            errorHandler,
-            fileHandler
-        )
-    } else {
-        options = {
-            sourceFilename: filePath,
-            fileHandler,
-            errorHandler
-        }
-    }
+    const options = createCompilerOptions(filePath, errorHandler, fileHandler);
 
     const compiler = new inkjs.Compiler(content, options)
     const story = compiler.Compile()
@@ -189,22 +176,7 @@ function parseInk(content, filePath, projectFiles = {}) {
     // Silent error handler for parsing - we don't want to spam console for every keystroke
     const errorHandler = (msg, type) => { };
 
-    let options;
-    if (inkjs.CompilerOptions) {
-        options = new inkjs.CompilerOptions(
-            filePath,
-            [],
-            false,
-            errorHandler,
-            fileHandler
-        );
-    } else {
-        options = {
-            sourceFilename: filePath,
-            fileHandler,
-            errorHandler
-        };
-    }
+    const options = createCompilerOptions(filePath, errorHandler, fileHandler);
 
     const compiler = new inkjs.Compiler(content, options);
 
