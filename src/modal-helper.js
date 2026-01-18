@@ -36,6 +36,8 @@ export class ModalHelper {
         this.overlay.addEventListener('keydown', (e) => {
             if (this.overlay.style.display === 'none') return;
             if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
                 if (!this.confirmBtn.disabled) {
                     this.confirmBtn.click();
                 }

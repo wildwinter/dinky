@@ -286,6 +286,26 @@
             </div>
         </div>
     </div>
+
+    <!-- Find ID Modal -->
+    <div id="modal-find-id-overlay"
+        style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); align-items: center; justify-content: center; z-index: 1000;">
+        <div id="find-id-modal"
+            style="background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); padding: 20px; width: 400px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            <div class="modal-header">Jump to ID</div>
+
+            <div class="form-group">
+                <label for="find-id-input">Ink ID</label>
+                <input type="text" id="find-id-input" placeholder="Enter ID (e.g. knot_name_1234)" />
+                <div id="find-id-error" style="color: #ff4d4d; font-size: 12px; margin-top: 5px; height: 14px;"></div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="btn-cancel-find-id" class="secondary">Cancel</button>
+                <button id="btn-confirm-find-id" class="primary">Go</button>
+            </div>
+        </div>
+    </div>
     <script type="module" src="/src/renderer.js"></script>
 </body>
 

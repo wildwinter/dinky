@@ -428,8 +428,100 @@ document.getElementById('btn-add-ink-root').addEventListener('click', () => {
     window.electronAPI.openNewInkRootUI();
 });
 
+
 document.getElementById('btn-switch-ink-root').addEventListener('click', () => {
     window.electronAPI.openInkRoot();
+});
+
+
+// -- Find ID Logic --
+const findIdModal = new ModalHelper({
+    overlayId: 'modal-find-id-overlay',
+    confirmBtnId: 'btn-confirm-find-id',
+    cancelBtnId: 'btn-cancel-find-id',
+    onShow: () => {
+        document.getElementById('find-id-input').value = '';
+        document.getElementById('find-id-error').textContent = '';
+    },
+    onValidate: () => true, // Always allow clicking Go, we validate in confirm
+    onConfirm: async () => {
+        const idToFind = document.getElementById('find-id-input').value.trim();
+        const errorEl = document.getElementById('find-id-error');
+        errorEl.textContent = '';
+
+        if (!idToFind) return false;
+
+        // Search through loaded files
+        let found = false;
+
+        for (const [path, file] of loadedInkFiles) {
+            // We need to check content. If it's the current file, use editor value.
+            // But wait, ID searching relies on extractIds which parses the text.
+            // For current file, we should use editor content.
+            // For others, use file.content.
+
+            let content = file.content;
+            if (path === currentFilePath) {
+                // Use editor content, but MUST reconstruct IDs since they are stripped in editor
+                content = idManager.reconstructContent(editor.getValue());
+            }
+
+            // Extract IDs from this content
+            // We use extractIds from idManager, which is stateless for extraction
+            const { extractedIds } = idManager.extractIds(content);
+
+            const match = extractedIds.find(item => item.id === idToFind);
+
+            if (match) {
+                // Found it!
+                found = true;
+
+                // Navigate
+                if (path !== currentFilePath) {
+                    // We need to switch files.
+                    // We can reuse the logic from the list item click if available, 
+                    // or just call loadFileToEditor directly.
+                    // Ideally we find the listItem and click it to ensure UI sync.
+                    if (file.listItem) {
+                        file.listItem.click();
+                        // wait for load? loadFileToEditor is synchronous in terms of model swap
+                    } else {
+                        // Fallback if no list item (shouldn't happen for loaded files)
+                        // We can try to re-query the list or just manual load
+                        // But for now assuming listItem exists is safe as we populate it on load
+                    }
+                }
+
+                // Now we are in the correct file.
+                // We need to focus the line.
+                // match.lineIndex is 0-based.
+                const lineNum = match.lineIndex + 1;
+
+                // Reveal and select
+                editor.revealLineInCenter(lineNum);
+                editor.setPosition({ lineNumber: lineNum, column: 1 });
+                editor.focus();
+
+                break;
+            }
+        }
+
+        if (!found) {
+            errorEl.textContent = 'ID not found';
+            return false; // Keep modal open
+        }
+
+        return true; // Close modal
+    }
+});
+
+document.getElementById('find-id-input').addEventListener('keydown', (e) => {
+    // Clear error on type
+    document.getElementById('find-id-error').textContent = '';
+});
+
+window.electronAPI.onMenuFindId(() => {
+    findIdModal.open();
 });
 
 

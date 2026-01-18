@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onTriggerRestartTest: (callback) => ipcRenderer.on('trigger-restart-test', (_event) => callback()),
     onCompilationError: (callback) => ipcRenderer.on('compilation-error', (_event, message) => callback(message)),
     requestTestRestart: () => ipcRenderer.send('request-test-restart'),
+    onMenuFindId: (callback) => ipcRenderer.on('menu-find-id', (_event) => callback()),
     onMenuFind: (callback) => ipcRenderer.on('menu-find', (_event) => callback()),
     onMenuReplace: (callback) => ipcRenderer.on('menu-replace', (_event) => callback()),
     onMenuFindInFiles: (callback) => ipcRenderer.on('menu-find-in-files', (_event) => callback()),
