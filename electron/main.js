@@ -17,230 +17,303 @@ app.commandLine.appendSwitch('disable-features', 'Autofill')
 // Wire up the menu rebuild callback
 setMenuRebuildCallback(buildMenu);
 
+
 let mainWindow = null;
+let fileToOpen = null; // Store file path to open on startup
+let pendingAction = null; // { type: 'close' } or { type: 'load', path: '...' }
 
-async function createWindow() {
-    // Load settings
-    const settings = await loadSettings()
-    nativeTheme.themeSource = settings.theme || 'system'
+// Handle file association on macOS
+app.on('open-file', (event, filePath) => {
+    event.preventDefault();
+    if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
 
-    ipcMain.handle('load-settings', async () => {
-        return await loadSettings();
-    });
+        // Trigger safe load check
+        pendingAction = { type: 'load', path: filePath };
+        safeSend(mainWindow, 'check-unsaved');
+    } else {
+        fileToOpen = filePath;
+    }
+});
 
-    // Load saved window state
-    const windowState = await getWindowState('main');
+// Single instance lock for Windows
+const gotTheLock = app.requestSingleInstanceLock();
 
-    const win = new BrowserWindow({
-        title: 'Dinky',
-        width: windowState?.width || 800,
-        height: windowState?.height || 600,
-        x: windowState?.x,
-        y: windowState?.y,
-        webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-            nodeIntegration: false,
-            contextIsolation: true,
-        },
-        icon: path.join(__dirname, '../build/DinkyApp.' + (process.platform === 'win32' ? 'ico' : 'icns'))
-    })
+if (!gotTheLock) {
+    app.quit();
+} else {
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+        // Someone tried to run a second instance, we should focus our window.
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
 
-    mainWindow = win;
-    initSearch(win);
-
-    // Initial menu build
-    await buildMenu(win);
-    ipcMain.emit('rebuild-menu');
-
-    // Theme handling
-    const { update: updateTheme } = setupThemeListener(win);
-
-    win.webContents.on('did-finish-load', async () => {
-        updateTheme()
-
-        // Load last used project if available
-        const recent = await getRecentProjects();
-        if (recent.length > 0) {
-            const lastProject = recent[0];
-            try {
-                // Check if file exists
-                await fs.access(lastProject);
-                // If it exists, load it
-                console.log('Auto-loading last project:', lastProject);
-
-                await loadProject(win, lastProject);
-
-                // Restore other windows if they were open
-                const currentSettings = await loadSettings();
-                if (currentSettings.searchWindowOpen) {
-                    await openSearchWindow();
-                }
-                if (currentSettings.testWindowOpen) {
-                    // Start test (which opens the window)
-                    safeSend(win, 'trigger-start-test');
-                }
-            } catch (e) {
-                console.log('Last project not found or invalid, removing from history:', lastProject);
-                await removeFromRecentProjects(lastProject);
-                await buildMenu(win);
+            // Windows: Extract file path from command line arguments
+            const filePath = commandLine.find(arg => arg.endsWith('.dinkproj'));
+            if (filePath) {
+                // Trigger safe load check
+                pendingAction = { type: 'load', path: filePath };
+                safeSend(mainWindow, 'check-unsaved');
             }
         }
-    })
-
-    if (process.env.VITE_DEV_SERVER_URL) {
-        win.loadURL(process.env.VITE_DEV_SERVER_URL)
-    } else {
-        // Load the index.html when not in dev mode (for production builds)
-        const indexPath = path.join(__dirname, '../dist/index.html')
-        win.loadFile(indexPath).catch(e => console.error('Failed to load index.html:', e))
-    }
-
-    win.forceClose = false;
-
-    win.on('move', () => saveWindowState('main', win.getBounds()));
-    win.on('resize', () => saveWindowState('main', win.getBounds()));
-
-    win.on('close', (e) => {
-        if (win.forceClose) return;
-        if (win.webContents.isDestroyed()) return;
-        e.preventDefault();
-        safeSend(win, 'check-unsaved');
     });
 
-    win.on('closed', () => {
-        mainWindow = null;
-        app.quit();
-    });
-}
 
-// IPC Handlers for Unsaved Check
-ipcMain.on('unsaved-status', (event, hasUnsaved) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (!win) return;
 
-    if (!hasUnsaved) {
-        win.forceClose = true;
-        win.close();
-    } else {
-        const choice = dialog.showMessageBoxSync(win, {
-            type: 'question',
-            buttons: ['Save', 'Discard', 'Cancel'],
-            defaultId: 0,
-            title: 'Unsaved Changes',
-            message: 'Do you want to save the changes you made in the project?',
-            detail: "Your changes will be lost if you don't save them.",
-            cancelId: 2,
-            noLink: true
+    async function createWindow() {
+        // Load settings
+        const settings = await loadSettings()
+        nativeTheme.themeSource = settings.theme || 'system'
+
+        ipcMain.handle('load-settings', async () => {
+            return await loadSettings();
         });
 
-        if (choice === 0) { // Save
-            safeSend(win, 'save-and-exit');
-        } else if (choice === 1) { // Discard
+        // Load saved window state
+        const windowState = await getWindowState('main');
+
+        const win = new BrowserWindow({
+            title: 'Dinky',
+            width: windowState?.width || 800,
+            height: windowState?.height || 600,
+            x: windowState?.x,
+            y: windowState?.y,
+            webPreferences: {
+                preload: path.join(__dirname, 'preload.js'),
+                nodeIntegration: false,
+                contextIsolation: true,
+            },
+            icon: path.join(__dirname, '../build/DinkyApp.' + (process.platform === 'win32' ? 'ico' : 'icns'))
+        })
+
+        mainWindow = win;
+        initSearch(win);
+
+        // Initial menu build
+        await buildMenu(win);
+        ipcMain.emit('rebuild-menu');
+
+        // Theme handling
+        const { update: updateTheme } = setupThemeListener(win);
+
+        win.webContents.on('did-finish-load', async () => {
+            updateTheme()
+
+            // Check if we have a file to open (Mac or Windows/Linux)
+            if (process.platform === 'win32') {
+                const filePath = process.argv.find(arg => arg.endsWith('.dinkproj'));
+                if (filePath) {
+                    fileToOpen = filePath;
+                }
+            }
+
+            if (fileToOpen) {
+                console.log('Opening file from association:', fileToOpen);
+                await loadProject(win, fileToOpen);
+                fileToOpen = null; // Clear it
+                return;
+            }
+
+            // Load last used project if available
+
+            // Load last used project if available
+            const recent = await getRecentProjects();
+            if (recent.length > 0) {
+                const lastProject = recent[0];
+                try {
+                    // Check if file exists
+                    await fs.access(lastProject);
+                    // If it exists, load it
+                    console.log('Auto-loading last project:', lastProject);
+
+                    await loadProject(win, lastProject);
+
+                    // Restore other windows if they were open
+                    const currentSettings = await loadSettings();
+                    if (currentSettings.searchWindowOpen) {
+                        await openSearchWindow();
+                    }
+                    if (currentSettings.testWindowOpen) {
+                        // Start test (which opens the window)
+                        safeSend(win, 'trigger-start-test');
+                    }
+                } catch (e) {
+                    console.log('Last project not found or invalid, removing from history:', lastProject);
+                    await removeFromRecentProjects(lastProject);
+                    await buildMenu(win);
+                }
+            }
+        })
+
+        if (process.env.VITE_DEV_SERVER_URL) {
+            win.loadURL(process.env.VITE_DEV_SERVER_URL)
+        } else {
+            // Load the index.html when not in dev mode (for production builds)
+            const indexPath = path.join(__dirname, '../dist/index.html')
+            win.loadFile(indexPath).catch(e => console.error('Failed to load index.html:', e))
+        }
+
+        win.forceClose = false;
+
+        win.on('move', () => saveWindowState('main', win.getBounds()));
+        win.on('resize', () => saveWindowState('main', win.getBounds()));
+
+        win.on('close', (e) => {
+            if (win.forceClose) return;
+            if (win.webContents.isDestroyed()) return;
+            e.preventDefault();
+            pendingAction = { type: 'close' };
+            safeSend(win, 'check-unsaved');
+        });
+
+        win.on('closed', () => {
+            mainWindow = null;
+            app.quit();
+        });
+    }
+
+    // IPC Handlers for Unsaved Check
+    ipcMain.on('unsaved-status', async (event, hasUnsaved) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (!win) return;
+
+        if (!hasUnsaved) {
+            performPendingAction(win);
+        } else {
+            const choice = dialog.showMessageBoxSync(win, {
+                type: 'question',
+                buttons: ['Save', 'Discard', 'Cancel'],
+                defaultId: 0,
+                title: 'Unsaved Changes',
+                message: 'Do you want to save the changes you made in the project?',
+                detail: "Your changes will be lost if you don't save them.",
+                cancelId: 2,
+                noLink: true
+            });
+
+            if (choice === 0) { // Save
+                safeSend(win, 'save-and-exit'); // Triggers save, then 'save-exit-complete'
+            } else if (choice === 1) { // Discard
+                performPendingAction(win);
+            }
+            // Choice 2 is Cancel:
+            else {
+                pendingAction = null;
+            }
+        }
+    });
+
+    ipcMain.on('save-exit-complete', (event) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (win) {
+            performPendingAction(win);
+        }
+    });
+
+    async function performPendingAction(win) {
+        if (!pendingAction) return;
+
+        if (pendingAction.type === 'close') {
             win.forceClose = true;
             win.close();
+        } else if (pendingAction.type === 'load') {
+            await loadProject(win, pendingAction.path);
         }
-        // Choice 2 is Cancel, do nothing
-    }
-});
-
-ipcMain.on('save-exit-complete', (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) {
-        win.forceClose = true;
-        win.close();
-    }
-});
-
-// Renderer logging
-ipcMain.on('renderer-log', (event, ...args) => {
-    console.log('[Renderer]', ...args)
-})
-
-// Compile handling
-ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}) => {
-    return await compileInk(content, filePath, projectFiles);
-})
-
-// Auto-tag handling
-ipcMain.handle('auto-tag-ink', async (event, content, filePath, projectFiles = {}) => {
-    // Parse the ink content to get the AST
-    const parsedStory = parseInk(content, filePath, projectFiles);
-
-    if (!parsedStory) {
-        return [];
+        pendingAction = null;
     }
 
-    // Generate IDs for untagged lines
-    const edits = generateIdsForUntagged(parsedStory);
-
-    return edits;
-})
-
-// Save files handling
-ipcMain.handle('save-files', async (event, files) => {
-    for (const { path: filePath, content } of files) {
-        try {
-            await fs.writeFile(filePath, content, 'utf-8');
-        } catch (e) {
-            console.error('Failed to save file', filePath, e);
-        }
-    }
-});
-
-ipcMain.handle('open-project', async (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-        properties: ['openFile'],
-        filters: [{ name: 'Dink Project', extensions: ['dinkproj'] }]
+    // Renderer logging
+    ipcMain.on('renderer-log', (event, ...args) => {
+        console.log('[Renderer]', ...args)
     })
-    if (!canceled && filePaths.length > 0) {
-        await loadProject(win, filePaths[0]);
-    }
-});
 
-ipcMain.handle('open-ink-root', async (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) await openInkRootUI(win);
-});
+    // Compile handling
+    ipcMain.handle('compile-ink', async (event, content, filePath, projectFiles = {}) => {
+        return await compileInk(content, filePath, projectFiles);
+    })
 
-ipcMain.handle('create-ink-root', async (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) return await createInkRoot(win);
-});
+    // Auto-tag handling
+    ipcMain.handle('auto-tag-ink', async (event, content, filePath, projectFiles = {}) => {
+        // Parse the ink content to get the AST
+        const parsedStory = parseInk(content, filePath, projectFiles);
 
-ipcMain.handle('new-project', async (event) => {
-    // This is called from the renderer "New Project" button in empty state
-    // We want to reuse the same modal flow
-    const win = BrowserWindow.fromWebContents(event.sender);
-    safeSend(win, 'show-new-project-modal');
-});
+        if (!parsedStory) {
+            return [];
+        }
 
-ipcMain.handle('select-folder', async (event, defaultPath) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
-        defaultPath: defaultPath,
-        properties: ['openDirectory', 'createDirectory']
+        // Generate IDs for untagged lines
+        const edits = generateIdsForUntagged(parsedStory);
+
+        return edits;
+    })
+
+    // Save files handling
+    ipcMain.handle('save-files', async (event, files) => {
+        for (const { path: filePath, content } of files) {
+            try {
+                await fs.writeFile(filePath, content, 'utf-8');
+            } catch (e) {
+                console.error('Failed to save file', filePath, e);
+            }
+        }
     });
-    if (!canceled && filePaths.length > 0) {
-        return filePaths[0];
-    }
-    return null;
-});
 
-ipcMain.handle('create-new-project', async (event, name, parentPath) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    return await createNewProject(win, name, parentPath);
-});
-
-app.whenReady().then(() => {
-    createWindow()
-
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow()
+    ipcMain.handle('open-project', async (event) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+            properties: ['openFile'],
+            filters: [{ name: 'Dink Project', extensions: ['dinkproj'] }]
+        })
+        if (!canceled && filePaths.length > 0) {
+            await loadProject(win, filePaths[0]);
         }
+    });
+
+    ipcMain.handle('open-ink-root', async (event) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (win) await openInkRootUI(win);
+    });
+
+    ipcMain.handle('create-ink-root', async (event) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (win) return await createInkRoot(win);
+    });
+
+    ipcMain.handle('new-project', async (event) => {
+        // This is called from the renderer "New Project" button in empty state
+        // We want to reuse the same modal flow
+        const win = BrowserWindow.fromWebContents(event.sender);
+        safeSend(win, 'show-new-project-modal');
+    });
+
+    ipcMain.handle('select-folder', async (event, defaultPath) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+            defaultPath: defaultPath,
+            properties: ['openDirectory', 'createDirectory']
+        });
+        if (!canceled && filePaths.length > 0) {
+            return filePaths[0];
+        }
+        return null;
+    });
+
+    ipcMain.handle('create-new-project', async (event, name, parentPath) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        return await createNewProject(win, name, parentPath);
+    });
+
+    app.whenReady().then(() => {
+        createWindow()
+
+        app.on('activate', () => {
+            if (BrowserWindow.getAllWindows().length === 0) {
+                createWindow()
+            }
+        })
     })
-})
+}
 
 ipcMain.handle('create-new-include', async (event, name, folderPath) => {
     const win = BrowserWindow.fromWebContents(event.sender);

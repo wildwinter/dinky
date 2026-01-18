@@ -4,7 +4,6 @@ Add Dink syntax checking and highlighting
 Add character list
 Style test for dialogue
 Play connected audio?
-Associate Ink with app?
 Let the file list slide backwards.
 Code signing (costs money!)
 
@@ -35,6 +34,7 @@ Somehow tooltip IDs?
 Line ID handling
 Line ID searching
 Icons for app and for Installer
+Associate .dinkproj files with Dinky
 
 NOTES:
 ------

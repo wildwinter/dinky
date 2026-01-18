@@ -36,7 +36,14 @@
         "win": {
             "target": "nsis",
             "icon": "build/DinkyApp.ico"
-        }
+        },
+        "fileAssociations": [
+            {
+                "ext": "dinkproj",
+                "name": "Dinky Project",
+                "role": "Editor"
+            }
+        ]
     },
     "keywords": [],
     "author": "",
