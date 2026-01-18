@@ -219,44 +219,93 @@ window.electronAPI.onUpdateSpellLocale(async (locale) => {
 
 monaco.languages.registerCodeActionProvider('ink', {
     provideCodeActions: (model, range, context, token) => {
-        const markers = context.markers.filter(m => m.source === 'spellcheck');
+        const markers = context.markers;
         if (markers.length === 0) return { actions: [], dispose: () => { } };
 
         const actions = [];
         for (const marker of markers) {
-            if (monaco.Range.containsRange(marker, range) || monaco.Range.intersectRanges(marker, range)) {
-                const word = marker.code;
-                if (word) {
-                    actions.push({
-                        title: `Add "${word}" to dictionary`,
-                        kind: 'quickfix',
-                        isPreferred: false,
-                        diagnostics: [marker],
-                        command: {
-                            id: 'add-to-dictionary',
-                            title: 'Add to Dictionary',
-                            arguments: [word]
-                        }
-                    });
+            if (marker.source === 'dinky-validator') {
+                if (monaco.Range.containsRange(marker, range) || monaco.Range.intersectRanges(marker, range)) {
+                    const invalidName = marker.code; // We stored name in code
+                    if (invalidName && projectCharacters.length > 0) {
+                        // Find suggestions
+                        const candidates = projectCharacters.map(c => c.ID);
+                        // Simple distance filter
+                        const suggestions = candidates
+                            .map(c => ({ name: c, dist: levenshtein(invalidName, c) }))
+                            .filter(c => c.dist <= 3) // arbitrary threshold
+                            .sort((a, b) => a.dist - b.dist)
+                            .slice(0, 3) // Top 3
+                            .map(c => c.name);
 
-                    const suggestions = spellChecker.getSuggestions(word);
-                    suggestions.slice(5).forEach(s => {
+                        suggestions.forEach(s => {
+                            actions.push({
+                                title: `Change to "${s}"`,
+                                kind: 'quickfix',
+                                isPreferred: true,
+                                diagnostics: [marker],
+                                edit: {
+                                    edits: [{
+                                        resource: model.uri,
+                                        textEdit: {
+                                            range: marker,
+                                            text: s
+                                        }
+                                    }]
+                                }
+                            });
+                        });
+
+                        // Add "Add character name to project"
                         actions.push({
-                            title: `Replace with "${s}"`,
+                            title: `Add "${invalidName}" as project character`,
                             kind: 'quickfix',
-                            isPreferred: true,
+                            isPreferred: false,
                             diagnostics: [marker],
-                            edit: {
-                                edits: [{
-                                    resource: model.uri,
-                                    textEdit: {
-                                        range: marker,
-                                        text: s
-                                    }
-                                }]
+                            command: {
+                                id: 'add-project-character',
+                                title: 'Add Character to Project',
+                                arguments: [invalidName]
                             }
                         });
-                    });
+                    }
+                }
+            }
+            else if (marker.source === 'spellcheck') {
+                if (monaco.Range.containsRange(marker, range) || monaco.Range.intersectRanges(marker, range)) {
+                    const word = marker.code;
+                    if (word) {
+                        actions.push({
+                            title: `Add "${word}" to dictionary`,
+                            kind: 'quickfix',
+                            isPreferred: false,
+                            diagnostics: [marker],
+                            command: {
+                                id: 'add-to-dictionary',
+                                title: 'Add to Dictionary',
+                                arguments: [word]
+                            }
+                        });
+
+                        const suggestions = spellChecker.getSuggestions(word);
+                        suggestions.slice(5).forEach(s => {
+                            actions.push({
+                                title: `Replace with "${s}"`,
+                                kind: 'quickfix',
+                                isPreferred: true,
+                                diagnostics: [marker],
+                                edit: {
+                                    edits: [{
+                                        resource: model.uri,
+                                        textEdit: {
+                                            range: marker,
+                                            text: s
+                                        }
+                                    }]
+                                }
+                            });
+                        });
+                    }
                 }
             }
         }
@@ -270,6 +319,14 @@ monaco.editor.registerCommand('add-to-dictionary', async (accessor, word) => {
     checkSpelling();
 });
 
+monaco.editor.registerCommand('add-project-character', async (accessor, characterId) => {
+    const success = await window.electronAPI.addProjectCharacter(characterId);
+    if (success) {
+        // Trigger compile/validate to refresh errors
+        checkSyntax();
+    }
+});
+
 function checkSpelling() {
     const model = editor.getModel();
     if (!model) return;
@@ -281,7 +338,9 @@ function checkSpelling() {
 
 
 
+
 let loadedInkFiles = new Map();
+let projectCharacters = [];
 let currentFilePath = null;
 let rootInkPath = null;
 let isUpdatingContent = false;
@@ -711,6 +770,14 @@ async function checkSyntax() {
     const contentToCompile = rootFileObj.content;
 
     try {
+        // Load characters on compile (dynamic update)
+        try {
+            projectCharacters = await window.electronAPI.loadProjectCharacters();
+        } catch (e) {
+            console.error('Failed to load project characters', e);
+            projectCharacters = [];
+        }
+
         const errors = await window.electronAPI.compileInk(contentToCompile, rootInkPath, projectFiles);
 
 
@@ -740,7 +807,10 @@ async function checkSyntax() {
                 return false;
             });
 
-            monaco.editor.setModelMarkers(model, 'ink', visibleErrors || []);
+            // Run Dinky Character Validation
+            const charErrors = validateCharacterNames(model);
+
+            monaco.editor.setModelMarkers(model, 'ink', [...(visibleErrors || []), ...charErrors]);
         }
     } catch (e) {
         window.electronAPI.log('checkSyntax failed:', e.toString())
@@ -1234,4 +1304,77 @@ function openFileAndSelectLine(filePath, line, query) {
 
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function validateCharacterNames(model) {
+    if (!projectCharacters || projectCharacters.length === 0) return [];
+
+    const text = model.getValue();
+    const lines = text.split(/\r?\n/);
+    const markers = [];
+    const validIds = new Set(projectCharacters.map(c => c.ID));
+
+    // Regex to capture Name in Dinky lines
+    // Group 2 is Name
+    const dinkyLineRegex = /^(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/;
+
+    // Check strict mode - only validate if we are in Dinky Mode?
+    // User request: "If a line has clearly matched the Dink dialogue line... valid character name match ending in a colon"
+    // So we apply this to ALL lines that match the pattern, effectively.
+    // However, we should respect the mode?
+    // "If a line has clearly matched the Dink dialogue line... I now want to introduce a lint step"
+    // This implies we check lines that match the pattern.
+    // But standard Ink doesn't use this valid pattern often for other things?
+    // Let's rely on the mode if possible, but the validation might be simpler:
+    // Any line matching the pattern `NAME: ...` where NAME is uppercase alphanum?
+    // Actually, `detectDinkyGlobal` checks for #dink.
+    // If we are in Dinky mode (Global or Local), we should check.
+    // BUT, validation is easier done lightly.
+    // Let's just check lines that match the regex.
+
+    lines.forEach((line, index) => {
+        const match = line.match(dinkyLineRegex);
+        if (match) {
+            const name = match[2];
+            const nameStartCol = match[1].length + 1;
+            const nameEndCol = nameStartCol + name.length;
+
+            if (!validIds.has(name)) {
+                markers.push({
+                    message: `Invalid Character Name: ${name}`,
+                    severity: monaco.MarkerSeverity.Error,
+                    startLineNumber: index + 1,
+                    startColumn: nameStartCol,
+                    endLineNumber: index + 1,
+                    endColumn: nameEndCol,
+                    source: 'dinky-validator',
+                    code: name // Store name for quick fix
+                });
+            }
+        }
+    });
+
+    return markers;
+}
+
+function levenshtein(a, b) {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+    }
+    for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+    }
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) == a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
+            }
+        }
+    }
+    return matrix[b.length][a.length];
 }

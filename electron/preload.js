@@ -63,6 +63,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onClearSearchHighlights: (callback) => ipcRenderer.on('clear-search-highlights', (_event) => callback()),
     updateWindowTitle: (details) => ipcRenderer.send('update-window-title', details),
     loadProjectDictionary: () => ipcRenderer.invoke('load-project-dictionary'),
+    loadProjectCharacters: () => ipcRenderer.invoke('load-project-characters'),
+    addProjectCharacter: (id) => ipcRenderer.invoke('add-project-character', id),
     addToProjectDictionary: (word) => ipcRenderer.invoke('add-to-project-dictionary', word),
     setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
     setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),

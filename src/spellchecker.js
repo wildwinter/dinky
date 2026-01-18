@@ -106,7 +106,7 @@ export class DinkySpellChecker {
                 // If it's a special token (code, keyword, comment, annotation), skip it.
                 // We change to a blocklist approach to be safer:
                 // If it looks like code, skip it. If it's unknown or empty, check it.
-                const ignoredTypes = ['code', 'keyword', 'comment', 'annotation', 'type', 'delimiter', 'function'];
+                const ignoredTypes = ['code', 'keyword', 'comment', 'annotation', 'type', 'delimiter', 'function', 'dinky.name', 'dinky.qualifier', 'dinky.direction'];
                 const isIgnored = ignoredTypes.some(t => tokenType.indexOf(t) !== -1);
 
                 if (isIgnored) continue;

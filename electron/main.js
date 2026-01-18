@@ -408,6 +408,94 @@ ipcMain.handle('add-to-project-dictionary', async (event, word) => {
     }
 });
 
+ipcMain.handle('load-project-characters', async (event) => {
+    const project = getCurrentProject();
+    if (!project) return [];
+
+    const projectDir = path.dirname(project.path);
+    const jsonPath = path.join(projectDir, 'characters.json');
+    const jsoncPath = path.join(projectDir, 'characters.jsonc');
+
+    let content = null;
+    try {
+        content = await fs.readFile(jsonPath, 'utf-8');
+    } catch {
+        try {
+            content = await fs.readFile(jsoncPath, 'utf-8');
+        } catch {
+            return []; // No character file found
+        }
+    }
+
+    if (!content) return [];
+
+    try {
+        // Strip comments if JSONC (simple replacement, not perfect but sufficient for config)
+        // Or if we assume standard JSON for .json and loose for .jsonc
+        // We should try to handle comments.
+        // Simple regex strip for // and /* */
+        const cleanContent = content.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        return JSON.parse(cleanContent);
+    } catch (e) {
+        console.error('Failed to parse characters file', e);
+        return [];
+    }
+});
+
+ipcMain.handle('add-project-character', async (event, characterId) => {
+    const project = getCurrentProject();
+    if (!project) return false;
+
+    const projectDir = path.dirname(project.path);
+    const jsonPath = path.join(projectDir, 'characters.json');
+    const jsoncPath = path.join(projectDir, 'characters.jsonc');
+
+    let targetPath = null;
+    let content = null;
+
+    // Determine which file to use
+    try {
+        content = await fs.readFile(jsonPath, 'utf-8');
+        targetPath = jsonPath;
+    } catch {
+        try {
+            content = await fs.readFile(jsoncPath, 'utf-8');
+            targetPath = jsoncPath;
+        } catch {
+            // Neither exists, create characters.json
+            targetPath = jsonPath;
+            content = '[]';
+        }
+    }
+
+    try {
+        // We need to parse, add, and write back. 
+        // We can check if it was JSONC and try to format nicely.
+
+        let chars = [];
+        try {
+            // clean for parsing
+            const cleanContent = content.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+            chars = JSON.parse(cleanContent);
+            if (!Array.isArray(chars)) chars = [];
+        } catch {
+            chars = [];
+        }
+
+        // Check if ID exists
+        if (chars.find(c => c.ID === characterId)) return true;
+
+        chars.push({ ID: characterId, Actor: "" });
+
+        await fs.writeFile(targetPath, JSON.stringify(chars, null, 4), 'utf-8');
+        return true;
+
+    } catch (e) {
+        console.error('Failed to add character to project', e);
+        return false;
+    }
+});
+
 // Ensure config is saved before quit
 let isQuitting = false;
 app.on('before-quit', async (e) => {
