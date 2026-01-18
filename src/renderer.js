@@ -219,7 +219,7 @@ window.electronAPI.loadSettings().then(settings => {
 
 // ID Hiding Manager
 const idManager = new IdHidingManager(editor, monaco);
-idManager.setupCopyInterceptor();
+
 
 window.electronAPI.onSettingsUpdated((newSettings) => {
     if (newSettings.hideIds !== undefined) {
@@ -538,6 +538,8 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     currentFilePath = file.absolutePath;
 
     // ATOMIC MODEL SWAP STRATEGY
+    const oldModel = editor.getModel();
+
     // Create new model (detached from editor)
     const newModel = monaco.editor.createModel(file.content, 'ink');
 

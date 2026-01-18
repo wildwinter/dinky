@@ -11,8 +11,8 @@ export class IdHidingManager {
     }
 
     _initListeners() {
-        // Only listener needed now is copy interception
-        this.setupCopyInterceptor();
+        // Only listener needed now is paste interception
+        this.setupPasteInterceptor();
     }
 
     setEnabled(enabled) {
@@ -33,24 +33,26 @@ export class IdHidingManager {
         }
     }
 
-    setupCopyInterceptor() {
-        const container = this.editor.getContainerDomNode();
-        container.addEventListener('copy', (e) => {
-            const selection = this.editor.getSelection();
-            if (!selection || selection.isEmpty()) return;
+    setupPasteInterceptor() {
+        // Attach to window to ensure we catch it, checking for editor focus
+        window.addEventListener('paste', (e) => {
+            // Only act if the editor has focus
+            if (!this.editor.hasTextFocus()) return;
 
-            const model = this.editor.getModel();
-            if (!model) return;
+            const text = e.clipboardData.getData('text/plain');
+            if (!text) return;
 
-            let text = model.getValueInRange(selection);
-            // Replace #id:... with empty string
-            // Using the same regex assumption as before for stripping
-            const cleanedText = text.replace(/#id:[a-zA-Z0-9_]+/g, '');
+            // Replace #id:... with empty string (strict alphanumeric+underscore, optional preceding space)
+            const cleanedText = text.replace(/ ?#id:[a-zA-Z0-9_]+/g, '');
 
             if (cleanedText !== text) {
                 e.preventDefault();
-                e.clipboardData.setData('text/plain', cleanedText);
+                e.stopImmediatePropagation();
+                e.stopPropagation();
+
+                // Use trigger('type') to simulate typing the cleaned text
+                this.editor.trigger('paste-stripper', 'type', { text: cleanedText });
             }
-        });
+        }, true);
     }
 }

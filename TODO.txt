@@ -1,6 +1,5 @@
 TODO:
 -----
-BUG: Copying deletes IDs. Would be better in pasting.
 Hide IDs (+preferences)
 Autogenerate IDs
 Somehow tooltip IDs?
@@ -35,6 +34,7 @@ BUG: Installer not working on Windows
 Settings menu
 BUG: # or // at the end of a line breaks coloring
 BUG: Switching theme causes a JS error
+BUG: Copying deletes IDs. Would be better in pasting.
 
 NOTES:
 ------
