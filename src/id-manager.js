@@ -23,20 +23,90 @@ export class IdPreservationManager {
 
                         // Copy to clipboard
                         navigator.clipboard.writeText(inkId).then(() => {
-                            // Optional: Show user feedback? Monaco doesn't have toast built-in.
-                            console.log('Copied ID:', inkId);
+                            // Visual Feedback
+                            const oldOptions = dec.options;
+                            const copyIconUrl = 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%234caf50%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%2220%206%209%2017%204%2012%22%2F%3E%3C%2Fsvg%3E';
+
+                            const copiedMessage = {
+                                value: `![copied](${copyIconUrl}) **COPIED** \`${inkId}\``,
+                                isTrusted: true,
+                                supportHtml: true
+                            };
+
+                            const newDec = {
+                                range: dec.range,
+                                options: {
+                                    ...oldOptions,
+                                    glyphMarginHoverMessage: copiedMessage
+                                }
+                            };
+
+                            const newIds = this.editor.deltaDecorations([dec.id], [newDec]);
+                            const newId = newIds[0];
+                            this.decorationToId.delete(dec.id);
+                            this.decorationToId.set(newId, inkId);
+
+                            setTimeout(() => {
+                                if (this.decorationToId.has(newId)) {
+                                    const resetDec = {
+                                        range: dec.range,
+                                        options: this._getDecorationOptions(inkId)
+                                    };
+                                    // Refresh range
+                                    const currentRange = model.getDecorationRange(newId);
+                                    if (currentRange) {
+                                        resetDec.range = currentRange;
+                                        const resetIds = this.editor.deltaDecorations([newId], [resetDec]);
+                                        this.decorationToId.delete(newId);
+                                        this.decorationToId.set(resetIds[0], inkId);
+                                    }
+                                }
+                            }, 1500);
                         });
                         return;
                     }
                 }
             }
         });
+
+        // Listen for clicks inside the Tooltip (Document Click)
+        this._tooltipClickHandler = (e) => {
+            const hover = e.target.closest('.monaco-hover');
+            if (!hover) return;
+
+            const text = hover.innerText.trim();
+            const idRegex = /([a-zA-Z0-9_]+_[a-zA-Z0-9]{4})/;
+            const match = text.match(idRegex);
+
+            if (match) {
+                const inkId = match[0];
+                navigator.clipboard.writeText(inkId).then(() => {
+                    console.log('Copied Tooltip ID:', inkId);
+
+                    // Visual Feedback in DOM
+                    const contentValues = hover.querySelectorAll('span, p, div');
+                    contentValues.forEach(el => {
+                        el.style.color = '#4caf50';
+                        el.style.transition = 'color 0.2s';
+                    });
+
+                    const img = hover.querySelector('img');
+                    if (img) {
+                        img.src = 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%234caf50%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%2220%206%209%2017%204%2012%22%2F%3E%3C%2Fsvg%3E';
+                    }
+                });
+            }
+        };
+
+        document.addEventListener('click', this._tooltipClickHandler);
     }
 
-    /**
-     * Parse the raw file content, separating ID tags from the text.
-     * Returns the "clean" content for the editor and the extracted IDs.
-     */
+    dispose() {
+        if (this._tooltipClickHandler) {
+            document.removeEventListener('click', this._tooltipClickHandler);
+        }
+    }
+
     /**
      * Parse the raw file content, separating ID tags from the text.
      * Returns the "clean" content for the editor and the extracted IDs.
@@ -147,14 +217,7 @@ export class IdPreservationManager {
 
             newDecorations.push({
                 range: new this.monaco.Range(item.lineIndex + 1, 1, item.lineIndex + 1, maxCol),
-                options: {
-                    description: 'ink-id-tracker',
-                    isWholeLine: true,
-                    // We don't need visual style, just tracking
-                    stickiness: this.monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-                    glyphMarginClassName: 'ink-id-chip',
-                    glyphMarginHoverMessage: { value: `ID: ${item.id}` }
-                },
+                options: this._getDecorationOptions(item.id),
                 // Custom payload not supported directly in options, need to map via ID
                 metadata: { inkId: item.id }
             });
@@ -167,6 +230,26 @@ export class IdPreservationManager {
         for (let i = 0; i < decorationIds.length; i++) {
             this.decorationToId.set(decorationIds[i], extractedIds[i].id);
         }
+    }
+
+    /**
+     * Helper to Generate Decoration Options
+     */
+    _getDecorationOptions(id) {
+        // Lucide Copy Icon SVG (grey)
+        const copyIconUrl = 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23999%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%229%22%20y%3D%229%22%20width%3D%2213%22%20height%3D%2213%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M5%2015H4a2%202%200%200%201-2-2V4a2%202%200%200%201%202-2h9a2%202%200%200%201%202%202v1%22%2F%3E%3C%2Fsvg%3E';
+
+        return {
+            description: 'ink-id-tracker',
+            isWholeLine: true,
+            stickiness: this.monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+            glyphMarginClassName: 'ink-id-chip',
+            glyphMarginHoverMessage: {
+                value: `\`${id}\` ![copy](${copyIconUrl})`,
+                isTrusted: true,
+                supportHtml: true
+            }
+        };
     }
 
     /**
@@ -226,14 +309,7 @@ export class IdPreservationManager {
     addId(lineNumber, idStr) {
         const newDec = {
             range: new this.monaco.Range(lineNumber, 1, lineNumber, 1),
-            options: {
-                description: 'ink-id-tracker',
-                isWholeLine: true,
-                // Stickiness: we want it to stay with the line.
-                stickiness: this.monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-                glyphMarginClassName: 'ink-id-chip',
-                glyphMarginHoverMessage: { value: `ID: ${idStr}` }
-            }
+            options: this._getDecorationOptions(idStr)
         };
 
         const resultIds = this.editor.deltaDecorations([], [newDec]);

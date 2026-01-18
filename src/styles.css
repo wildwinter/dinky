@@ -268,7 +268,9 @@ button.secondary {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
     border-radius: 4px !important;
     padding: 2px 4px !important;
-    z-index: 1000 !important;
+    z-index: 10000 !important;
+    overflow: visible !important;
+    /* Critical for triangle */
 }
 
 .monaco-hover-content {
@@ -276,32 +278,30 @@ button.secondary {
 }
 
 /* Triangle Pointer (Left side) */
-/* This is tricky because Monaco positions the hover dynamically. */
-/* We'll try to force it, but if Monaco places it elsewhere it might look weird. */
-/* Generally glyph hover is to the right. */
-
 .monaco-hover::before {
     content: '';
     position: absolute;
     left: -6px;
     top: 50%;
-    /* approximate vertically centered */
     transform: translateY(-50%);
     border-width: 6px 6px 6px 0;
     border-style: solid;
     border-color: transparent var(--sidebar-border) transparent transparent;
+    display: block !important;
+    z-index: 10001;
 }
 
 .monaco-hover::after {
     content: '';
     position: absolute;
     left: -5px;
-    /* Offset to cover border */
     top: 50%;
     transform: translateY(-50%);
     border-width: 5px 5px 5px 0;
     border-style: solid;
     border-color: transparent var(--sidebar-bg) transparent transparent;
+    display: block !important;
+    z-index: 10002;
 }
 
 /* Content Loading State */
