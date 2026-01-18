@@ -155,6 +155,8 @@ window.electronAPI.loadSettings().then(settings => {
 
 // ID Preservation Manager
 const idManager = new IdPreservationManager(editor, monaco);
+// Decoration collection for jump highlighting
+const jumpHighlightCollection = editor.createDecorationsCollection();
 
 
 window.electronAPI.onSettingsUpdated((newSettings) => {
@@ -502,6 +504,15 @@ const findIdModal = new ModalHelper({
                 editor.setPosition({ lineNumber: lineNum, column: 1 });
                 editor.focus();
 
+                // Highlight the line
+                jumpHighlightCollection.set([{
+                    range: new monaco.Range(lineNum, 1, lineNum, 1),
+                    options: {
+                        isWholeLine: true,
+                        className: 'jump-highlight-line'
+                    }
+                }]);
+
                 break;
             }
         }
@@ -731,6 +742,9 @@ editor.onDidChangeModelContent(() => {
     if (model) {
         monaco.editor.setModelMarkers(model, 'spellcheck', []);
     }
+
+    // Clear jump highlight on edit
+    jumpHighlightCollection.clear();
 
     // Keep the file model in sync with editor content immediately
     // Note: We sync the CLEAN content here. IDs are only reconstructed on save/switch.

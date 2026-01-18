@@ -3,10 +3,7 @@ TODO:
 Add Dink syntax checking and highlighting
 Add character list
 Style test for dialogue
-Line ID handling
-Line ID searching
 Play connected audio?
-Icons for app and for Installer
 Associate Ink with app?
 Let the file list slide backwards.
 Code signing (costs money!)
@@ -35,6 +32,9 @@ BUG: Copying deletes IDs. Would be better in pasting.
 Hide IDs (+preferences)
 Autogenerate IDs
 Somehow tooltip IDs?
+Line ID handling
+Line ID searching
+Icons for app and for Installer
 
 NOTES:
 ------
