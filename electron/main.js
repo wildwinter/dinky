@@ -12,6 +12,7 @@ import { initSearch, openSearchWindow } from './search'
 import { safeSend, setupThemeListener } from './utils'
 
 app.setName('Dinky')
+app.commandLine.appendSwitch('disable-features', 'Autofill')
 
 // Wire up the menu rebuild callback
 setMenuRebuildCallback(buildMenu);
