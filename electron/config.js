@@ -19,12 +19,10 @@ async function loadSettings() {
         try {
             const data = await fs.readFile(configPath, 'utf-8');
             settingsCache = JSON.parse(data);
-            if (settingsCache.hideIds === undefined) {
-                settingsCache.hideIds = true;
-            }
+
             return settingsCache;
         } catch (e) {
-            settingsCache = { theme: 'system', recentProjects: [], projectSettings: {}, windowStates: {}, hideIds: true };
+            settingsCache = { theme: 'system', recentProjects: [], projectSettings: {}, windowStates: {} };
             return settingsCache;
         } finally {
             loadPromise = null;
