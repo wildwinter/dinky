@@ -1,6 +1,8 @@
 TODO:
 -----
-# or // at the end of a line breaks coloring
+BUG: # or // at the end of a line breaks coloring
+BUG: Switching theme causes a JS error
+BUG: Copying deletes IDs. Would be better in pasting.
 Hide IDs (+preferences)
 Autogenerate IDs
 Somehow tooltip IDs?

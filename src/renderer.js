@@ -154,7 +154,8 @@ monaco.languages.setMonarchTokensProvider('ink', {
             [/^\-/, 'keyword'],
 
             // Tags
-            [/#/, 'annotation', '@tagMode'],
+            [/#(?=$)/, 'annotation'], // Tag at EOL, don't enter mode
+            [/#/, 'annotation', '@tagMode'], // Tag with content, enter mode
 
             // Logic
             // Note: { and } are now largely handled by 'code' rules above if they form blocks across lines
@@ -183,14 +184,12 @@ monaco.languages.setMonarchTokensProvider('ink', {
             [/\/\/.*$/, 'comment', '@pop'],
             [/\/\*/, 'comment', '@comment'],
             [/\]/, '@rematch', '@pop'],
-
             // Content ending at EOL -> POP
             [/[^\]\/]+$/, 'annotation', '@pop'],
-
             // Content NOT ending at EOL -> STAY
+            // This allows spaces and other characters
             [/[^\]\/]+/, 'annotation'],
             [/\/(?!\/|\*)/, 'annotation'],
-
             // Fallback
             [/$/, 'annotation', '@pop']
         ],
