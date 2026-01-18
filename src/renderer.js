@@ -227,36 +227,38 @@ monaco.languages.registerCodeActionProvider('ink', {
             if (marker.source === 'dinky-validator') {
                 if (monaco.Range.containsRange(marker, range) || monaco.Range.intersectRanges(marker, range)) {
                     const invalidName = marker.code; // We stored name in code
-                    if (invalidName && projectCharacters.length > 0) {
-                        // Find suggestions
-                        const candidates = projectCharacters.map(c => c.ID);
-                        // Simple distance filter
-                        const suggestions = candidates
-                            .map(c => ({ name: c, dist: levenshtein(invalidName, c) }))
-                            .filter(c => c.dist <= 3) // arbitrary threshold
-                            .sort((a, b) => a.dist - b.dist)
-                            .slice(0, 3) // Top 3
-                            .map(c => c.name);
+                    if (invalidName) {
+                        // Find suggestions if we have characters
+                        if (projectCharacters.length > 0) {
+                            const candidates = projectCharacters.map(c => c.ID);
+                            // Simple distance filter
+                            const suggestions = candidates
+                                .map(c => ({ name: c, dist: levenshtein(invalidName, c) }))
+                                .filter(c => c.dist <= 3) // arbitrary threshold
+                                .sort((a, b) => a.dist - b.dist)
+                                .slice(0, 3) // Top 3
+                                .map(c => c.name);
 
-                        suggestions.forEach(s => {
-                            actions.push({
-                                title: `Change to "${s}"`,
-                                kind: 'quickfix',
-                                isPreferred: true,
-                                diagnostics: [marker],
-                                edit: {
-                                    edits: [{
-                                        resource: model.uri,
-                                        textEdit: {
-                                            range: marker,
-                                            text: s
-                                        }
-                                    }]
-                                }
+                            suggestions.forEach(s => {
+                                actions.push({
+                                    title: `Change to "${s}"`,
+                                    kind: 'quickfix',
+                                    isPreferred: true,
+                                    diagnostics: [marker],
+                                    edit: {
+                                        edits: [{
+                                            resource: model.uri,
+                                            textEdit: {
+                                                range: marker,
+                                                text: s
+                                            }
+                                        }]
+                                    }
+                                });
                             });
-                        });
+                        }
 
-                        // Add "Add character name to project"
+                        // Add "Add character name to project" - Always available
                         actions.push({
                             title: `Add "${invalidName}" as project character`,
                             kind: 'quickfix',
@@ -1414,8 +1416,6 @@ function escapeRegExp(string) {
 }
 
 function validateCharacterNames(model) {
-    if (!projectCharacters || projectCharacters.length === 0) return [];
-
     const text = model.getValue();
     const lines = text.split(/\r?\n/);
     const markers = [];
