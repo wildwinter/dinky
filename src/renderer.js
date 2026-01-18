@@ -910,6 +910,113 @@ function detectDinkyGlobal(text) {
     return false;
 }
 
+function isDinkyAtPosition(model, position) {
+    // 1. Check global dinky mode
+    if (detectDinkyGlobal(model.getValue())) {
+        return true;
+    }
+
+    // 2. Check local dinky mode (following a knot)
+    for (let i = position.lineNumber; i >= 1; i--) {
+        const line = model.getLineContent(i).trim();
+
+        // If we hit a knot boundary
+        if (/^={2,}/.test(line)) {
+            // Check if this knot line itself or immediately following lines (before other content) has #dink
+            // Simplified: check if the knot line has #dink
+            if (/#\s*dink(?=\s|$)/.test(line)) {
+                return true;
+            }
+
+            // If it's just a knot without #dink, we are in normal mode for this section
+            return false;
+        }
+
+        // Check if there's a #dink tag on a line by itself or after some content (but before the next knot)
+        if (/#\s*dink(?=\s|$)/.test(line)) {
+            // However, the rule says: "if the cursor is in a section where the tag #dink follows a knot name before the current line"
+            // This implies we should keep looking for the knot.
+            // But if we found #dink before finding a knot (and we already checked global), 
+            // it must be associated with the current section.
+            return true;
+        }
+    }
+
+    return false;
+}
+
+monaco.languages.registerCompletionItemProvider('ink', {
+    triggerCharacters: [':'],
+    provideCompletionItems: (model, position) => {
+        const isDinky = isDinkyAtPosition(model, position);
+        console.log('[Autocomplete] Triggered at', position.lineNumber, 'IsDinky:', isDinky);
+
+        if (!isDinky) {
+            return { suggestions: [] };
+        }
+
+        const lineContent = model.getLineContent(position.lineNumber);
+        const textBeforeCursor = lineContent.substring(0, position.column - 1);
+
+        console.log('[Autocomplete] Text before cursor:', `'${textBeforeCursor}'`);
+
+        if (!/^\s*:$/.test(textBeforeCursor)) {
+            return { suggestions: [] };
+        }
+
+        console.log('[Autocomplete] Providing suggestions. Count:', projectCharacters.length);
+
+        const range = new monaco.Range(
+            position.lineNumber,
+            lineContent.indexOf(':') + 1,
+            position.lineNumber,
+            position.column
+        );
+
+        const suggestions = projectCharacters.map(char => ({
+            label: char.ID,
+            kind: monaco.languages.CompletionItemKind.User,
+            insertText: `${char.ID}: `,
+            range: range,
+            detail: char.Name || 'Character',
+            filterText: ':' // Ensure it matches the trigger character
+        }));
+
+        return { suggestions };
+    }
+});
+
+monaco.languages.registerCompletionItemProvider('ink-dinky', {
+    triggerCharacters: [':'],
+    provideCompletionItems: (model, position) => {
+        console.log('[Autocomplete] Triggered (ink-dinky mode)');
+        const lineContent = model.getLineContent(position.lineNumber);
+        const textBeforeCursor = lineContent.substring(0, position.column - 1);
+
+        if (!/^\s*:$/.test(textBeforeCursor)) {
+            return { suggestions: [] };
+        }
+
+        const range = new monaco.Range(
+            position.lineNumber,
+            lineContent.indexOf(':') + 1,
+            position.lineNumber,
+            position.column
+        );
+
+        const suggestions = projectCharacters.map(char => ({
+            label: char.ID,
+            kind: monaco.languages.CompletionItemKind.User,
+            insertText: `${char.ID}: `,
+            range: range,
+            detail: char.Name || 'Character',
+            filterText: ':' // Ensure it matches the trigger character
+        }));
+
+        return { suggestions };
+    }
+});
+
 window.electronAPI.onThemeUpdated((theme) => {
     if (theme === 'vs') {
         monaco.editor.setTheme('dinky-light');
