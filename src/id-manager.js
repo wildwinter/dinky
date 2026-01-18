@@ -6,6 +6,31 @@ export class IdPreservationManager {
         this.decorationToId = new Map();
         // We use a specific decoration key to track our IDs
         this.decorationCollection = editor.createDecorationsCollection();
+
+        // Listen for clicks on the glyph margin
+        this.editor.onMouseDown((e) => {
+            if (e.target.type === this.monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) {
+                const lineNumber = e.target.position.lineNumber;
+                const model = this.editor.getModel();
+                if (!model) return;
+
+                // Check for our decorations on this line
+                const decorations = model.getLineDecorations(lineNumber);
+                for (const dec of decorations) {
+                    // We can check if this decoration ID matches one of ours
+                    if (this.decorationToId.has(dec.id)) {
+                        const inkId = this.decorationToId.get(dec.id);
+
+                        // Copy to clipboard
+                        navigator.clipboard.writeText(inkId).then(() => {
+                            // Optional: Show user feedback? Monaco doesn't have toast built-in.
+                            console.log('Copied ID:', inkId);
+                        });
+                        return;
+                    }
+                }
+            }
+        });
     }
 
     /**
@@ -205,7 +230,9 @@ export class IdPreservationManager {
                 description: 'ink-id-tracker',
                 isWholeLine: true,
                 // Stickiness: we want it to stay with the line.
-                stickiness: this.monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
+                stickiness: this.monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+                glyphMarginClassName: 'ink-id-chip',
+                glyphMarginHoverMessage: { value: `ID: ${idStr}` }
             }
         };
 
