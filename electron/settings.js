@@ -44,7 +44,7 @@ export async function openSettingsWindow(parentWindow) {
     const { cleanup: cleanupTheme, update: updateTheme } = setupThemeListener(settingsWindow, '#252526', '#f3f3f3');
 
     const updateOverlay = () => {
-        if (settingsWindow && !settingsWindow.isDestroyed()) {
+        if (settingsWindow && !settingsWindow.isDestroyed() && typeof settingsWindow.setTitleBarOverlay === 'function') {
             settingsWindow.setTitleBarOverlay({
                 color: nativeTheme.shouldUseDarkColors ? '#252526' : '#f3f3f3',
                 symbolColor: nativeTheme.shouldUseDarkColors ? '#cccccc' : '#333333',
@@ -100,11 +100,11 @@ ipcMain.handle('set-setting', async (event, key, value) => {
     const s = {};
     s[key] = value;
     await saveSettings(s);
-    
+
     // Broadcast to all windows
     BrowserWindow.getAllWindows().forEach(w => {
-         if (!w.isDestroyed()) {
-             safeSend(w, 'settings-updated', s);
-         }
+        if (!w.isDestroyed()) {
+            safeSend(w, 'settings-updated', s);
+        }
     });
 });
