@@ -186,6 +186,8 @@ monaco.languages.setMonarchTokensProvider('ink', {
             [/\]/, '@rematch', '@pop'],
             // Content ending at EOL -> POP
             [/[^\]\/]+$/, 'annotation', '@pop'],
+            [/\/(?!\/|\*)$/, 'annotation', '@pop'],
+
             // Content NOT ending at EOL -> STAY
             // This allows spaces and other characters
             [/[^\]\/]+/, 'annotation'],
