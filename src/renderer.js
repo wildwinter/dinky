@@ -1,7 +1,7 @@
 import * as monaco from 'monaco-editor';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { DinkySpellChecker } from './spellchecker';
-import { IdHidingManager } from './id-manager';
+import { IdPreservationManager } from './id-manager';
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
@@ -217,21 +217,17 @@ window.electronAPI.loadSettings().then(settings => {
     spellChecker.init(locale);
 });
 
-// ID Hiding Manager
-const idManager = new IdHidingManager(editor, monaco);
+// ID Preservation Manager
+const idManager = new IdPreservationManager(editor, monaco);
 
 
 window.electronAPI.onSettingsUpdated((newSettings) => {
-    if (newSettings.hideIds !== undefined) {
-        idManager.setEnabled(newSettings.hideIds);
-    }
+    // Settings update
 });
 
-// Initial load check
+// Initial load check - Settings not needed for this manager but kept for structure if needed later
 window.electronAPI.loadSettings().then(settings => {
-    if (settings.hideIds !== undefined) {
-        idManager.setEnabled(settings.hideIds);
-    }
+    // idManager settings if any
 });
 
 
@@ -535,19 +531,30 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     window.electronAPI.updateWindowTitle({ fileName: file.relativePath });
 
     isUpdatingContent = true;
+    // Save existing file state before switching
+    if (currentFilePath && loadedInkFiles.has(currentFilePath)) {
+        const currentContent = editor.getValue();
+        // Reconstruct with IDs before saving to memory
+        const fullContent = idManager.reconstructContent(currentContent);
+        loadedInkFiles.get(currentFilePath).content = fullContent;
+    }
+
     currentFilePath = file.absolutePath;
 
     // ATOMIC MODEL SWAP STRATEGY
     const oldModel = editor.getModel();
 
+    // Extract IDs and clean content
+    const { cleanContent, extractedIds } = idManager.extractIds(file.content);
+
     // Create new model (detached from editor)
-    const newModel = monaco.editor.createModel(file.content, 'ink');
+    const newModel = monaco.editor.createModel(cleanContent, 'ink');
 
-    // Force immediate decoration update on the NEW model
-    idManager.updateDecorations(true, newModel);
-
-    // Swap the model (The editor now renders the model which ALREADY has hidden IDs)
+    // Swap the model
     editor.setModel(newModel);
+
+    // Apply decorations to track the IDs
+    idManager.setupDecorations(extractedIds);
 
     // Dispose old model to prevent leaks
     if (oldModel) {
@@ -668,107 +675,24 @@ async function autoTag() {
 
     // Use current content
     const content = editor.getValue();
-
-    // We only pass the current file's content to the tagger for now 
-    // (though in theory it might need project context, usually local is enough for parsing a single file)
-    // However, parseInk in main might expect projectFiles if we want consistent parsing.
     const projectFiles = getProjectFilesContent();
+    // Pass reconstructed content (with existing IDs) to tagger
+    // This ensures we generating IDs for lines that truly don't have them
+    const reconstructedContent = idManager.reconstructContent(content);
 
     try {
-        const edits = await window.electronAPI.autoTagInk(content, currentFilePath, projectFiles);
+        const edits = await window.electronAPI.autoTagInk(reconstructedContent, currentFilePath, projectFiles);
         if (edits && edits.length > 0) {
-
-            const model = editor.getModel();
-            if (!model) return;
-
-            const monacoEdits = [];
-
             edits.forEach(edit => {
-                // Double check the line content matches what we expect
-                // The Monaco buffer might have changed since the debounce fired if the user typed fast.
-                // It's safer to only apply if the line is exactly what we tagged.
-                const lineContent = model.getLineContent(edit.line);
-
-                // For choices (e.g. * [Choice]), the line content contains more than just the text node's text.
-                // So we check if the line *contains* the text we tagged.
-                if (lineContent.includes(edit.text)) {
-                    let insertColumn = -1;
-
-                    // PARSE LINE TO DETERMINE INSERTION POINT
-                    // Separate content from comments
-                    const commentIdx = lineContent.indexOf('//');
-                    const contentPart = commentIdx === -1 ? lineContent : lineContent.substring(0, commentIdx);
-
-                    // Check for Choice
-                    const trimmedLine = contentPart.trim();
-                    const isChoice = trimmedLine.startsWith('*') || trimmedLine.startsWith('+');
-
-                    if (isChoice) {
-                        const openIdx = contentPart.indexOf('[');
-                        const closeIdx = contentPart.indexOf(']'); // First closing bracket usually closes the choice content
-
-                        // Check for Contained Choice: * [Option]
-                        if (openIdx !== -1 && closeIdx !== -1) {
-                            if (openIdx > closeIdx) {
-                                // Mismatched order ]...[ - Ignore as error
-                                return;
-                            }
-
-                            // Valid pair. Check if our target text is inside.
-                            // Note: contentPart contains the "display text" inside brackets?
-                            // edit.text is what the tagger found.
-                            // If tagger found "Option", and line is `* [Option]`.
-                            const textIdx = contentPart.indexOf(edit.text);
-
-                            if (textIdx > openIdx && textIdx < closeIdx) {
-                                // Text is inside brackets. Insert before closing bracket.
-                                // Insert exactly at closeIdx position (pushes ] to right)
-                                // Monaco columns are 1-based. closeIdx is 0-based index.
-                                // So column = closeIdx + 1.
-                                insertColumn = closeIdx + 1;
-                            } else {
-                                // Text is outside brackets (e.g. output text).
-                                // Insert at end of contentPart.
-                                insertColumn = contentPart.trimEnd().length + 1;
-                            }
-
-                        } else if (openIdx !== -1 || closeIdx !== -1) {
-                            // Mismatched (only one present). Ignore as error.
-                            return;
-                        } else {
-                            // Plain Choice. Insert at end of contentPart.
-                            insertColumn = contentPart.trimEnd().length + 1;
-                        }
-                    } else {
-                        // Regular line. Insert at end of contentPart.
-                        insertColumn = contentPart.trimEnd().length + 1;
-                    }
-
-                    if (insertColumn !== -1) {
-                        const tagToAdd = ` ${edit.fullTag}`;
-
-                        monacoEdits.push({
-                            range: new monaco.Range(edit.line, insertColumn, edit.line, insertColumn),
-                            text: tagToAdd,
-                            forceMoveMarkers: true
-                        });
-                    }
-                }
+                console.log('[AutoTag] Edit for:', edit.file, 'Current:', currentFilePath);
+                // Register the new ID.
+                // edit.line is 1-based.
+                // edit.newId is the ID string (e.g. "prefix_1234")
+                // We don't modify the text, just start tracking it.
+                idManager.addId(edit.line, edit.newId);
             });
-
-            if (monacoEdits.length > 0) {
-                isUpdatingContent = true; // Prevent triggering change events for our own edits
-                model.pushEditOperations(
-                    [],
-                    monacoEdits,
-                    () => null
-                );
-                isUpdatingContent = false;
-
-                // Explicitly update decorations since we skipped the change event
-                idManager.updateDecorations();
-            }
         }
+
     } catch (e) {
         window.electronAPI.log('autoTag failed:', e.toString());
     }
@@ -788,6 +712,7 @@ editor.onDidChangeModelContent(() => {
     }
 
     // Keep the file model in sync with editor content immediately
+    // Note: We sync the CLEAN content here. IDs are only reconstructed on save/switch.
     if (currentFilePath && loadedInkFiles.has(currentFilePath)) {
         const file = loadedInkFiles.get(currentFilePath);
         file.content = editor.getValue();
@@ -800,7 +725,6 @@ editor.onDidChangeModelContent(() => {
     debouncedCheck();
     debouncedCheckSpelling();
     debouncedAutoTag();
-    idManager.updateDecorations();
 });
 
 window.electronAPI.onThemeUpdated((theme) => {
@@ -819,65 +743,31 @@ window.electronAPI.onThemeUpdated((theme) => {
 async function saveAllFiles() {
     const filesToSave = [];
 
-    // Pre-save Sanitization
     for (const [filePath, file] of loadedInkFiles) {
         let content = file.content;
 
-        // Prefix Sanitize: Space before #id:
-        content = content.replace(/([^\s])(#id:)/g, '$1 $2');
-
-        // Suffix Sanitize: Space after _XXXX if followed by invalid char
-        // Invalid chars are anything that is NOT space, newline, ], or /
-        // We iterate matches manually because regex replace is tricky with the "Last" requirement
-
-        // Find all ID tags
-        const tagRegex = /#id:[a-zA-Z0-9_]+/g;
-        let match;
-
-        let newContent = content;
-        const insertions = [];
-
-        while ((match = tagRegex.exec(content)) !== null) {
-            const fullTag = match[0];
-            // Rule: Valid ID must end with _XXXX
-            if (/_([a-zA-Z0-9]{4})$/.test(fullTag)) {
-                continue;
-            }
-
-            // Search for last valid suffix
-            const suffixRegex = /_([a-zA-Z0-9]{4})/g;
-            let suffixMatch;
-            let lastSuffixMatch = null;
-            while ((suffixMatch = suffixRegex.exec(fullTag)) !== null) {
-                lastSuffixMatch = suffixMatch;
-            }
-
-            if (lastSuffixMatch) {
-                const suffixEndIndex = lastSuffixMatch.index + 5;
-                if (suffixEndIndex < fullTag.length) {
-                    // Calculate absolute index in content where space should be
-                    const absoluteIndex = match.index + suffixEndIndex;
-                    insertions.push(absoluteIndex);
-                }
-            }
+        // Reconstruct content with IDs
+        // If this is the currently open file, take from editor and reconstruct
+        if (filePath === currentFilePath) {
+            content = idManager.reconstructContent(editor.getValue());
+        } else {
+            // For other files, file.content should ALREADY contain IDs 
+            // because we reconstruct them when switching AWAY from the file.
+            // But we should double check if we need to do anything.
+            // Assuming file.content is the source of truth for background files.
         }
 
-        // Apply insertions (reverse order)
-        insertions.sort((a, b) => b - a);
-        for (const index of insertions) {
-            newContent = newContent.slice(0, index) + ' ' + newContent.slice(index);
-        }
+        /* 
+           NOTE: Old Sanitization Logic (Space insertion) is largely superseded by 
+           the fact that we reconstruct the tags ourselves in IdManager.injectIdIntoLine,
+           which enforces the space formatting.
+           We can likely remove the manual "Pre-save Sanitization" block or simplify it.
+           For now, we'll strip it to trust IdManager, as IdManager adds " #id:..."
+        */
 
-        if (newContent !== file.content) {
-            file.content = newContent;
-
-            // If this is the currently open file, update the editor to match
-            // This ensures what you see is what is saved (and valid)
-            if (filePath === currentFilePath) {
-                const pos = editor.getPosition();
-                editor.setValue(newContent);
-                if (pos) editor.setPosition(pos);
-            }
+        // Update the file object
+        if (content !== file.content) {
+            file.content = content;
         }
 
         filesToSave.push({ path: filePath, content: file.content });

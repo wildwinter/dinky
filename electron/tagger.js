@@ -174,7 +174,6 @@ function generateIdsForUntagged(parsedStory) {
             return;
         }
 
-        // Add to the output list
         if (item.node.debugMetadata) {
             linesToReplace.push({
                 file: item.node.debugMetadata.fileName,
@@ -183,6 +182,8 @@ function generateIdsForUntagged(parsedStory) {
                 newId: newId,
                 fullTag: `#${TAG_LOC}${newId}`
             });
+        } else {
+            console.log('[Tagger] Node missing metadata:', item.text, item.node);
         }
     });
 
