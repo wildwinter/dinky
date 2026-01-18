@@ -209,6 +209,7 @@ const editor = monaco.editor.create(document.getElementById('editor-container'),
     theme: 'dinky-dark',
     automaticLayout: true,
     readOnly: true,
+    glyphMargin: true
 });
 
 const spellChecker = new DinkySpellChecker();
@@ -743,27 +744,71 @@ window.electronAPI.onThemeUpdated((theme) => {
 async function saveAllFiles() {
     const filesToSave = [];
 
-    for (const [filePath, file] of loadedInkFiles) {
-        let content = file.content;
-
-        // Reconstruct content with IDs
-        // If this is the currently open file, take from editor and reconstruct
-        if (filePath === currentFilePath) {
-            content = idManager.reconstructContent(editor.getValue());
+    // Prepare project files map for the tagger
+    const projectFilesContent = {};
+    for (const [path, file] of loadedInkFiles) {
+        // Use current editor content if this is the active file
+        if (path === currentFilePath) {
+            projectFilesContent[path] = idManager.reconstructContent(editor.getValue());
         } else {
-            // For other files, file.content should ALREADY contain IDs 
-            // because we reconstruct them when switching AWAY from the file.
-            // But we should double check if we need to do anything.
-            // Assuming file.content is the source of truth for background files.
+            projectFilesContent[path] = file.content;
         }
+    }
 
-        /* 
-           NOTE: Old Sanitization Logic (Space insertion) is largely superseded by 
-           the fact that we reconstruct the tags ourselves in IdManager.injectIdIntoLine,
-           which enforces the space formatting.
-           We can likely remove the manual "Pre-save Sanitization" block or simplify it.
-           For now, we'll strip it to trust IdManager, as IdManager adds " #id:..."
-        */
+    for (const [filePath, file] of loadedInkFiles) {
+        let content = projectFilesContent[filePath];
+
+        // AUTO-TAGGING ON SAVE
+        try {
+            // We pass the potentially modified projectFilesContent so tagger sees current state
+            const edits = await window.electronAPI.autoTagInk(content, filePath, projectFilesContent);
+
+            if (edits && edits.length > 0) {
+                // Apply edits to the content string
+                // Edits are: { line: 1-based, newId: "...", text: "original line text" }
+                // Since valid lines are unique in Ink usually, we can replace line by line.
+                // But safer to split content and replace by index.
+
+                const lines = content.split(/\r?\n/);
+                let trafficCops = 0; // Track insertions if we were inserting lines, but here we replace lines or append tags.
+                // Wait, tagger returns edits that imply a NEW id is needed.
+                // The `generateIdsForUntagged` returns:
+                // { line: N, newId: "...", fullTag: "#id:..." }
+
+                // We need to inject this tag into the line using IdManager logic?
+                // IdManager works on the editor model.
+                // For background files, we don't have a model.
+                // We can use IdPreservationManager.injectIdIntoLine generic static-like method if we exposed it, 
+                // OR duplicate the logic, OR instantiate a temporary model (expensive).
+                // Actually `idManager.injectIdIntoLine` relies on `this.editor`? No, it's pure logic methods usually.
+                // Let's check `injectIdIntoLine`. It takes `lineText` and `id`. Pure string logic.
+                // Perfect.
+
+                edits.forEach(edit => {
+                    // edit.line is 1-based index from compiler
+                    const lineIdx = edit.line - 1;
+                    if (lineIdx >= 0 && lineIdx < lines.length) {
+                        const originalLine = lines[lineIdx];
+                        // Double check text matches to be safe against race conditions?
+                        // Tagger ran on 'content', so it should match.
+
+                        // Inject ID
+                        const newLine = idManager.injectIdIntoLine(originalLine, edit.newId);
+                        lines[lineIdx] = newLine;
+
+                        // If this IS the current file, we also need to register it with IdManager
+                        // so the decoration appears immediately without reload.
+                        if (filePath === currentFilePath) {
+                            idManager.addId(edit.line, edit.newId);
+                        }
+                    }
+                });
+
+                content = lines.join('\n');
+            }
+        } catch (e) {
+            console.error('Auto-tag on save failed for', filePath, e);
+        }
 
         // Update the file object
         if (content !== file.content) {

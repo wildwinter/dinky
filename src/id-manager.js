@@ -126,7 +126,9 @@ export class IdPreservationManager {
                     description: 'ink-id-tracker',
                     isWholeLine: true,
                     // We don't need visual style, just tracking
-                    stickiness: this.monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
+                    stickiness: this.monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
+                    glyphMarginClassName: 'ink-id-chip',
+                    glyphMarginHoverMessage: { value: `ID: ${item.id}` }
                 },
                 // Custom payload not supported directly in options, need to map via ID
                 metadata: { inkId: item.id }
