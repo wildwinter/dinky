@@ -1,6 +1,5 @@
 TODO:
 -----
-Add Dink syntax checking and highlighting
 Add character list
 Style test for dialogue
 Play connected audio?
@@ -35,6 +34,7 @@ Line ID handling
 Line ID searching
 Icons for app and for Installer
 Associate .dinkproj files with Dinky
+Add Dink syntax checking and highlighting
 
 NOTES:
 ------

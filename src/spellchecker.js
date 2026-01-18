@@ -72,7 +72,8 @@ export class DinkySpellChecker {
 
         // Tokenize using Monaco's tokenizer to respect our syntax highlighting rules
         // This gives us true awareness of 'code', 'comment', etc. as defined in renderer.js
-        const tokenizedLines = monaco.editor.tokenize(text, 'ink');
+        const languageId = model.getLanguageId();
+        const tokenizedLines = monaco.editor.tokenize(text, languageId);
 
         const wordRegex = /[a-zA-Z']+/g;
 

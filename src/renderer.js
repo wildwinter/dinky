@@ -37,6 +37,10 @@ monaco.editor.defineTheme('dinky-dark', {
     inherit: true,
     rules: [
         { token: 'code', foreground: 'C586C0' }, // Magenta
+        { token: 'dinky.name', foreground: 'D7BA7D' }, // Gold
+        { token: 'dinky.qualifier', foreground: '6A9955', fontStyle: 'italic' }, // Green Italic
+        { token: 'dinky.direction', foreground: '569CD6', fontStyle: 'italic' }, // Blue Italic
+        { token: 'dinky.text', foreground: '9CDCFE' }, // Light Blue
     ],
     colors: {}
 });
@@ -46,95 +50,134 @@ monaco.editor.defineTheme('dinky-light', {
     inherit: true,
     rules: [
         { token: 'code', foreground: '800080' }, // Purple
+        { token: 'dinky.name', foreground: '795E26' }, // Dark Gold
+        { token: 'dinky.qualifier', foreground: '008000', fontStyle: 'italic' }, // Green Italic
+        { token: 'dinky.direction', foreground: '0000FF', fontStyle: 'italic' }, // Blue Italic
+        { token: 'dinky.text', foreground: '001080' }, // Dark Blue
     ],
     colors: {}
 });
 
-monaco.languages.register({ id: 'ink' });
+// Common Tokenizer Pattern Parts
+const commonInkStates = {
+    codeMode: [
+        [/\/\/.*$/, 'comment', '@pop'],
+        [/\/\*/, 'comment', '@comment'],
+        [/[^/*]+$/, 'code', '@pop'],
+        [/\/(?!\/|\*)$/, 'code', '@pop'],
+        [/\*(?!\/)$/, 'code', '@pop'],
+        [/[^/*]+/, 'code'],
+        [/\//, 'code'],
+        [/\*/, 'code'],
+        [/$/, 'code', '@pop']
+    ],
+    tagMode: [
+        [/\/\/.*$/, 'comment', '@pop'],
+        [/\/\*/, 'comment', '@comment'],
+        [/\]/, '@rematch', '@pop'],
+        [/[^\]\/]+$/, 'annotation', '@pop'],
+        [/\/(?!\/|\*)$/, 'annotation', '@pop'],
+        [/[^\]\/]+/, 'annotation'],
+        [/\/(?!\/|\*)/, 'annotation'],
+        [/$/, 'annotation', '@pop']
+    ],
+    comment: [
+        [/[^\/*]+/, 'comment'],
+        [/\*\//, 'comment', '@pop'],
+        [/[\/*]/, 'comment']
+    ]
+};
 
-monaco.languages.setMonarchTokensProvider('ink', {
+const standardInkRules = [
+    // Comments (Top priority)
+    [/\/\/.*$/, 'comment'],
+    [/\/\*/, 'comment', '@comment'],
+
+    // Code Lines - Solitary
+    [/^\s*~$/, 'code'],
+    [/^\s*(?:INCLUDE|VAR|CONST|LIST)$/, 'code'],
+
+    // Code Lines - Start
+    [/^\s*(?:INCLUDE|VAR|CONST|LIST)\b/, 'code', '@codeMode'],
+    [/^\s*~/, 'code', '@codeMode'],
+
+    // Code Blocks
+    [/^\s*\{[^}]*$/, 'code'],
+    [/^[^\{]*\}\s*$/, 'code'],
+    [/\{[^\{\}]*\}/, 'code'],
+
+    // Diverts
+    [/->\s*[\w_\.]+/, 'keyword'],
+
+    // Stitches (= Name) - Knots handled by state machine or root override
+    [/^=\s*\w+/, 'type.identifier'],
+
+    // Choices
+    [/^[\*\+]+/, 'keyword'],
+
+    // Gather points
+    [/^\-/, 'keyword'],
+
+    // Tags
+    [/#(?=$)/, 'annotation'],
+    [/#/, 'annotation', '@tagMode'],
+
+    // Logic
+    [/[{}]/, 'delimiter.bracket'],
+    [/\w+(?=\()/, 'function'],
+];
+
+const dinkyDialogueRule = [
+    // NAME (qual): (dir) Text
+    /^(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/,
+    ['white', 'dinky.name', 'white', 'dinky.qualifier', 'white', 'delimiter', 'white', 'dinky.direction', 'white', 'dinky.text']
+];
+
+monaco.languages.register({ id: 'ink' });
+monaco.languages.register({ id: 'ink-dinky' });
+
+// Ink Dinky (Global Mode)
+monaco.languages.setMonarchTokensProvider('ink-dinky', {
     tokenizer: {
         root: [
-            // Comments (Top priority)
+            dinkyDialogueRule,
+            // Knot Header - simple highlight, no state reset in global mode
+            [/^\s*={2,}.*$/, 'type.identifier'],
+            ...standardInkRules
+        ],
+        ...commonInkStates
+    }
+});
+
+// Standard Ink (Stateful)
+monaco.languages.setMonarchTokensProvider('ink', {
+    defaultToken: '',
+    tokenizer: {
+        root: [
+            { include: 'normalMode' }
+        ],
+        knotStart: [
+            // Check for #dink
+            [/\s*#\s*dink(?=\s|$)/, { token: 'annotation', next: '@dinkyMode' }],
+            // Comments/Whitespace don't change state
             [/\/\/.*$/, 'comment'],
             [/\/\*/, 'comment', '@comment'],
-
-            // Code Lines - Solitary (No content implies no need to enter mode, or empty logic)
-            [/^\s*~$/, 'code'],
-            [/^\s*(?:INCLUDE|VAR|CONST|LIST)$/, 'code'],
-
-            // Code Lines - Start (Enter codeMode for rest of line)
-            [/^\s*(?:INCLUDE|VAR|CONST|LIST)\b/, 'code', '@codeMode'],
-            [/^\s*~/, 'code', '@codeMode'],
-
-            // Code Blocks: multi-line logic start/end or inline logic
-            [/^\s*\{[^}]*$/, 'code'],         // Line starting with { and not closing
-            [/^[^\{]*\}\s*$/, 'code'],        // Line ending with } and not opening
-            [/\{[^\{\}]*\}/, 'code'],         // Inline logic { ... }
-
-            // Diverts: -> matches arrow and target
-            [/->\s*[\w_\.]+/, 'keyword'],
-
-            // Knots (=== Name ===)
-            [/^={2,}\s*[\w\s]+={2,}/, 'type.identifier'], // Full Knot header
-            [/^={2,}\s*\w+/, 'type.identifier'],          // Knot opening
-
-            // Stitches (= Name)
-            [/^=\s*\w+/, 'type.identifier'],
-
-            // Choices
-            [/^[\*\+]+/, 'keyword'], // Choice bullets
-
-            // Gather points
-            [/^\-/, 'keyword'],
-
-            // Tags
-            [/#(?=$)/, 'annotation'], // Tag at EOL, don't enter mode
-            [/#/, 'annotation', '@tagMode'], // Tag with content, enter mode
-
-            // Logic
-            // Note: { and } are now largely handled by 'code' rules above if they form blocks across lines
-            // or inline blocks. Remaining braces might be parts of complex nesting not caught above.
-            [/[{}]/, 'delimiter.bracket'],
-            [/\w+(?=\()/, 'function'], // Function calls
+            [/\s+/, 'white'],
+            // Transition to normal on anything else
+            [/^/, { token: '@rematch', next: '@normalMode' }]
         ],
-        codeMode: [
-            [/\/\/.*$/, 'comment', '@pop'],
-            [/\/\*/, 'comment', '@comment'],
-
-            // Content ending at EOL -> POP
-            [/[^/*]+$/, 'code', '@pop'],
-            [/\/(?!\/|\*)$/, 'code', '@pop'], // Lonely slash at EOL
-            [/\*(?!\/)$/, 'code', '@pop'],    // Lonely star at EOL
-
-            // Content NOT ending at EOL -> STAY
-            [/[^/*]+/, 'code'],
-            [/\//, 'code'],
-            [/\*/, 'code'],
-
-            // Fallback EOL catch (e.g. trailing whitespace matched differently or empty)
-            [/$/, 'code', '@pop']
+        dinkyMode: [
+            // Knot -> Reset to knotStart
+            [/^\s*={2,}.*$/, { token: 'type.identifier', next: '@knotStart' }],
+            dinkyDialogueRule,
+            ...standardInkRules
         ],
-        tagMode: [
-            [/\/\/.*$/, 'comment', '@pop'],
-            [/\/\*/, 'comment', '@comment'],
-            [/\]/, '@rematch', '@pop'],
-            // Content ending at EOL -> POP
-            [/[^\]\/]+$/, 'annotation', '@pop'],
-            [/\/(?!\/|\*)$/, 'annotation', '@pop'],
-
-            // Content NOT ending at EOL -> STAY
-            // This allows spaces and other characters
-            [/[^\]\/]+/, 'annotation'],
-            [/\/(?!\/|\*)/, 'annotation'],
-            // Fallback
-            [/$/, 'annotation', '@pop']
+        normalMode: [
+            // Knot -> Reset to knotStart
+            [/^\s*={2,}.*$/, { token: 'type.identifier', next: '@knotStart' }],
+            ...standardInkRules
         ],
-        comment: [
-            [/[^\/*]+/, 'comment'],
-            [/\*\//, 'comment', '@pop'],
-            [/[\/*]/, 'comment']
-        ]
+        ...commonInkStates
     }
 });
 
@@ -587,7 +630,9 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     const { cleanContent, extractedIds } = idManager.extractIds(file.content);
 
     // Create new model (detached from editor)
-    const newModel = monaco.editor.createModel(cleanContent, 'ink');
+    const isDinky = detectDinkyGlobal(cleanContent);
+    const langId = isDinky ? 'ink-dinky' : 'ink';
+    const newModel = monaco.editor.createModel(cleanContent, langId);
 
     // Swap the model
     editor.setModel(newModel);
@@ -733,6 +778,18 @@ async function autoTag() {
 const debouncedCheck = debounce(checkSyntax, 1000);
 const debouncedCheckSpelling = debounce(checkSpelling, 400);
 const debouncedAutoTag = debounce(autoTag, 2000);
+const debouncedDinkyModeCheck = debounce(() => {
+    const text = editor.getValue();
+    const isDinky = detectDinkyGlobal(text);
+    const model = editor.getModel();
+    if (model) {
+        const currentLang = model.getLanguageId();
+        const targetLang = isDinky ? 'ink-dinky' : 'ink';
+        if (currentLang !== targetLang) {
+            monaco.editor.setModelLanguage(model, targetLang);
+        }
+    }
+}, 500);
 
 editor.onDidChangeModelContent(() => {
     if (isUpdatingContent) return;
@@ -757,10 +814,31 @@ editor.onDidChangeModelContent(() => {
             file.listItem.textContent = file.relativePath + (isModified ? '*' : '');
         }
     }
+
+    // Check for global dinky mode switch
+    debouncedDinkyModeCheck();
+
     debouncedCheck();
     debouncedCheckSpelling();
     debouncedAutoTag();
 });
+
+// Dinky Mode Detection
+function detectDinkyGlobal(text) {
+    const lines = text.split(/\r?\n/);
+    for (const line of lines) {
+        const trimmed = line.trim();
+        // Check for Knot first (stops the search for global tag)
+        if (/^={2,}/.test(trimmed)) {
+            return false;
+        }
+        // Check for #dink
+        if (/#\s*dink(?=\s|$)/.test(trimmed)) {
+            return true;
+        }
+    }
+    return false;
+}
 
 window.electronAPI.onThemeUpdated((theme) => {
     if (theme === 'vs') {
