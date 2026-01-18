@@ -54,6 +54,12 @@ function createCompilerOptions(filePath, errorHandler, fileHandler) {
     }
 }
 
+function prepareCompiler(content, filePath, projectFiles, errorHandler) {
+    const fileHandler = createFileHandler(filePath, projectFiles);
+    const options = createCompilerOptions(filePath, errorHandler, fileHandler);
+    return new inkjs.Compiler(content, options);
+}
+
 async function compileInk(content, filePath, projectFiles = {}) {
     content = removeBOM(content);
 
@@ -61,14 +67,11 @@ async function compileInk(content, filePath, projectFiles = {}) {
     let parseError = null
 
     try {
-        const fileHandler = createFileHandler(filePath, projectFiles)
-
         const errorHandler = (message, errorType) => {
             collectedErrors.push(message)
         }
 
-        const options = createCompilerOptions(filePath, errorHandler, fileHandler);
-        const compiler = new inkjs.Compiler(content, options)
+        const compiler = prepareCompiler(content, filePath, projectFiles, errorHandler);
         compiler.Compile()
     } catch (error) {
         if (collectedErrors.length === 0) {
@@ -162,15 +165,11 @@ async function compileStory(content, filePath, projectFiles = {}) {
 
     const collectedErrors = []
 
-    const fileHandler = createFileHandler(filePath, projectFiles)
-
     const errorHandler = (message) => {
         collectedErrors.push(message)
     }
 
-    const options = createCompilerOptions(filePath, errorHandler, fileHandler);
-
-    const compiler = new inkjs.Compiler(content, options)
+    const compiler = prepareCompiler(content, filePath, projectFiles, errorHandler);
     const story = compiler.Compile()
 
     if (collectedErrors.length > 0) {
@@ -189,13 +188,10 @@ async function compileStory(content, filePath, projectFiles = {}) {
 function parseInk(content, filePath, projectFiles = {}) {
     content = removeBOM(content);
 
-    const fileHandler = createFileHandler(filePath, projectFiles);
     // Silent error handler for parsing - we don't want to spam console for every keystroke
     const errorHandler = (msg, type) => { };
 
-    const options = createCompilerOptions(filePath, errorHandler, fileHandler);
-
-    const compiler = new inkjs.Compiler(content, options);
+    const compiler = prepareCompiler(content, filePath, projectFiles, errorHandler);
 
     try {
         // Compile populates _parsedStory

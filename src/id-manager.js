@@ -128,15 +128,6 @@ export class IdPreservationManager {
             let line = lines[i];
             let match;
 
-            // We only support ONE ID per line for now (Ink logic mostly enforces this).
-            // But we should find the *last* valid one if multiple exist? 
-            // Or just the first one? Tagger generates one.
-            // Let's find the first one.
-
-            // Re-set regex state if we were to use exec with global, but match() is easier if we don't need iteration state
-            // match() with global returns array of strings.
-            // We need capture groups. exec() is better.
-
             // Reset regex
             idRegex.lastIndex = 0;
             const matches = [];
@@ -145,35 +136,23 @@ export class IdPreservationManager {
             }
 
             if (matches.length > 0) {
-                // If multiple, which one?
-                // Visuals show scattered IDs. 
-                // We should match ALL if they exist, but we only track ONE per line in our system?
-                // Our system `extractedIds.push({ lineIndex })` assumes 1:1 mapping for line tracking.
-                // If a line has multiple IDs, that's weird for Ink. 
-                // Let's assume the LAST one is the "primary" ID for the line if multiple exist (unlikely but safe).
-                // Or just pick the first?
-                // Given the example: `Hello choice 1. #id:...` -> just one.
-
-                const targetMatch = matches[0]; // Take the first one found.
+                const targetMatch = matches[0];
 
                 const fullMatchStr = targetMatch[0];
                 const leadingSpace = targetMatch[1];
-                const idPart = targetMatch[2]; // The "Test_Choices_ZUUN" part
+                const idPart = targetMatch[2];
 
                 extractedIds.push({
-                    lineIndex: i, // 0-based
+                    lineIndex: i,
                     id: idPart
                 });
 
                 // Remove it from the line
                 // We construct the "Clean" line by removing the matched text.
                 // Note: We strip the leading space captured in group 1 IF it exists.
-                // But we must be careful not to strip space that is structural?
-                // Usually ` #id:...` -> remove all of it.
-                // `[Choice #id:...]` -> `[Choice]` (space removed).
-
                 // Use substring replacement to avoid regex global madness on replace
-                // (Replacing only the specific match instance)
+                // (Replacing only the match instance)
+
                 const pre = line.substring(0, targetMatch.index);
                 const post = line.substring(targetMatch.index + fullMatchStr.length);
 
@@ -203,14 +182,7 @@ export class IdPreservationManager {
 
         for (const item of extractedIds) {
             // Create a decoration for the entire line
-            // We use Stickiness.AlwaysGrowsWhenTypingAtEdges = 0 (AlwaysGrowsWhenTypingAtEdges) is default?
-            // We want the decoration to stay with the line.
-            // NeverGrowsWhenTypingAtEdges might be better if we want to treat it as a line anchor.
 
-            // Actually, for line tracking, we just need a range covering the line.
-            // If user types at end, it grows. If user types at start, it grows.
-            // If user deletes line, decoration goes away? 
-            // We need to handle line deletion/merging potentially, but Monaco handles move.
 
             const lineContent = model.getLineContent(item.lineIndex + 1);
             const maxCol = lineContent.length + 1;
@@ -268,38 +240,9 @@ export class IdPreservationManager {
         const model = this.editor.getModel();
         if (!model) return;
 
-        // check if already tracked?
-        // We can't easily check line -> decoration without searching.
-        // But auto-tagger shouldn't trigger if ID exists (handled upstream).
-
-        const newDec = {
-            range: new this.monaco.Range(lineNumber, 1, lineNumber, 1),
-            options: {
-                description: 'ink-id-tracker',
-                isWholeLine: true,
-                stickiness: this.monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
-            }
-        };
-
-        // Append to existing
-        // decorationCollection.set overwrites if we pass same array, but we want to add.
-        // .append() is not a method. .set() returns new IDs.
-        // We must manage the collection properly. 
-        // decorationCollection.set(newDecs) replaces? No, "Set the decorations... replacing the previous ones" -> YES it replaces IF we used deltaDecorations style.
-        // createDecorationsCollection() returns an object with .set(), .clear(), .getRanges().
-        // .set(newDecorations) "deduces the new decorations... and replaces". 
-        // Ah. We need to add ONE.
-        // We can use editor.deltaDecorations but decorationCollection wrapper is convenient for bulk.
-        // Mixed usage is bad.
-
-        // Actually, createDecorationsCollection IS a wrapper around deltaDecorations that remembers the IDs.
-        // If we want to ADD, we should probably get existing, add to list, set again? No, that's expensive.
-        // We can just use raw deltaDecorations for append? 
-        // But then we need to manually track the IDs in a list to clear them later.
-
-        // Let's stick to `deltaDecorations` directly for granular control since we need to map IDs.
-        // Refactor to use raw deltaDecorations and store the string[] of IDs.
+        // Note: Intentionally using deltaDecorations for granular control since we need to map IDs.
     }
+
 
     // RE-IMPLEMENTING with raw deltaDecorations to support incremental updates
 
@@ -379,8 +322,6 @@ export class IdPreservationManager {
                 // Insert inside brackets, at the end of text inside
                 // If text is `* [Option]`, we want `* [Option #id:...]`
 
-                // wait, if I put it at closeIdx, it's `* [Option #id:...]`
-                // Yes.
                 insertIndex = closeIdx;
             }
         }

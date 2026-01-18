@@ -2,6 +2,8 @@ import * as monaco from 'monaco-editor';
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import { DinkySpellChecker } from './spellchecker';
 import { IdPreservationManager } from './id-manager';
+import { ModalHelper } from './modal-helper';
+
 import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
@@ -25,75 +27,8 @@ self.MonacoEnvironment = {
     },
 };
 
-class ModalHelper {
-    constructor(config) {
-        this.overlay = document.getElementById(config.overlayId);
-        this.confirmBtn = document.getElementById(config.confirmBtnId);
-        this.cancelBtn = document.getElementById(config.cancelBtnId);
-        this.onConfirm = config.onConfirm;
-        this.onValidate = config.onValidate || (() => true);
-        this.onShow = config.onShow || (() => { });
-        this.onCancel = config.onCancel || (() => { });
+// ModalHelper moved to ./modal-helper.js
 
-        this._initListeners();
-    }
-
-    _initListeners() {
-        this.confirmBtn.addEventListener('click', async () => {
-            if (this.confirmBtn.disabled) return;
-            this.confirmBtn.disabled = true; // Prevent double submission
-            try {
-                const success = await this.onConfirm();
-                if (success) {
-                    this.close();
-                } else {
-                    this.validate(); // Re-enable based on validation if failed
-                }
-            } catch (e) {
-                console.error("Modal confirm action failed", e);
-                this.validate();
-            }
-        });
-
-        this.cancelBtn.addEventListener('click', () => {
-            this.onCancel();
-            this.close();
-        });
-
-        this.overlay.addEventListener('keydown', (e) => {
-            if (this.overlay.style.display === 'none') return;
-            if (e.key === 'Enter') {
-                if (!this.confirmBtn.disabled) {
-                    this.confirmBtn.click();
-                }
-            } else if (e.key === 'Escape') {
-                this.onCancel();
-                this.close();
-            }
-        });
-    }
-
-    open(...args) {
-        this.onShow(...args);
-        this.overlay.style.display = 'flex';
-        this.validate();
-        const input = this.overlay.querySelector('input');
-        if (input) {
-            input.focus();
-            if (input.value) input.select();
-        }
-    }
-
-    close() {
-        this.overlay.style.display = 'none';
-        // Reset button state slightly delayed or immediately ensure clean state
-        this.confirmBtn.disabled = false;
-    }
-
-    validate() {
-        this.confirmBtn.disabled = !this.onValidate();
-    }
-}
 
 
 // Define custom themes
@@ -584,14 +519,6 @@ function updateDeleteButtonState(isRoot) {
     }
 
     // Logic for Rename Root button
-    // It should be enabled if we have a root (which we should if isRoot is true, primarily)
-    // But this function is called when selecting ANY file.
-    // The Rename Root button should arguably ALWAYS be enabled if a root exists?
-    // Or only when the root is selected? User request was "Rename icon to the INK ROOT icons", implying it lives in the header.
-    // So it should probably just be enabled if `rootInkPath` exists, regardless of selection.
-
-    // However, we want to update its state based on whether a root is loaded at all.
-    // Let's check rootInkPath global.
     const renameRootBtn = document.getElementById('btn-rename-root');
     if (rootInkPath) {
         renameRootBtn.style.opacity = '1';
@@ -600,6 +527,7 @@ function updateDeleteButtonState(isRoot) {
         renameRootBtn.style.opacity = '0.5';
         renameRootBtn.style.pointerEvents = 'none';
     }
+
 }
 
 
@@ -770,31 +698,17 @@ async function saveAllFiles() {
                 // But safer to split content and replace by index.
 
                 const lines = content.split(/\r?\n/);
-                let trafficCops = 0; // Track insertions if we were inserting lines, but here we replace lines or append tags.
-                // Wait, tagger returns edits that imply a NEW id is needed.
-                // The `generateIdsForUntagged` returns:
-                // { line: N, newId: "...", fullTag: "#id:..." }
-
-                // We need to inject this tag into the line using IdManager logic?
-                // IdManager works on the editor model.
-                // For background files, we don't have a model.
-                // We can use IdPreservationManager.injectIdIntoLine generic static-like method if we exposed it, 
-                // OR duplicate the logic, OR instantiate a temporary model (expensive).
-                // Actually `idManager.injectIdIntoLine` relies on `this.editor`? No, it's pure logic methods usually.
-                // Let's check `injectIdIntoLine`. It takes `lineText` and `id`. Pure string logic.
-                // Perfect.
 
                 edits.forEach(edit => {
                     // edit.line is 1-based index from compiler
                     const lineIdx = edit.line - 1;
                     if (lineIdx >= 0 && lineIdx < lines.length) {
                         const originalLine = lines[lineIdx];
-                        // Double check text matches to be safe against race conditions?
-                        // Tagger ran on 'content', so it should match.
 
                         // Inject ID
                         const newLine = idManager.injectIdIntoLine(originalLine, edit.newId);
                         lines[lineIdx] = newLine;
+
 
                         // If this IS the current file, we also need to register it with IdManager
                         // so the decoration appears immediately without reload.
