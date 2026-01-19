@@ -38,9 +38,7 @@ Icons for app and for Installer
 Associate .dinkproj files with Dinky
 Add Dink syntax checking and highlighting
 Add character validation
-
-TEST:
------
+Add Ad-hoc mode for directly opening Ink files.
 BUG: Quick fix Add Character not available on Windows
 BUG: Include line didn't get added.
 BUG: Dink IDs not providing a file prefix to start.
