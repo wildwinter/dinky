@@ -434,7 +434,7 @@ ipcMain.handle('load-project-characters', async (event) => {
         // Or if we assume standard JSON for .json and loose for .jsonc
         // We should try to handle comments.
         // Simple regex strip for // and /* */
-        const cleanContent = content.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        const cleanContent = content.replace(/\/\/.*(?:\r?\n|$)/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
         return JSON.parse(cleanContent);
     } catch (e) {
         console.error('Failed to parse characters file', e);
@@ -475,7 +475,7 @@ ipcMain.handle('add-project-character', async (event, characterId) => {
         let chars = [];
         try {
             // clean for parsing
-            const cleanContent = content.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+            const cleanContent = content.replace(/\/\/.*(?:\r?\n|$)/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
             chars = JSON.parse(cleanContent);
             if (!Array.isArray(chars)) chars = [];
         } catch {

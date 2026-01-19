@@ -217,31 +217,83 @@ window.electronAPI.onUpdateSpellLocale(async (locale) => {
     checkSpelling();
 });
 
-monaco.languages.registerCodeActionProvider('ink', {
-    provideCodeActions: (model, range, context, token) => {
-        const markers = context.markers;
-        if (markers.length === 0) return { actions: [], dispose: () => { } };
+['ink', 'ink-dinky'].forEach(lang => {
+    monaco.languages.registerCodeActionProvider(lang, {
+        provideCodeActions: (model, range, context, token) => {
+            const markers = context.markers;
+            if (markers.length === 0) return { actions: [], dispose: () => { } };
 
-        const actions = [];
-        for (const marker of markers) {
-            if (marker.source === 'dinky-validator') {
-                if (monaco.Range.containsRange(marker, range) || monaco.Range.intersectRanges(marker, range)) {
-                    const invalidName = marker.code; // We stored name in code
-                    if (invalidName) {
-                        // Find suggestions if we have characters
-                        if (projectCharacters.length > 0) {
-                            const candidates = projectCharacters.map(c => c.ID);
-                            // Simple distance filter
-                            const suggestions = candidates
-                                .map(c => ({ name: c, dist: levenshtein(invalidName, c) }))
-                                .filter(c => c.dist <= 3) // arbitrary threshold
-                                .sort((a, b) => a.dist - b.dist)
-                                .slice(0, 3) // Top 3
-                                .map(c => c.name);
+            const actions = [];
+            for (const marker of markers) {
+                if (marker.source === 'dinky-validator') {
+                    if (monaco.Range.containsRange(marker, range) || monaco.Range.intersectRanges(marker, range)) {
+                        const invalidName = marker.code; // We stored name in code
+                        if (invalidName) {
+                            // Find suggestions if we have characters
+                            if (projectCharacters.length > 0) {
+                                const candidates = projectCharacters.map(c => c.ID);
+                                // Simple distance filter
+                                const suggestions = candidates
+                                    .map(c => ({ name: c, dist: levenshtein(invalidName, c) }))
+                                    .filter(c => c.dist <= 3) // arbitrary threshold
+                                    .sort((a, b) => a.dist - b.dist)
+                                    .slice(0, 3) // Top 3
+                                    .map(c => c.name);
 
-                            suggestions.forEach(s => {
+                                suggestions.forEach(s => {
+                                    actions.push({
+                                        title: `Change to "${s}"`,
+                                        kind: 'quickfix',
+                                        isPreferred: true,
+                                        diagnostics: [marker],
+                                        edit: {
+                                            edits: [{
+                                                resource: model.uri,
+                                                textEdit: {
+                                                    range: marker,
+                                                    text: s
+                                                }
+                                            }]
+                                        }
+                                    });
+                                });
+                            }
+
+                            // Add "Add character name to project" - Always available
+                            actions.push({
+                                title: `Add "${invalidName}" as project character`,
+                                kind: 'quickfix',
+                                isPreferred: false,
+                                diagnostics: [marker],
+                                command: {
+                                    id: 'add-project-character',
+                                    title: 'Add Character to Project',
+                                    arguments: [invalidName]
+                                }
+                            });
+                        }
+                    }
+                }
+                else if (marker.source === 'spellcheck') {
+                    if (monaco.Range.containsRange(marker, range) || monaco.Range.intersectRanges(marker, range)) {
+                        const word = marker.code;
+                        if (word) {
+                            actions.push({
+                                title: `Add "${word}" to dictionary`,
+                                kind: 'quickfix',
+                                isPreferred: false,
+                                diagnostics: [marker],
+                                command: {
+                                    id: 'add-to-dictionary',
+                                    title: 'Add to Dictionary',
+                                    arguments: [word]
+                                }
+                            });
+
+                            const suggestions = spellChecker.getSuggestions(word);
+                            suggestions.slice(5).forEach(s => {
                                 actions.push({
-                                    title: `Change to "${s}"`,
+                                    title: `Replace with "${s}"`,
                                     kind: 'quickfix',
                                     isPreferred: true,
                                     diagnostics: [marker],
@@ -257,62 +309,12 @@ monaco.languages.registerCodeActionProvider('ink', {
                                 });
                             });
                         }
-
-                        // Add "Add character name to project" - Always available
-                        actions.push({
-                            title: `Add "${invalidName}" as project character`,
-                            kind: 'quickfix',
-                            isPreferred: false,
-                            diagnostics: [marker],
-                            command: {
-                                id: 'add-project-character',
-                                title: 'Add Character to Project',
-                                arguments: [invalidName]
-                            }
-                        });
                     }
                 }
             }
-            else if (marker.source === 'spellcheck') {
-                if (monaco.Range.containsRange(marker, range) || monaco.Range.intersectRanges(marker, range)) {
-                    const word = marker.code;
-                    if (word) {
-                        actions.push({
-                            title: `Add "${word}" to dictionary`,
-                            kind: 'quickfix',
-                            isPreferred: false,
-                            diagnostics: [marker],
-                            command: {
-                                id: 'add-to-dictionary',
-                                title: 'Add to Dictionary',
-                                arguments: [word]
-                            }
-                        });
-
-                        const suggestions = spellChecker.getSuggestions(word);
-                        suggestions.slice(5).forEach(s => {
-                            actions.push({
-                                title: `Replace with "${s}"`,
-                                kind: 'quickfix',
-                                isPreferred: true,
-                                diagnostics: [marker],
-                                edit: {
-                                    edits: [{
-                                        resource: model.uri,
-                                        textEdit: {
-                                            range: marker,
-                                            text: s
-                                        }
-                                    }]
-                                }
-                            });
-                        });
-                    }
-                }
-            }
+            return { actions: actions, dispose: () => { } };
         }
-        return { actions: actions, dispose: () => { } };
-    }
+    });
 });
 
 monaco.editor.registerCommand('add-to-dictionary', async (accessor, word) => {

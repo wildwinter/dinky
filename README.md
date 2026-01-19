@@ -1,6 +1,6 @@
 # Dinky
 
-**Dinky** is a custom editor for **Ink** projects, which adds features specifically for [Dink](https://github.com/wildwinter/dink) and adds IDs to every Ink line in the same way as [Ink-Localiser](https://github.com/wildwinter/Ink-Localiser/).
+**Dinky** is a custom editor for **Ink** projects, which adds features specifically for [Dink](https://github.com/wildwinter/dink) ("Dialogue Ink") and adds IDs to every Ink line in the same way as [Ink-Localiser](https://github.com/wildwinter/Ink-Localiser/).
 
 ![Dinky](doc/Main.png)
 

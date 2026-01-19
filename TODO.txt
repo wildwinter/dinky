@@ -1,5 +1,13 @@
 TODO:
 -----
+
+BUG: No Dinky line highlight for choices
+BUG: No Dinky line highlight for -
+BUG: Include line didn't get added.
+BUG: Moving lines seems to add IDs to knot names.
+BUG: Dink IDs not providing a file prefix to start.
+
+Dinky icons for Unreal 
 Add character list
 Style test for dialogue
 Play connected audio?
@@ -36,6 +44,10 @@ Icons for app and for Installer
 Associate .dinkproj files with Dinky
 Add Dink syntax checking and highlighting
 Add character validation
+
+TEST:
+-----
+BUG: Quick fix Add Character not available on Windows
 
 NOTES:
 ------
