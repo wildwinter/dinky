@@ -248,7 +248,14 @@ if (!gotTheLock) {
         // Generate IDs for untagged lines
         const edits = generateIdsForUntagged(parsedStory, filePrefix);
 
-        return edits;
+        // Filter edits to only include those for the current file
+        const filteredEdits = edits.filter(edit => {
+            if (!edit.file) return false;
+            // Normalize paths for comparison to avoid issues with separators
+            return path.normalize(edit.file) === path.normalize(filePath);
+        });
+
+        return filteredEdits;
     })
 
     // Save files handling

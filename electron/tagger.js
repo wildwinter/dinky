@@ -1,3 +1,5 @@
+import path from 'path';
+
 const TAG_LOC = "id:";
 
 /**
@@ -157,7 +159,13 @@ function generateIdsForUntagged(parsedStory, filePrefix = "") {
     validTextObjects.forEach(item => {
         if (item.hasId) return;
 
-        const prefix = getLocPrefix(item.ancestry, filePrefix);
+        let currentFilePrefix = filePrefix;
+        if (item.node.debugMetadata && item.node.debugMetadata.fileName) {
+            // Use the actual file name of the node for the prefix
+            currentFilePrefix = path.basename(item.node.debugMetadata.fileName, '.ink');
+        }
+
+        const prefix = getLocPrefix(item.ancestry, currentFilePrefix);
         let newId = "";
 
         // Try generating a unique ID (limit attempts to prevent infinite loops)
