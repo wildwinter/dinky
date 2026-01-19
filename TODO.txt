@@ -3,7 +3,6 @@ TODO:
 
 BUG: No Dinky line highlight for choices
 BUG: No Dinky line highlight for -
-BUG: Include line didn't get added.
 BUG: Moving lines seems to add IDs to knot names.
 BUG: Dink IDs not providing a file prefix to start.
 
@@ -48,6 +47,7 @@ Add character validation
 TEST:
 -----
 BUG: Quick fix Add Character not available on Windows
+BUG: Include line didn't get added.
 
 NOTES:
 ------

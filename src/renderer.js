@@ -677,7 +677,9 @@ function loadFileToEditor(file, element, forceRefresh = false) {
 
     isUpdatingContent = true;
     // Save existing file state before switching
-    if (currentFilePath && loadedInkFiles.has(currentFilePath)) {
+    // BUG FIX: Don't save if we are force-refreshing the SAME file, 
+    // because that means we want the NEW content from disk, not the STALE content from the editor.
+    if (currentFilePath && loadedInkFiles.has(currentFilePath) && !(forceRefresh && currentFilePath === file.absolutePath)) {
         const currentContent = editor.getValue();
         // Reconstruct with IDs before saving to memory
         const fullContent = idManager.reconstructContent(currentContent);

@@ -617,28 +617,33 @@ async function renameInclude(win, oldPath, newName) {
  */
 function insertIncludeIntoContent(content, includeLine) {
     const lines = content.split(/\r?\n/);
-    let insertIndex = -1;
+    let lastIncludeIdx = -1;
 
     // Find last existing INCLUDE
-    for (let i = lines.length - 1; i >= 0; i--) {
+    for (let i = 0; i < lines.length; i++) {
         if (lines[i].trim().startsWith('INCLUDE ')) {
-            insertIndex = i + 1;
-            break;
+            lastIncludeIdx = i;
         }
     }
 
-    if (insertIndex === -1) {
-        // No INCLUDEs found, try to skip header comments
-        insertIndex = 0;
+    let insertIndex = -1;
+    if (lastIncludeIdx !== -1) {
+        // After any previous INCLUDE lines
+        insertIndex = lastIncludeIdx + 1;
+    } else {
+        // If none exist, after the first comment
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            if (line.startsWith('//') || line === '') {
+            if (line.startsWith('//')) {
                 insertIndex = i + 1;
-            } else {
-                // Stop at first non-comment code
                 break;
             }
         }
+    }
+
+    // Default to top if no includes or comments found
+    if (insertIndex === -1) {
+        insertIndex = 0;
     }
 
     lines.splice(insertIndex, 0, includeLine);
