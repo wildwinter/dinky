@@ -42,6 +42,11 @@
                 "ext": "dinkproj",
                 "name": "Dinky Project",
                 "role": "Editor"
+            },
+            {
+                "ext": "ink",
+                "name": "Ink File",
+                "role": "Editor"
             }
         ]
     },

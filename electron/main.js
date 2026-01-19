@@ -7,7 +7,7 @@ import { buildMenu } from './menu'
 import { compileInk, parseInk } from './compiler'
 import { openTestWindow } from './test-runner'
 import { generateIdsForUntagged } from './tagger'
-import { loadProject, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject } from './project-manager'
+import { loadProject, loadAdhocInkProject, switchToInkRoot, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
 import { safeSend, setupThemeListener } from './utils'
 
@@ -55,6 +55,16 @@ if (!gotTheLock) {
                 // Trigger safe load check
                 pendingAction = { type: 'load', path: filePath };
                 safeSend(mainWindow, 'check-unsaved');
+            } else {
+                const inkPath = commandLine.find(arg => arg.endsWith('.ink'));
+                if (inkPath) {
+                    pendingAction = { type: 'open-ink', path: inkPath }; // Use distinct type for clarity? or just reuse 'load' and detect extension?
+                    // Let's reuse 'load' but make performPendingAction smarter?
+                    // Actually, let's keep it simple. 'load' calls loadProject.
+                    // I should update performPendingAction.
+                    pendingAction = { type: 'load', path: inkPath };
+                    safeSend(mainWindow, 'check-unsaved');
+                }
             }
         }
     });
@@ -105,12 +115,21 @@ if (!gotTheLock) {
                 const filePath = process.argv.find(arg => arg.endsWith('.dinkproj'));
                 if (filePath) {
                     fileToOpen = filePath;
+                } else {
+                    const inkPath = process.argv.find(arg => arg.endsWith('.ink'));
+                    if (inkPath) fileToOpen = inkPath;
                 }
             }
 
             if (fileToOpen) {
                 console.log('Opening file from association:', fileToOpen);
-                await loadProject(win, fileToOpen);
+
+                if (fileToOpen.endsWith('.dinkproj')) {
+                    await loadProject(win, fileToOpen);
+                } else if (fileToOpen.endsWith('.ink')) {
+                    await openInkFile(win, fileToOpen);
+                }
+
                 fileToOpen = null; // Clear it
                 return;
             }
@@ -218,7 +237,11 @@ if (!gotTheLock) {
             win.forceClose = true;
             win.close();
         } else if (pendingAction.type === 'load') {
-            await loadProject(win, pendingAction.path);
+            if (pendingAction.path.endsWith('.dinkproj')) {
+                await loadProject(win, pendingAction.path);
+            } else if (pendingAction.path.endsWith('.ink')) {
+                await openInkFile(win, pendingAction.path);
+            }
         }
         pendingAction = null;
     }
@@ -268,6 +291,36 @@ if (!gotTheLock) {
             }
         }
     });
+
+
+
+
+
+    async function openInkFile(win, filePath) {
+        const dir = path.dirname(filePath);
+
+        try {
+            // Check for sibling .dinkproj
+            const files = await fs.readdir(dir);
+            const dinkProj = files.find(f => f.endsWith('.dinkproj'));
+
+            if (dinkProj) {
+                const projectPath = path.join(dir, dinkProj);
+                console.log('Found sibling project, loading that:', projectPath);
+
+                const loaded = await loadProject(win, projectPath);
+                if (loaded) {
+                    // Force switch to the opened file as the root
+                    await switchToInkRoot(win, filePath);
+                }
+            } else {
+                await loadAdhocInkProject(win, filePath);
+            }
+        } catch (e) {
+            console.error('Error opening ink file:', e);
+            await loadAdhocInkProject(win, filePath);
+        }
+    }
 
     ipcMain.handle('open-project', async (event) => {
         const win = BrowserWindow.fromWebContents(event.sender);
@@ -323,196 +376,201 @@ if (!gotTheLock) {
             }
         })
     })
-}
 
-ipcMain.handle('create-new-include', async (event, name, folderPath) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    return await createNewInclude(win, name, folderPath);
-});
 
-ipcMain.handle('open-new-include-ui', (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) openNewIncludeUI(win);
-});
+    ipcMain.handle('create-new-include', async (event, name, folderPath) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        return await createNewInclude(win, name, folderPath);
+    });
 
-ipcMain.handle('choose-existing-include', async (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    return await chooseExistingInclude(win);
-});
+    ipcMain.handle('open-new-include-ui', (event) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (win) openNewIncludeUI(win);
+    });
 
-ipcMain.handle('remove-include', async (event, filePath) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    return await removeInclude(win, filePath);
-});
+    ipcMain.handle('choose-existing-include', async (event) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        return await chooseExistingInclude(win);
+    });
 
-ipcMain.handle('rename-include', async (event, oldPath, newName) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    return await renameInclude(win, oldPath, newName);
-});
+    ipcMain.handle('remove-include', async (event, filePath) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        return await removeInclude(win, filePath);
+    });
 
-ipcMain.handle('rename-ink-root', async (event, newName) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    return await renameInkRoot(win, newName);
-});
+    ipcMain.handle('rename-include', async (event, oldPath, newName) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        return await renameInclude(win, oldPath, newName);
+    });
 
-ipcMain.handle('create-new-ink-root', async (event, name, folderPath) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    return await createNewInkRoot(win, name, folderPath);
-});
+    ipcMain.handle('rename-ink-root', async (event, newName) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        return await renameInkRoot(win, newName);
+    });
 
-ipcMain.handle('open-new-ink-root-ui', (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win) openNewInkRootUI(win);
-});
+    ipcMain.handle('create-new-ink-root', async (event, name, folderPath) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        return await createNewInkRoot(win, name, folderPath);
+    });
 
-ipcMain.handle('start-test', (event, rootPath, projectFiles, knotName) => {
-    openTestWindow(rootPath, projectFiles, knotName);
-});
-ipcMain.on('request-test-restart', () => {
-    safeSend(mainWindow, 'trigger-restart-test');
-});
-ipcMain.on('rebuild-menu', () => {
-    if (mainWindow) buildMenu(mainWindow);
-});
+    ipcMain.handle('open-new-ink-root-ui', (event) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (win) openNewInkRootUI(win);
+    });
 
-ipcMain.on('update-window-title', (event, { fileName }) => {
-    const win = BrowserWindow.fromWebContents(event.sender);
-    const project = getCurrentProject();
-    if (project && win) {
-        const projectName = path.basename(project.path, '.dinkproj');
-        const simpleFileName = fileName ? fileName.replace(/\.ink$/i, '') : '';
-        win.setTitle(`Dinky - ${projectName} - ${simpleFileName}`);
-    }
-});
+    ipcMain.handle('start-test', (event, rootPath, projectFiles, knotName) => {
+        openTestWindow(rootPath, projectFiles, knotName);
+    });
+    ipcMain.on('request-test-restart', () => {
+        safeSend(mainWindow, 'trigger-restart-test');
+    });
+    ipcMain.on('rebuild-menu', () => {
+        if (mainWindow) buildMenu(mainWindow);
+    });
 
-app.on('window-all-closed', () => {
-    app.quit()
-})
-
-ipcMain.handle('load-project-dictionary', async (event) => {
-    const project = getCurrentProject();
-    if (!project) return [];
-
-    const projectDir = path.dirname(project.path);
-    const dictPath = path.join(projectDir, 'project.dictionary');
-
-    try {
-        const content = await fs.readFile(dictPath, 'utf-8');
-        return content.split('\n').map(w => w.trim()).filter(w => w);
-    } catch (e) {
-        return [];
-    }
-});
-
-ipcMain.handle('add-to-project-dictionary', async (event, word) => {
-    const project = getCurrentProject();
-    if (!project) return;
-
-    const projectDir = path.dirname(project.path);
-    const dictPath = path.join(projectDir, 'project.dictionary');
-
-    try {
-        await fs.appendFile(dictPath, word + '\n', 'utf-8');
-    } catch (e) {
-        console.error('Failed to update dictionary', e);
-    }
-});
-
-ipcMain.handle('load-project-characters', async (event) => {
-    const project = getCurrentProject();
-    if (!project) return [];
-
-    const projectDir = path.dirname(project.path);
-    const jsonPath = path.join(projectDir, 'characters.json');
-    const jsoncPath = path.join(projectDir, 'characters.jsonc');
-
-    let content = null;
-    try {
-        content = await fs.readFile(jsonPath, 'utf-8');
-    } catch {
-        try {
-            content = await fs.readFile(jsoncPath, 'utf-8');
-        } catch {
-            return []; // No character file found
+    ipcMain.on('update-window-title', (event, { fileName }) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const project = getCurrentProject();
+        if (project && win) {
+            const projectName = path.basename(project.path, '.dinkproj');
+            const simpleFileName = fileName ? fileName.replace(/\.ink$/i, '') : '';
+            win.setTitle(`Dinky - ${projectName} - ${simpleFileName}`);
         }
-    }
+    });
 
-    if (!content) return [];
+    app.on('window-all-closed', () => {
+        app.quit()
+    })
 
-    try {
-        // Strip comments if JSONC (simple replacement, not perfect but sufficient for config)
-        // Or if we assume standard JSON for .json and loose for .jsonc
-        // We should try to handle comments.
-        // Simple regex strip for // and /* */
-        const cleanContent = content.replace(/\/\/.*(?:\r?\n|$)/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-        return JSON.parse(cleanContent);
-    } catch (e) {
-        console.error('Failed to parse characters file', e);
-        return [];
-    }
-});
+    ipcMain.handle('load-project-dictionary', async (event) => {
+        const project = getCurrentProject();
+        if (!project) return [];
 
-ipcMain.handle('add-project-character', async (event, characterId) => {
-    const project = getCurrentProject();
-    if (!project) return false;
+        const projectDir = path.dirname(project.path);
+        const dictPath = path.join(projectDir, 'project.dictionary');
 
-    const projectDir = path.dirname(project.path);
-    const jsonPath = path.join(projectDir, 'characters.json');
-    const jsoncPath = path.join(projectDir, 'characters.jsonc');
-
-    let targetPath = null;
-    let content = null;
-
-    // Determine which file to use
-    try {
-        content = await fs.readFile(jsonPath, 'utf-8');
-        targetPath = jsonPath;
-    } catch {
         try {
-            content = await fs.readFile(jsoncPath, 'utf-8');
-            targetPath = jsoncPath;
-        } catch {
-            // Neither exists, create characters.json
-            targetPath = jsonPath;
-            content = '[]';
+            const content = await fs.readFile(dictPath, 'utf-8');
+            return content.split('\n').map(w => w.trim()).filter(w => w);
+        } catch (e) {
+            return [];
         }
-    }
+    });
 
-    try {
-        // We need to parse, add, and write back. 
-        // We can check if it was JSONC and try to format nicely.
+    ipcMain.handle('add-to-project-dictionary', async (event, word) => {
+        const project = getCurrentProject();
+        if (!project) return;
 
-        let chars = [];
+        const projectDir = path.dirname(project.path);
+        const dictPath = path.join(projectDir, 'project.dictionary');
+
         try {
-            // clean for parsing
+            await fs.appendFile(dictPath, word + '\n', 'utf-8');
+        } catch (e) {
+            console.error('Failed to update dictionary', e);
+        }
+    });
+
+
+
+
+
+    ipcMain.handle('load-project-characters', async (event) => {
+        const project = getCurrentProject();
+        if (!project) return [];
+
+        const projectDir = path.dirname(project.path);
+        const jsonPath = path.join(projectDir, 'characters.json');
+        const jsoncPath = path.join(projectDir, 'characters.jsonc');
+
+        let content = null;
+        try {
+            content = await fs.readFile(jsonPath, 'utf-8');
+        } catch {
+            try {
+                content = await fs.readFile(jsoncPath, 'utf-8');
+            } catch {
+                return []; // No character file found
+            }
+        }
+
+        if (!content) return [];
+
+        try {
+            // Strip comments if JSONC (simple replacement, not perfect but sufficient for config)
+            // Or if we assume standard JSON for .json and loose for .jsonc
+            // We should try to handle comments.
+            // Simple regex strip for // and /* */
             const cleanContent = content.replace(/\/\/.*(?:\r?\n|$)/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-            chars = JSON.parse(cleanContent);
-            if (!Array.isArray(chars)) chars = [];
+            return JSON.parse(cleanContent);
+        } catch (e) {
+            console.error('Failed to parse characters file', e);
+            return [];
+        }
+    });
+
+    ipcMain.handle('add-project-character', async (event, characterId) => {
+        const project = getCurrentProject();
+        if (!project) return false;
+
+        const projectDir = path.dirname(project.path);
+        const jsonPath = path.join(projectDir, 'characters.json');
+        const jsoncPath = path.join(projectDir, 'characters.jsonc');
+
+        let targetPath = null;
+        let content = null;
+
+        // Determine which file to use
+        try {
+            content = await fs.readFile(jsonPath, 'utf-8');
+            targetPath = jsonPath;
         } catch {
-            chars = [];
+            try {
+                content = await fs.readFile(jsoncPath, 'utf-8');
+                targetPath = jsoncPath;
+            } catch {
+                // Neither exists, create characters.json
+                targetPath = jsonPath;
+                content = '[]';
+            }
         }
 
-        // Check if ID exists
-        if (chars.find(c => c.ID === characterId)) return true;
+        try {
+            // We need to parse, add, and write back. 
+            // We can check if it was JSONC and try to format nicely.
 
-        chars.push({ ID: characterId, Actor: "" });
+            let chars = [];
+            try {
+                // clean for parsing
+                const cleanContent = content.replace(/\/\/.*(?:\r?\n|$)/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+                chars = JSON.parse(cleanContent);
+                if (!Array.isArray(chars)) chars = [];
+            } catch {
+                chars = [];
+            }
 
-        await fs.writeFile(targetPath, JSON.stringify(chars, null, 4), 'utf-8');
-        return true;
+            // Check if ID exists
+            if (chars.find(c => c.ID === characterId)) return true;
 
-    } catch (e) {
-        console.error('Failed to add character to project', e);
-        return false;
-    }
-});
+            chars.push({ ID: characterId, Actor: "" });
 
-// Ensure config is saved before quit
-let isQuitting = false;
-app.on('before-quit', async (e) => {
-    if (isQuitting) return;
+            await fs.writeFile(targetPath, JSON.stringify(chars, null, 4), 'utf-8');
+            return true;
 
-    e.preventDefault();
-    await flushSettings();
-    isQuitting = true;
-    app.quit();
-});
+        } catch (e) {
+            console.error('Failed to add character to project', e);
+            return false;
+        }
+    });
+
+    // Ensure config is saved before quit
+    let isQuitting = false;
+    app.on('before-quit', async (e) => {
+        if (isQuitting) return;
+
+        e.preventDefault();
+        await flushSettings();
+        isQuitting = true;
+        app.quit();
+    });
+}

@@ -79,7 +79,7 @@ async function loadProject(win, filePath) {
         const content = await fs.readFile(filePath, 'utf-8');
         // Strip comments (single - // and multi-line - /**/)
         const jsonContent = content.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-        currentDinkProject = { path: filePath, content: JSON.parse(jsonContent) };
+        currentDinkProject = { path: filePath, content: JSON.parse(jsonContent), isAdhoc: false };
 
         if (!win.isDestroyed()) {
             win.setTitle(`Dinky - ${path.basename(filePath, '.dinkproj')}`);
@@ -133,6 +133,69 @@ async function loadProject(win, filePath) {
             if (rebuildMenuCallback) await rebuildMenuCallback(win);
         }
         dialog.showErrorBox('Error', `Failed to open project file.\n${e.message}`);
+        return false;
+    }
+}
+
+async function loadAdhocInkProject(win, inkFilePath) {
+    try {
+        await fs.access(inkFilePath);
+
+        const fileName = path.basename(inkFilePath);
+
+        // Create a fake project structure
+        currentDinkProject = {
+            path: inkFilePath, // Use the ink file path as the project path "anchor"
+            content: {
+                source: fileName
+            },
+            isAdhoc: true
+        };
+
+        if (!win.isDestroyed()) {
+            win.setTitle(`Dinky - ${fileName} (Adhoc)`);
+        }
+
+        // We don't add adhoc `.ink` files to recent projects in the same way as .dinkproj 
+        // because the "Recent Projects" menu expects .dinkproj files. 
+        // NOTE: We could support it if we changed getRecentProjects to support extensions, 
+        // but for now let's keep it simple as per plan.
+
+        currentInkRoot = inkFilePath;
+        const files = await loadRootInk(inkFilePath);
+        safeSend(win, 'root-ink-loaded', files);
+
+        // We say hasRoot is true because we specifically loaded a root
+        safeSend(win, 'project-loaded', { hasRoot: true, isAdhoc: true });
+
+        return true;
+    } catch (e) {
+        console.error('Failed to open adhoc ink file:', e);
+        dialog.showErrorBox('Error', `Failed to open ink file.\n${e.message}`);
+        return false;
+    }
+}
+
+
+
+async function switchToInkRoot(win, inkFilePath) {
+    if (!currentDinkProject) return false;
+
+    try {
+        await fs.access(inkFilePath);
+
+        // Update preference
+        await setProjectSetting(currentDinkProject.path, 'lastInkRoot', inkFilePath);
+
+        // Load it
+        currentInkRoot = inkFilePath;
+        const files = await loadRootInk(inkFilePath);
+        safeSend(win, 'root-ink-loaded', files);
+        safeSend(win, 'project-loaded', { hasRoot: true });
+
+        return true;
+    } catch (e) {
+        console.error('Failed to switch ink root:', e);
         return false;
     }
 }
@@ -403,6 +466,8 @@ function openNewInkRootUI(win) {
 
 export {
     loadProject,
+    loadAdhocInkProject,
+    switchToInkRoot,
     createNewProject,
     loadRootInk,
     getCurrentProject,
