@@ -13,10 +13,10 @@ function generateRandomCode(length = 4) {
 }
 
 /**
- * Constructs the prefix based on the object's ancestry (Knots and Stitches).
+ * Constructs the prefix based on the object's ancestry (Knots and Stitches) and optional file prefix.
  */
-function getLocPrefix(ancestry) {
-    let prefix = "";
+function getLocPrefix(ancestry, filePrefix = "") {
+    let prefix = filePrefix ? (filePrefix + "_") : "";
     for (const node of ancestry) {
         // In the parsed AST, named containers are typically "Knot" or "Stitch"
         if (node.typeName === "Knot" || node.typeName === "Stitch") {
@@ -31,8 +31,9 @@ function getLocPrefix(ancestry) {
 /**
  * Main function to find untagged strings and generate IDs for them.
  * @param {Object} parsedStory - The root object returned by compiler.Parse()
+ * @param {string} filePrefix - Optional prefix for the generated IDs
  */
-function generateIdsForUntagged(parsedStory) {
+function generateIdsForUntagged(parsedStory, filePrefix = "") {
     const validTextObjects = [];
     const existingIds = new Set();
     const linesToReplace = [];
@@ -156,7 +157,7 @@ function generateIdsForUntagged(parsedStory) {
     validTextObjects.forEach(item => {
         if (item.hasId) return;
 
-        const prefix = getLocPrefix(item.ancestry);
+        const prefix = getLocPrefix(item.ancestry, filePrefix);
         let newId = "";
 
         // Try generating a unique ID (limit attempts to prevent infinite loops)

@@ -242,8 +242,11 @@ if (!gotTheLock) {
             return [];
         }
 
+        // Extract filename without .ink for ID prefix
+        const filePrefix = path.basename(filePath, '.ink');
+
         // Generate IDs for untagged lines
-        const edits = generateIdsForUntagged(parsedStory);
+        const edits = generateIdsForUntagged(parsedStory, filePrefix);
 
         return edits;
     })
