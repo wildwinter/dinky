@@ -7,6 +7,8 @@ export class DinkySpellChecker {
         this.initialized = false;
         this.dictionariesLoaded = false;
         this.currentLocale = null;
+        this.baseAff = null;
+        this.baseDic = null;
     }
 
     async init(locale = 'en_GB') {
@@ -29,10 +31,10 @@ export class DinkySpellChecker {
                 return;
             }
 
-            const aff = await affResponse.text();
-            const dic = await dicResponse.text();
+            this.baseAff = await affResponse.text();
+            this.baseDic = await dicResponse.text();
 
-            this.spell = nspell(aff, dic);
+            this.spell = nspell(this.baseAff, this.baseDic);
             this.currentLocale = locale;
             this.dictionariesLoaded = true;
             console.log(`Spellchecker initialized with ${locale}`);
@@ -54,6 +56,18 @@ export class DinkySpellChecker {
                 }
             }
         });
+    }
+
+    setPersonalDictionary(words) {
+        if (!Array.isArray(words)) return;
+
+        this.personalDictionary = new Set(words);
+
+        // nspell doesn't support removing words, so we must re-initialize
+        if (this.dictionariesLoaded && this.baseAff && this.baseDic) {
+            this.spell = nspell(this.baseAff, this.baseDic);
+            this.personalDictionary.forEach(word => this.spell.add(word));
+        }
     }
 
     add(word) {

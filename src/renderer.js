@@ -207,9 +207,15 @@ const editor = monaco.editor.create(document.getElementById('editor-container'),
 });
 
 const spellChecker = new DinkySpellChecker();
-window.electronAPI.loadSettings().then(settings => {
-    const locale = settings.spellCheckerLocale || 'en-GB';
-    spellChecker.init(locale);
+window.electronAPI.loadSettings().then(async settings => {
+    const locale = settings.spellCheckerLocale || 'en_GB';
+    await spellChecker.init(locale);
+    // If a project was already auto-loaded (e.g. by Electron did-finish-load), 
+    // it might have finished before the spellchecker.
+    // Let's force a check here just in case.
+    if (rootInkPath) {
+        checkSpelling();
+    }
 });
 
 // ID Preservation Manager
@@ -221,6 +227,16 @@ const jumpHighlightCollection = editor.createDecorationsCollection();
 window.electronAPI.onSettingsUpdated(async (newSettings) => {
     if (newSettings.spellCheckerLocale) {
         await spellChecker.switchLocale(newSettings.spellCheckerLocale);
+        checkSpelling();
+    }
+});
+
+// Rerun spellcheck on window focus to catch external dictionary edits
+window.addEventListener('focus', async () => {
+    if (rootInkPath) {
+        console.log('Window focused, rerunning spellcheck...');
+        const projectDict = await window.electronAPI.loadProjectDictionary();
+        spellChecker.setPersonalDictionary(projectDict);
         checkSpelling();
     }
 });
@@ -396,7 +412,7 @@ window.electronAPI.onProjectLoaded(({ hasRoot }) => {
 window.electronAPI.onRootInkLoaded(async (files) => {
     // Load project dictionary
     const projectDict = await window.electronAPI.loadProjectDictionary();
-    spellChecker.loadPersonalDictionary(projectDict);
+    spellChecker.setPersonalDictionary(projectDict);
 
     loadedInkFiles.clear();
     const fileList = document.getElementById('file-list');

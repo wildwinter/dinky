@@ -192,6 +192,12 @@ button.primary {
     padding: 6px 14px;
     border: none;
     cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+button.primary:hover:not(:disabled) {
+    background-color: #1177bb;
 }
 
 button.primary:disabled {
@@ -206,6 +212,13 @@ button.secondary {
     padding: 6px 14px;
     border: 1px solid var(--sidebar-border);
     cursor: pointer;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+button.secondary:hover {
+    background-color: var(--sidebar-hover);
 }
 
 #search-panel input {

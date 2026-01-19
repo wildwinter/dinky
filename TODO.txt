@@ -49,6 +49,7 @@ BUG: Dink IDs not providing a file prefix to start.
 BUG: Moving lines seems to add IDs to knot names.
 BUG: No Dinky line highlight for choices
 BUG: No Dinky line highlight for -
+Dictionary improvements
 
 NOTES:
 ------

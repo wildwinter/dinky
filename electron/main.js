@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeTheme, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, nativeTheme, ipcMain, dialog, shell } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 
@@ -447,12 +447,21 @@ if (!gotTheLock) {
         if (!project) return [];
 
         const projectDir = path.dirname(project.path);
-        const dictPath = path.join(projectDir, 'project.dictionary');
+        const dictPath = path.join(projectDir, 'project-dictionary.txt');
 
         try {
+            // Check if path exists
+            try {
+                await fs.access(dictPath);
+            } catch {
+                // Doesn't exist
+                return [];
+            }
+
             const content = await fs.readFile(dictPath, 'utf-8');
             return content.split('\n').map(w => w.trim()).filter(w => w);
         } catch (e) {
+            console.error('Failed to load project dictionary', e);
             return [];
         }
     });
@@ -462,18 +471,47 @@ if (!gotTheLock) {
         if (!project) return;
 
         const projectDir = path.dirname(project.path);
-        const dictPath = path.join(projectDir, 'project.dictionary');
+        const dictPath = path.join(projectDir, 'project-dictionary.txt');
 
         try {
-            await fs.appendFile(dictPath, word + '\n', 'utf-8');
+            let content = '';
+            try {
+                content = await fs.readFile(dictPath, 'utf-8');
+            } catch (e) { }
+
+            // Cleanly add the word to a list of lines
+            let lines = content.split('\n').map(l => l.trim()).filter(l => l);
+            if (!lines.includes(word)) {
+                lines.push(word);
+                // Sort for better user editing experience? Let's keep it simple for now but clean.
+                await fs.writeFile(dictPath, lines.join('\n') + '\n', 'utf-8');
+            }
         } catch (e) {
             console.error('Failed to update dictionary', e);
         }
     });
 
+    ipcMain.handle('edit-project-dictionary', async (event) => {
+        const project = getCurrentProject();
+        if (!project) return;
 
+        const projectDir = path.dirname(project.path);
+        const dictPath = path.join(projectDir, 'project-dictionary.txt');
 
+        try {
+            // Check if it exists, if not create it empty
+            try {
+                await fs.access(dictPath);
+            } catch {
+                await fs.writeFile(dictPath, '', 'utf-8');
+            }
 
+            // Open with system default
+            await shell.openPath(dictPath);
+        } catch (e) {
+            console.error('Failed to open project dictionary', e);
+        }
+    });
 
     ipcMain.handle('load-project-characters', async (event) => {
         const project = getCurrentProject();

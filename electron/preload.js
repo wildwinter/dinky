@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadProjectCharacters: () => ipcRenderer.invoke('load-project-characters'),
     addProjectCharacter: (id) => ipcRenderer.invoke('add-project-character', id),
     addToProjectDictionary: (word) => ipcRenderer.invoke('add-to-project-dictionary', word),
+    editProjectDictionary: () => ipcRenderer.invoke('edit-project-dictionary'),
     setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
     setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),
     onSettingsUpdated: (callback) => ipcRenderer.on('settings-updated', (_event, value) => callback(value))

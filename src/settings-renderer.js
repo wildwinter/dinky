@@ -34,6 +34,13 @@ async function init() {
         // safeSend(win, 'update-spell-locale', 'en_GB');
     });
 
+    const editDictBtn = document.getElementById('btn-edit-dictionary');
+    if (editDictBtn) {
+        editDictBtn.addEventListener('click', () => {
+            window.electronAPI.editProjectDictionary();
+        });
+    }
+
     // Listen for setting updates from main process
     window.electronAPI.onSettingsUpdated((newSettings) => {
         if (newSettings.theme && newSettings.theme !== themeSelect.value) {
