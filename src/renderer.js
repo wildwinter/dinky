@@ -1442,24 +1442,37 @@ function validateCharacterNames(model) {
     const validIds = new Set(projectCharacters.map(c => c.ID));
 
     // Regex to capture Name in Dinky lines
-    // Group 2 is Name
     const dinkyLineRegex = /^(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/;
 
-    // Check strict mode - only validate if we are in Dinky Mode?
-    // User request: "If a line has clearly matched the Dink dialogue line... valid character name match ending in a colon"
-    // So we apply this to ALL lines that match the pattern, effectively.
-    // However, we should respect the mode?
-    // "If a line has clearly matched the Dink dialogue line... I now want to introduce a lint step"
-    // This implies we check lines that match the pattern.
-    // But standard Ink doesn't use this valid pattern often for other things?
-    // Let's rely on the mode if possible, but the validation might be simpler:
-    // Any line matching the pattern `NAME: ...` where NAME is uppercase alphanum?
-    // Actually, `detectDinkyGlobal` checks for #dink.
-    // If we are in Dinky mode (Global or Local), we should check.
-    // BUT, validation is easier done lightly.
-    // Let's just check lines that match the regex.
+    // Check Global Mode
+    const isGlobalDinky = detectDinkyGlobal(text);
+    let inDinkyContext = isGlobalDinky;
 
     lines.forEach((line, index) => {
+        const trimmed = line.trim();
+
+        // If not global, we need to track local context
+        if (!isGlobalDinky) {
+            // Check for Knot Start
+            if (/^={2,}/.test(trimmed)) {
+                // Reset context on new knot
+                inDinkyContext = false;
+
+                // Check if this knot is tagged immediately
+                if (/#\s*dink(?=\s|$)/.test(trimmed)) {
+                    inDinkyContext = true;
+                }
+            } else {
+                // Check for delayed #dink tag in the flow
+                if (/#\s*dink(?=\s|$)/.test(trimmed)) {
+                    inDinkyContext = true;
+                }
+            }
+        }
+
+        // Skip validation if not in Dink context
+        if (!inDinkyContext) return;
+
         const match = line.match(dinkyLineRegex);
         if (match) {
             const name = match[2];
