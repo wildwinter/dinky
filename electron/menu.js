@@ -130,7 +130,11 @@ async function buildMenu(win) {
                             checked: currentLocale === 'en_GB',
                             click: async () => {
                                 await saveSettings({ spellCheckerLocale: 'en_GB' });
-                                safeSend(win, 'update-spell-locale', 'en_GB');
+                                BrowserWindow.getAllWindows().forEach(w => {
+                                    if (!w.isDestroyed()) {
+                                        safeSend(w, 'settings-updated', { spellCheckerLocale: 'en_GB' });
+                                    }
+                                });
                                 await buildMenu(win);
                             }
                         },
@@ -140,7 +144,11 @@ async function buildMenu(win) {
                             checked: currentLocale === 'en_US',
                             click: async () => {
                                 await saveSettings({ spellCheckerLocale: 'en_US' });
-                                safeSend(win, 'update-spell-locale', 'en_US');
+                                BrowserWindow.getAllWindows().forEach(w => {
+                                    if (!w.isDestroyed()) {
+                                        safeSend(w, 'settings-updated', { spellCheckerLocale: 'en_US' });
+                                    }
+                                });
                                 // Rebuild menu to update selection state visual
                                 await buildMenu(win);
                             }

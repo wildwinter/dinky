@@ -1,9 +1,13 @@
 TODO:
 -----
 
+Style test for dialogue
+Add debug/watching
+Add word count
+Add go to next issue
+Add run Dink Compiler
 Dinky icons for Unreal 
 Add character list
-Style test for dialogue
 Play connected audio?
 Let the file list slide backwards.
 Code signing (costs money!)

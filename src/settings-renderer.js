@@ -15,12 +15,33 @@ async function init() {
 
 
 
-    // Listen for theme updates from main process
+    // Language setup
+    const languageSelect = document.getElementById('language-select');
+    const currentLocale = settings.spellCheckerLocale || 'en_GB';
+    languageSelect.value = currentLocale;
+
+    languageSelect.addEventListener('change', (e) => {
+        const newLocale = e.target.value;
+        // Broadcast to all windows including main which handles the actual spellchecker switch
+        window.electronAPI.setSetting('spellCheckerLocale', newLocale);
+        // Also send specific update if needed, but setSetting broadcasts settings-updated
+        // Let's check if we need to explicitly call update-spell-locale
+        // Actually, renderer.js listens for settings-updated if we add it there.
+        // Wait, renderer.js has window.electronAPI.onUpdateSpellLocale.
+        // Let's see if we should trigger that.
+        // The menu.js does:
+        // await saveSettings({ spellCheckerLocale: 'en_GB' });
+        // safeSend(win, 'update-spell-locale', 'en_GB');
+    });
+
+    // Listen for setting updates from main process
     window.electronAPI.onSettingsUpdated((newSettings) => {
         if (newSettings.theme && newSettings.theme !== themeSelect.value) {
             themeSelect.value = newSettings.theme;
         }
-
+        if (newSettings.spellCheckerLocale && newSettings.spellCheckerLocale !== languageSelect.value) {
+            languageSelect.value = newSettings.spellCheckerLocale;
+        }
     });
 
     // Also listen for theme updates to update the window style itself

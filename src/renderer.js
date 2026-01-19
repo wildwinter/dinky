@@ -218,8 +218,11 @@ const idManager = new IdPreservationManager(editor, monaco);
 const jumpHighlightCollection = editor.createDecorationsCollection();
 
 
-window.electronAPI.onSettingsUpdated((newSettings) => {
-    // Settings update
+window.electronAPI.onSettingsUpdated(async (newSettings) => {
+    if (newSettings.spellCheckerLocale) {
+        await spellChecker.switchLocale(newSettings.spellCheckerLocale);
+        checkSpelling();
+    }
 });
 
 // Initial load check - Settings not needed for this manager but kept for structure if needed later
@@ -228,10 +231,6 @@ window.electronAPI.loadSettings().then(settings => {
 });
 
 
-window.electronAPI.onUpdateSpellLocale(async (locale) => {
-    await spellChecker.switchLocale(locale);
-    checkSpelling();
-});
 
 ['ink', 'ink-dinky'].forEach(lang => {
     monaco.languages.registerCodeActionProvider(lang, {
