@@ -283,10 +283,20 @@ export class IdPreservationManager {
 
         // Get all current decorations
         const ranges = model.getAllDecorations();
+        const decorationsToRemove = [];
 
         // Identify OUR decorations
         for (const dec of ranges) {
             if (this.decorationToId.has(dec.id)) {
+                // Fix for ID Deletion Bug:
+                // If a line is deleted, the decoration often remains but collapses to an empty range.
+                // We should detect this and remove the ID.
+                if (dec.range.isEmpty()) {
+                    decorationsToRemove.push(dec.id);
+                    this.decorationToId.delete(dec.id);
+                    continue;
+                }
+
                 const inkId = this.decorationToId.get(dec.id);
                 // Get current line number of this decoration
                 const range = dec.range;
@@ -297,6 +307,11 @@ export class IdPreservationManager {
                     resultLines[lineIndex] = this.injectIdIntoLine(resultLines[lineIndex], inkId);
                 }
             }
+        }
+
+        // Cleanup removed decorations from editor
+        if (decorationsToRemove.length > 0) {
+            this.editor.deltaDecorations(decorationsToRemove, []);
         }
 
         return resultLines.join('\n');

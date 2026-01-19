@@ -3,7 +3,6 @@ TODO:
 
 BUG: No Dinky line highlight for choices
 BUG: No Dinky line highlight for -
-BUG: Moving lines seems to add IDs to knot names.
 
 Dinky icons for Unreal 
 Add character list
@@ -48,6 +47,7 @@ TEST:
 BUG: Quick fix Add Character not available on Windows
 BUG: Include line didn't get added.
 BUG: Dink IDs not providing a file prefix to start.
+BUG: Moving lines seems to add IDs to knot names.
 
 NOTES:
 ------
