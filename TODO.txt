@@ -1,15 +1,13 @@
 TODO:
 -----
 
-Style test for dialogue
 Add debug/watching
-Add word count
 Add go to next issue
 Add run Dink Compiler
 Dinky icons for Unreal 
 Add character list
 Play connected audio?
-Let the file list slide backwards.
+Add word count? (Remember Dink stats!)
 Code signing (costs money!)
 
 Done:
@@ -50,6 +48,7 @@ BUG: Moving lines seems to add IDs to knot names.
 BUG: No Dinky line highlight for choices
 BUG: No Dinky line highlight for -
 Dictionary improvements
+Style test for dialogue
 
 NOTES:
 ------

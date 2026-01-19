@@ -30,6 +30,11 @@ function updateButtonStates() {
     }
 }
 
+// Dink Regex
+const dinkyRegex = /^(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/;
+
+let isDinkMode = false;
+
 function continueStory() {
     if (!story) return;
 
@@ -41,7 +46,57 @@ function continueStory() {
     while (story.canContinue) {
         const text = story.Continue();
         const p = document.createElement('p');
-        p.textContent = text;
+
+        if (isDinkMode) {
+            const match = text.match(dinkyRegex);
+            if (match) {
+                // match indices:
+                // 1: pre-name whitespace
+                // 2: NAME
+                // 3: post-name whitespace
+                // 4: (qual) or empty
+                // 5: pre-colon whitespace
+                // 6: :
+                // 7: post-colon whitespace
+                // 8: (dir) or empty
+                // 9: pre-text whitespace
+                // 10: text
+
+                // Construct styled HTML
+                let html = '';
+                // 1. Whitespace
+                html += match[1];
+                // 2. Name
+                html += `<span class="dinky-name">${match[2]}</span>`;
+                // 3. Whitespace
+                html += match[3];
+                // 4. Qualifier
+                if (match[4]) {
+                    html += `<span class="dinky-qualifier">${match[4]}</span>`;
+                }
+                // 5. Whitespace
+                html += match[5];
+                // 6. Colon (keep standard color or dim it? renderer uses delimiter color (white usually))
+                html += match[6];
+                // 7. Whitespace
+                html += match[7];
+                // 8. Direction
+                if (match[8]) {
+                    html += `<span class="dinky-direction">${match[8]}</span>`;
+                }
+                // 9. Whitespace
+                html += match[9];
+                // 10. Text
+                html += `<span class="dinky-text">${match[10]}</span>`;
+
+                p.innerHTML = html;
+            } else {
+                p.textContent = text;
+            }
+        } else {
+            p.textContent = text;
+        }
+
         currentTurnElement.appendChild(p);
     }
 
@@ -179,8 +234,27 @@ function startStory(storyData) {
         const jsonToUse = typeof storyJson === 'string' ? JSON.parse(storyJson) : JSON.parse(JSON.stringify(storyJson));
         story = new Story(jsonToUse);
 
+        // Detect Dink Mode
+        isDinkMode = false;
+
+        // Check global tags
+        if (story.globalTags && story.globalTags.includes('dink')) {
+            isDinkMode = true;
+            console.log('Dink mode enabled via global tag');
+        }
+
         if (startKnot) {
             try {
+                // Check knot tags if we haven't already enabled dink mode
+                // Note: TagsForContentAtPath returns an array of strings or null
+                if (!isDinkMode) {
+                    const params = story.TagsForContentAtPath(startKnot);
+                    if (params && params.includes('dink')) {
+                        isDinkMode = true;
+                        console.log('Dink mode enabled via knot tag');
+                    }
+                }
+
                 story.ChoosePathString(startKnot);
             } catch (e) {
                 console.error(`Failed to jump to knot ${startKnot}:`, e);

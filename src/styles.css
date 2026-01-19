@@ -344,3 +344,47 @@ button.secondary:hover {
 body.light .jump-highlight-line {
     background-color: rgba(255, 220, 0, 0.3);
 }
+
+/* Dink Dialogue Styles */
+.dinky-name {
+    color: #D7BA7D;
+    /* Gold */
+    font-weight: bold;
+}
+
+body.light .dinky-name {
+    color: #795E26;
+    /* Dark Gold */
+}
+
+.dinky-qualifier {
+    color: #6A9955;
+    /* Green */
+    font-style: italic;
+}
+
+body.light .dinky-qualifier {
+    color: #008000;
+    /* Green */
+}
+
+.dinky-direction {
+    color: #569CD6;
+    /* Blue */
+    font-style: italic;
+}
+
+body.light .dinky-direction {
+    color: #0000FF;
+    /* Blue */
+}
+
+.dinky-text {
+    color: #9CDCFE;
+    /* Light Blue */
+}
+
+body.light .dinky-text {
+    color: #001080;
+    /* Dark Blue */
+}
