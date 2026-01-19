@@ -133,6 +133,18 @@ const dinkyDialogueRule = [
     ['white', 'dinky.name', 'white', 'dinky.qualifier', 'white', 'delimiter', 'white', 'dinky.direction', 'white', 'dinky.text']
 ];
 
+const dinkyDialogueGatherRule = [
+    // - NAME (qual): (dir) Text
+    /^(\s*)(-)(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/,
+    ['white', 'keyword', 'white', 'dinky.name', 'white', 'dinky.qualifier', 'white', 'delimiter', 'white', 'dinky.direction', 'white', 'dinky.text']
+];
+
+const dinkyDialogueBracketedRule = [
+    // * [NAME (qual): (dir) Text
+    /^(\s*)([\*\+-]+)(\s*)(\[)(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^\]/#]|\/(?![/*]))*)/,
+    ['white', 'keyword', 'white', 'delimiter.bracket', 'white', 'dinky.name', 'white', 'dinky.qualifier', 'white', 'delimiter', 'white', 'dinky.direction', 'white', 'dinky.text']
+];
+
 monaco.languages.register({ id: 'ink' });
 monaco.languages.register({ id: 'ink-dinky' });
 
@@ -140,6 +152,8 @@ monaco.languages.register({ id: 'ink-dinky' });
 monaco.languages.setMonarchTokensProvider('ink-dinky', {
     tokenizer: {
         root: [
+            dinkyDialogueBracketedRule,
+            dinkyDialogueGatherRule,
             dinkyDialogueRule,
             // Knot Header - simple highlight, no state reset in global mode
             [/^\s*={2,}.*$/, 'type.identifier'],
@@ -169,6 +183,8 @@ monaco.languages.setMonarchTokensProvider('ink', {
         dinkyMode: [
             // Knot -> Reset to knotStart
             [/^\s*={2,}.*$/, { token: 'type.identifier', next: '@knotStart' }],
+            dinkyDialogueBracketedRule,
+            dinkyDialogueGatherRule,
             dinkyDialogueRule,
             ...standardInkRules
         ],

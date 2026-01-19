@@ -1,9 +1,6 @@
 TODO:
 -----
 
-BUG: No Dinky line highlight for choices
-BUG: No Dinky line highlight for -
-
 Dinky icons for Unreal 
 Add character list
 Style test for dialogue
@@ -48,6 +45,8 @@ BUG: Quick fix Add Character not available on Windows
 BUG: Include line didn't get added.
 BUG: Dink IDs not providing a file prefix to start.
 BUG: Moving lines seems to add IDs to knot names.
+BUG: No Dinky line highlight for choices
+BUG: No Dinky line highlight for -
 
 NOTES:
 ------
