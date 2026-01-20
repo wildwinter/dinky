@@ -1,6 +1,6 @@
 TODO:
 -----
-
+BUG: On windows, the settings panel has no padding around the edges.
 Add debug/watching
 Add go to next issue
 Add run Dink Compiler
