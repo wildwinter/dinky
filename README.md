@@ -61,7 +61,7 @@ Dinky generates an ID for every line of text or choice. It's hidden in the edito
 ![Testing](doc/Testing.png)
 - **Global Search & Replace:** Search and replace across all project files.
 ![SearchReplace](doc/SearchReplace.png)
-- **Built-in Spellchecker:** Real-time spellchecking with support for project-specific dictionaries - useful for projects with arcane terms. Currently support US English and UK English.
+- **Built-in Spellchecker:** Real-time spellchecking with support for project-specific dictionaries - you can add your own terms to the spellchecker. Useful for projects with arcane terms! Currently support US English and UK English.
 ![Spelling](doc/Spelling.png)
 - **Theme:** Supports light, dark, or current system theme!
 
