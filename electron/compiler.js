@@ -83,7 +83,7 @@ async function compileInk(content, filePath, projectFiles = {}) {
     // Map errors to Monaco format
     const errors = collectedErrors.map(errStr => {
         const severity = errStr.includes('WARNING') ? 4 : 8 // 4=Warning, 8=Error
-        const parts = errStr.match(/^(?:ERROR: )?(?:'([^']+)' )?line (\d+): (.+)/i)
+        const parts = errStr.match(/^(?:(?:ERROR|WARNING): )?(?:'([^']+)' )?line (\d+): (.+)/i)
 
         if (parts) {
             const [, errFilePath, lineStr, msg] = parts
