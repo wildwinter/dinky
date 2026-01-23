@@ -394,6 +394,10 @@ let navigationHistoryIndex = -1;
 let lastNavigationLocation = { filePath: null, knotName: null };
 let isNavigatingHistory = false; // Flag to prevent adding history while navigating via back/forward
 
+// Navigation structure caching for performance
+let cachedNavigationStructure = null;
+let navigationStructureDirty = true; // Mark as dirty when file list changes
+
 document.getElementById('btn-load-project').addEventListener('click', () => {
     window.electronAPI.openProject();
 });
@@ -428,6 +432,10 @@ window.electronAPI.onRootInkLoaded(async (files) => {
     spellChecker.setPersonalDictionary(projectDict);
 
     loadedInkFiles.clear();
+    // Invalidate navigation structure cache when files change
+    navigationStructureDirty = true;
+    cachedNavigationStructure = null;
+    
     const fileList = document.getElementById('file-list');
     fileList.innerHTML = '';
     const rootFileStepInfo = document.getElementById('ink-root-file-item');
@@ -437,7 +445,10 @@ window.electronAPI.onRootInkLoaded(async (files) => {
     document.getElementById('no-root-state').style.display = 'none';
     const editorContainer = document.getElementById('editor-container');
     editorContainer.style.display = 'block';
-    editor.layout();
+    // Defer layout to next frame to batch with other DOM updates
+    requestAnimationFrame(() => {
+        editor.layout();
+    });
 
     if (files.length > 0) {
         rootInkPath = files[0].absolutePath;
@@ -740,11 +751,24 @@ function loadFileToEditor(file, element, forceRefresh = false) {
 
     isUpdatingContent = false;
 
-    // Run other checks (these update markers, which render on top of text, so flash is less critical)
-    checkSyntax();
-    checkSpelling();
-    autoTag(); // Run tagger immediately on load
-    refreshNavigationDropdown(); // Update navigation dropdown
+    // Defer non-critical operations to keep UI responsive immediately after model swap
+    // Use requestIdleCallback for background checks that don't block interaction
+    if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => {
+            checkSyntax();
+            checkSpelling();
+            autoTag();
+            refreshNavigationDropdown();
+        });
+    } else {
+        // Fallback for browsers without requestIdleCallback
+        setTimeout(() => {
+            checkSyntax();
+            checkSpelling();
+            autoTag();
+            refreshNavigationDropdown();
+        }, 0);
+    }
     
     // Track navigation when switching files (but not if we're in the middle of back/forward navigation)
     if (!isNavigatingHistory) {
@@ -935,6 +959,8 @@ editor.onDidChangeModelContent(() => {
     debouncedCheckSpelling();
     debouncedAutoTag();
 
+    // Invalidate navigation structure cache when content changes (knots/stitches may be added/removed)
+    navigationStructureDirty = true;
     // Update navigation dropdown structure when content changes
     updateNavigationDropdown();
 });
@@ -1178,9 +1204,15 @@ let isUpdatingDropdown = false; // Flag to prevent recursive updates
 
 /**
  * Parse all files in the project to extract file/knot/stitch structure
+ * Uses caching to avoid reparsing when structure hasn't changed
  * Returns an array of navigation items with hierarchy
  */
 function parseNavigationStructure() {
+    // Return cached structure if it's still valid
+    if (!navigationStructureDirty && cachedNavigationStructure !== null) {
+        return cachedNavigationStructure;
+    }
+
     const structure = [];
 
     // Process all loaded files
@@ -1241,6 +1273,10 @@ function parseNavigationStructure() {
         }
     }
 
+    // Cache the result and mark as clean
+    cachedNavigationStructure = structure;
+    navigationStructureDirty = false;
+
     return structure;
 }
 
@@ -1254,8 +1290,10 @@ function updateNavigationDropdown() {
     }
 
     const structure = parseNavigationStructure();
-    navDropdown.innerHTML = '';
-
+    
+    // Use DocumentFragment to batch DOM insertions (more efficient than appending one at a time)
+    const fragment = document.createDocumentFragment();
+    
     structure.forEach(item => {
         const option = document.createElement('option');
         option.value = `${item.type}:${item.filePath}:${item.line}`;
@@ -1271,8 +1309,12 @@ function updateNavigationDropdown() {
         
         option.textContent = `${indent}${displayName}`;
 
-        navDropdown.appendChild(option);
+        fragment.appendChild(option);
     });
+    
+    // Single DOM update with all options at once
+    navDropdown.innerHTML = '';
+    navDropdown.appendChild(fragment);
 }
 
 /**
