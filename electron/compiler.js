@@ -23,12 +23,8 @@ function createFileHandler(filePath, projectFiles) {
         if (commonDir) projectRoot = commonDir
     }
 
-    console.log('[createFileHandler] Using projectRoot:', projectRoot, 'for filePath:', filePath)
-
     return {
         ResolveInkFilename: (filename, ...args) => {
-            console.log('[ResolveInkFilename] Called with filename:', filename, 'projectRoot:', projectRoot)
-
             // In Ink, ALL includes are relative to the root file, not the current file
             // Always resolve relative to projectRoot
             const resolvedPath = path.resolve(projectRoot, filename)
@@ -63,16 +59,12 @@ function createFileHandler(filePath, projectFiles) {
             return resolvedPath
         },
         LoadInkFileContents: (filename) => {
-            console.log('[LoadInkFileContents] Requested:', filename)
-            console.log('[LoadInkFileContents] Available projectFiles keys:', projectFiles ? Object.keys(projectFiles) : 'none')
-
             // Try the filename as-is first
             if (projectFiles && projectFiles[filename]) {
                 let val = projectFiles[filename]
                 if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
                     val = val.slice(1)
                 }
-                console.log('[LoadInkFileContents] Found in projectFiles (exact match)')
                 return val
             }
 
@@ -80,14 +72,12 @@ function createFileHandler(filePath, projectFiles) {
             // Try resolving it from projectRoot
             const basename = path.basename(filename)
             const rootRelativePath = path.resolve(projectRoot, basename)
-            console.log('[LoadInkFileContents] Trying projectRoot-relative:', rootRelativePath)
 
             if (projectFiles && projectFiles[rootRelativePath]) {
                 let val = projectFiles[rootRelativePath]
                 if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
                     val = val.slice(1)
                 }
-                console.log('[LoadInkFileContents] Found via projectRoot resolution')
                 return val
             }
 
@@ -98,18 +88,17 @@ function createFileHandler(filePath, projectFiles) {
                 )
 
                 if (matches.length === 1) {
-                    const [matchedPath, content] = matches[0]
+                    const [, content] = matches[0]
                     let val = content
                     if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
                         val = val.slice(1)
                     }
-                    console.log('[LoadInkFileContents] Found by basename (unique match):', matchedPath)
                     return val
                 } else if (matches.length > 1) {
                     console.error('[LoadInkFileContents] AMBIGUOUS: Multiple files named', basename)
                     console.error('[LoadInkFileContents] Matches:', matches.map(([p]) => p))
                     console.error('[LoadInkFileContents] Using first match (this may be incorrect!)')
-                    const [matchedPath, content] = matches[0]
+                    const [, content] = matches[0]
                     let val = content
                     if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
                         val = val.slice(1)
@@ -121,7 +110,6 @@ function createFileHandler(filePath, projectFiles) {
             // Try original path on filesystem
             try {
                 const content = fsSync.readFileSync(filename, 'utf-8')
-                console.log('[LoadInkFileContents] Found on filesystem (original path)')
                 return content
             } catch (e) {
                 console.error('Failed to load included file:', filename, e)
