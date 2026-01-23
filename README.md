@@ -64,6 +64,8 @@ Dinky generates an ID for every line of text or choice. It's hidden in the edito
 - **Built-in Spellchecker:** Real-time spellchecking with support for project-specific dictionaries - you can add your own terms to the spellchecker. Useful for projects with arcane terms! Currently support US English and UK English.
 ![Spelling](doc/Spelling.png)
 - **Theme:** Supports light, dark, or current system theme!
+- **Error Navigation:** Step through the list of errors, including invalid character names in Dinky.
+- **Knot/Stitch Navigation:** Go straight to a particular knot or stitch.
 
 ## The ID format
 
