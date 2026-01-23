@@ -469,6 +469,7 @@ window.electronAPI.onRootInkLoaded(async (files) => {
     if (rootInkPath) {
         checkSyntax();
         checkSpelling();
+        updateNavigationDropdown();
     }
 });
 
@@ -737,6 +738,7 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     checkSyntax();
     checkSpelling();
     autoTag(); // Run tagger immediately on load
+    refreshNavigationDropdown(); // Update navigation dropdown
 }
 
 function updateDeleteButtonState(isRoot) {
@@ -918,6 +920,9 @@ editor.onDidChangeModelContent(() => {
     debouncedCheck();
     debouncedCheckSpelling();
     debouncedAutoTag();
+
+    // Update navigation dropdown structure when content changes
+    updateNavigationDropdown();
 });
 
 // Dinky Mode Detection
@@ -1152,6 +1157,223 @@ window.electronAPI.onCheckUnsaved(() => {
 
 // Initial check
 checkSyntax();
+
+// ===== Navigation Dropdown =====
+const navDropdown = document.getElementById('nav-dropdown');
+let isUpdatingDropdown = false; // Flag to prevent recursive updates
+
+/**
+ * Parse all files in the project to extract file/knot/stitch structure
+ * Returns an array of navigation items with hierarchy
+ */
+function parseNavigationStructure() {
+    const structure = [];
+
+    // Process all loaded files
+    for (const [filePath, file] of loadedInkFiles) {
+        // Add the file as an entry
+        structure.push({
+            type: 'file',
+            name: file.relativePath,
+            filePath: filePath,
+            line: 0,
+            indent: 0
+        });
+
+        // Get file content
+        let content;
+        if (filePath === currentFilePath) {
+            // Use current editor content for active file
+            const model = editor.getModel();
+            content = model ? model.getValue() : file.content;
+        } else {
+            content = file.content;
+        }
+
+        const lines = content.split(/\r?\n/);
+        let currentKnot = null;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const trimmed = line.trim();
+
+            // Check for knot: === KnotName or === KnotName ===
+            const knotMatch = trimmed.match(/^={2,}\s*([\w_]+)/);
+            if (knotMatch) {
+                currentKnot = {
+                    type: 'knot',
+                    name: knotMatch[1],
+                    filePath: filePath,
+                    line: i + 1,
+                    indent: 3
+                };
+                structure.push(currentKnot);
+                continue;
+            }
+
+            // Check for stitch: = StitchName
+            const stitchMatch = trimmed.match(/^=\s+([\w_]+)/);
+            if (stitchMatch && currentKnot) {
+                structure.push({
+                    type: 'stitch',
+                    name: `${currentKnot.name}.${stitchMatch[1]}`,
+                    filePath: filePath,
+                    line: i + 1,
+                    indent: 3,
+                    knotName: currentKnot.name,
+                    stitchName: stitchMatch[1]
+                });
+            }
+        }
+    }
+
+    return structure;
+}
+
+/**
+ * Populate the dropdown with navigation structure
+ */
+function updateNavigationDropdown() {
+    if (loadedInkFiles.size === 0) {
+        navDropdown.innerHTML = '<option value="">No file loaded</option>';
+        return;
+    }
+
+    const structure = parseNavigationStructure();
+    navDropdown.innerHTML = '';
+
+    structure.forEach(item => {
+        const option = document.createElement('option');
+        option.value = `${item.type}:${item.filePath}:${item.line}`;
+
+        // Create indentation using spaces (Unicode non-breaking spaces work better in options)
+        const indent = '\u00A0\u00A0'.repeat(item.indent);
+        let displayName = item.name;
+        
+        // Add visual marker for files to distinguish them from knots/stitches
+        if (item.type === 'file') {
+            displayName = `📄 ${item.name}`;
+        }
+        
+        option.textContent = `${indent}${displayName}`;
+
+        navDropdown.appendChild(option);
+    });
+}
+
+/**
+ * Find the current location (file/knot/stitch) based on cursor position
+ * Returns the navigation item at or before the cursor
+ */
+function findCurrentLocation(lineNumber) {
+    const structure = parseNavigationStructure();
+
+    // Filter to only items in the current file
+    const currentFileItems = structure.filter(item => item.filePath === currentFilePath);
+
+    if (currentFileItems.length === 0) return null;
+
+    // Find the last item that is at or before the cursor line
+    let currentItem = currentFileItems[0]; // Default to file
+
+    for (const item of currentFileItems) {
+        if (item.line <= lineNumber) {
+            currentItem = item;
+        } else {
+            break;
+        }
+    }
+
+    return currentItem;
+}
+
+/**
+ * Update dropdown selection based on cursor position
+ */
+function updateDropdownSelection() {
+    if (isUpdatingDropdown) return;
+
+    const position = editor.getPosition();
+    if (!position) return;
+
+    const currentItem = findCurrentLocation(position.lineNumber);
+    if (!currentItem) return;
+
+    const value = `${currentItem.type}:${currentItem.filePath}:${currentItem.line}`;
+
+    // Find and select the matching option
+    for (let i = 0; i < navDropdown.options.length; i++) {
+        if (navDropdown.options[i].value === value) {
+            isUpdatingDropdown = true;
+            navDropdown.selectedIndex = i;
+            isUpdatingDropdown = false;
+            break;
+        }
+    }
+}
+
+/**
+ * Handle dropdown change - navigate to selected location
+ */
+navDropdown.addEventListener('change', () => {
+    if (isUpdatingDropdown) return;
+
+    const selected = navDropdown.value;
+    if (!selected) return;
+
+    const parts = selected.split(':');
+    const type = parts[0];
+    const filePath = parts.slice(1, -1).join(':'); // Handle colons in file path
+    const line = parseInt(parts[parts.length - 1], 10);
+
+    // Switch to the file if needed
+    if (filePath !== currentFilePath) {
+        const file = loadedInkFiles.get(filePath);
+        if (file && file.listItem) {
+            file.listItem.click();
+            // Wait a tick for the file to load before navigating
+            setTimeout(() => {
+                navigateToLine(line);
+            }, 100);
+            return;
+        }
+    }
+
+    navigateToLine(line);
+});
+
+/**
+ * Navigate to a specific line in the editor
+ */
+function navigateToLine(line) {
+    if (line === 0) {
+        // Navigate to top of file
+        editor.setPosition({ lineNumber: 1, column: 1 });
+        editor.revealLineInCenter(1);
+    } else {
+        // Navigate to the line after the heading (knot/stitch declaration)
+        const targetLine = line + 1;
+        editor.setPosition({ lineNumber: targetLine, column: 1 });
+        editor.revealLineInCenter(targetLine);
+    }
+
+    editor.focus();
+}
+
+/**
+ * Listen to cursor position changes
+ */
+editor.onDidChangeCursorPosition(() => {
+    updateDropdownSelection();
+});
+
+/**
+ * Refresh dropdown when file changes
+ */
+function refreshNavigationDropdown() {
+    updateNavigationDropdown();
+    updateDropdownSelection();
+}
 
 // --- New Project Modal Logic ---
 const newProjectModal = new ModalHelper({

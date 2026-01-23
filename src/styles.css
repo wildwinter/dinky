@@ -388,3 +388,14 @@ body.light .dinky-text {
     color: #001080;
     /* Dark Blue */
 }
+
+/* Navigation Dropdown */
+#nav-dropdown {
+    min-width: 200px;
+    max-width: 400px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+#nav-dropdown option {
+    padding: 2px 4px;
+}
