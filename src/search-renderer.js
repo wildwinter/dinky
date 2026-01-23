@@ -1,3 +1,12 @@
+// Add platform-specific CSS class
+if (window.electronAPI.platform === 'win32') {
+    document.body.classList.add('windows');
+} else if (window.electronAPI.platform === 'darwin') {
+    document.body.classList.add('macos');
+} else {
+    document.body.classList.add('linux');
+}
+
 const findInFilesInput = document.getElementById('find-in-files-input');
 const replaceInFilesInput = document.getElementById('replace-in-files-input');
 const btnFindInFiles = document.getElementById('btn-find-in-files');

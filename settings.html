@@ -18,9 +18,11 @@
             position: relative;
             -webkit-user-select: none;
             user-select: none;
-            position: relative;
-            -webkit-user-select: none;
-            user-select: none;
+        }
+
+        /* Windows-specific padding fix for titleBarOverlay */
+        body.windows {
+            padding: 40px 15px 15px 15px;
         }
 
         .drag-bar {

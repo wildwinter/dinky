@@ -1,5 +1,14 @@
 import { Story } from 'inkjs';
 
+// Add platform-specific CSS class
+if (window.electronAPI.platform === 'win32') {
+    document.body.classList.add('windows');
+} else if (window.electronAPI.platform === 'darwin') {
+    document.body.classList.add('macos');
+} else {
+    document.body.classList.add('linux');
+}
+
 window.electronAPI.onThemeUpdated((theme) => {
     console.log('Theme updated:', theme);
     if (theme === 'vs') {

@@ -9,6 +9,15 @@ import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 
+// Add platform-specific CSS class
+if (window.electronAPI.platform === 'win32') {
+    document.body.classList.add('windows');
+} else if (window.electronAPI.platform === 'darwin') {
+    document.body.classList.add('macos');
+} else {
+    document.body.classList.add('linux');
+}
+
 self.MonacoEnvironment = {
     getWorker(_, label) {
         if (label === 'json') {

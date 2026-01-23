@@ -1,8 +1,6 @@
 TODO:
 -----
-BUG: On windows, the settings panel has no padding around the edges.
 BUG: Dinky runtime include path handling of an include inside an include doesn't seem to work the same as Inky.
-BUG: Compile errors in Ink have stopped appearing on the correct line.
 Navigate knot/stitch
 Back / forward location in editor
 Add debug/watching
@@ -53,6 +51,8 @@ BUG: No Dinky line highlight for choices
 BUG: No Dinky line highlight for -
 Dictionary improvements
 Style test for dialogue
+BUG: Compile errors in Ink have stopped appearing on the correct line.
+BUG: On windows, the settings panel has no padding around the edges.
 
 NOTES:
 ------

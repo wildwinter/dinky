@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+    platform: process.platform,
     onFileOpened: (callback) => ipcRenderer.on('file-opened', (_event, value) => callback(value)),
     loadSettings: () => ipcRenderer.invoke('load-settings'),
     onUpdateSpellLocale: (callback) => ipcRenderer.on('update-spell-locale', (_event, value) => callback(value)),

@@ -1,4 +1,13 @@
 async function init() {
+    // Add platform-specific CSS class
+    if (window.electronAPI.platform === 'win32') {
+        document.body.classList.add('windows');
+    } else if (window.electronAPI.platform === 'darwin') {
+        document.body.classList.add('macos');
+    } else {
+        document.body.classList.add('linux');
+    }
+
     // Load initial settings
     const settings = await window.electronAPI.loadSettings();
 
