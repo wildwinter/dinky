@@ -388,6 +388,12 @@ let rootInkPath = null;
 let isUpdatingContent = false;
 let lastTestKnot = null;
 
+// Navigation history for back/forward functionality
+let navigationHistory = [];
+let navigationHistoryIndex = -1;
+let lastNavigationLocation = { filePath: null, knotName: null };
+let isNavigatingHistory = false; // Flag to prevent adding history while navigating via back/forward
+
 document.getElementById('btn-load-project').addEventListener('click', () => {
     window.electronAPI.openProject();
 });
@@ -739,6 +745,14 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     checkSpelling();
     autoTag(); // Run tagger immediately on load
     refreshNavigationDropdown(); // Update navigation dropdown
+    
+    // Track navigation when switching files (but not if we're in the middle of back/forward navigation)
+    if (!isNavigatingHistory) {
+        addToNavigationHistory(file.absolutePath, 1);
+    }
+    
+    // Update last navigation location to the file start
+    lastNavigationLocation = { filePath: file.absolutePath, knotName: null };
 }
 
 function updateDeleteButtonState(isRoot) {
@@ -1334,12 +1348,16 @@ navDropdown.addEventListener('change', () => {
             // Wait a tick for the file to load before navigating
             setTimeout(() => {
                 navigateToLine(line);
+                // Track navigation when navigating via dropdown
+                addToNavigationHistory(filePath, line);
             }, 100);
             return;
         }
     }
 
     navigateToLine(line);
+    // Track navigation when navigating via dropdown
+    addToNavigationHistory(filePath, line);
 });
 
 /**
@@ -1361,10 +1379,130 @@ function navigateToLine(line) {
 }
 
 /**
+ * Add a navigation point to history
+ */
+function addToNavigationHistory(filePath, lineNumber) {
+    // Remove any forward history if we're not at the end
+    if (navigationHistoryIndex < navigationHistory.length - 1) {
+        navigationHistory = navigationHistory.slice(0, navigationHistoryIndex + 1);
+    }
+
+    // Add new entry if it's different from the last one
+    const lastEntry = navigationHistory[navigationHistory.length - 1];
+    if (!lastEntry || lastEntry.filePath !== filePath || lastEntry.line !== lineNumber) {
+        navigationHistory.push({ filePath, line: lineNumber });
+        navigationHistoryIndex = navigationHistory.length - 1;
+    }
+
+    updateNavigationButtons();
+}
+
+/**
+ * Navigate back in history
+ */
+function navigateBack() {
+    if (navigationHistoryIndex > 0) {
+        navigationHistoryIndex--;
+        const entry = navigationHistory[navigationHistoryIndex];
+        
+        isNavigatingHistory = true;
+        
+        if (entry.filePath !== currentFilePath) {
+            const file = loadedInkFiles.get(entry.filePath);
+            if (file && file.listItem) {
+                file.listItem.click();
+                setTimeout(() => {
+                    navigateToLine(entry.line);
+                    isNavigatingHistory = false;
+                    updateNavigationButtons();
+                }, 100);
+                return;
+            }
+        }
+        
+        navigateToLine(entry.line);
+        isNavigatingHistory = false;
+        updateNavigationButtons();
+    }
+}
+
+/**
+ * Navigate forward in history
+ */
+function navigateForward() {
+    if (navigationHistoryIndex < navigationHistory.length - 1) {
+        navigationHistoryIndex++;
+        const entry = navigationHistory[navigationHistoryIndex];
+        
+        isNavigatingHistory = true;
+        
+        if (entry.filePath !== currentFilePath) {
+            const file = loadedInkFiles.get(entry.filePath);
+            if (file && file.listItem) {
+                file.listItem.click();
+                setTimeout(() => {
+                    navigateToLine(entry.line);
+                    isNavigatingHistory = false;
+                    updateNavigationButtons();
+                }, 100);
+                return;
+            }
+        }
+        
+        navigateToLine(entry.line);
+        isNavigatingHistory = false;
+        updateNavigationButtons();
+    }
+}
+
+/**
+ * Update the enabled/disabled state of back/forward buttons
+ */
+function updateNavigationButtons() {
+    const backBtn = document.getElementById('btn-back');
+    const forwardBtn = document.getElementById('btn-forward');
+    
+    if (navigationHistoryIndex > 0) {
+        backBtn.style.opacity = '1';
+        backBtn.style.pointerEvents = 'auto';
+    } else {
+        backBtn.style.opacity = '0.5';
+        backBtn.style.pointerEvents = 'none';
+    }
+    
+    if (navigationHistoryIndex < navigationHistory.length - 1) {
+        forwardBtn.style.opacity = '1';
+        forwardBtn.style.pointerEvents = 'auto';
+    } else {
+        forwardBtn.style.opacity = '0.5';
+        forwardBtn.style.pointerEvents = 'none';
+    }
+}
+
+/**
  * Listen to cursor position changes
  */
 editor.onDidChangeCursorPosition(() => {
     updateDropdownSelection();
+    
+    // Don't track history if we're navigating via back/forward
+    if (isNavigatingHistory) return;
+    
+    // Track navigation when jumping to a different knot/stitch
+    if (currentFilePath) {
+        const position = editor.getPosition();
+        if (position) {
+            const currentLocation = findCurrentLocation(position.lineNumber);
+            const currentKnotName = currentLocation ? currentLocation.name : null;
+            
+            // Only track if the knot/stitch changed (not just line within same knot/stitch)
+            if (lastNavigationLocation.filePath !== currentFilePath || 
+                lastNavigationLocation.knotName !== currentKnotName) {
+                lastNavigationLocation = { filePath: currentFilePath, knotName: currentKnotName };
+                addToNavigationHistory(currentFilePath, position.lineNumber);
+            }
+        }
+    }
 });
 
 /**
@@ -1479,6 +1617,14 @@ async function handleStartTest() {
 
 document.getElementById('btn-start-test').addEventListener('click', async () => {
     await handleStartTest();
+});
+
+document.getElementById('btn-back').addEventListener('click', () => {
+    navigateBack();
+});
+
+document.getElementById('btn-forward').addEventListener('click', () => {
+    navigateForward();
 });
 
 window.electronAPI.onTriggerStartTest(async () => {
