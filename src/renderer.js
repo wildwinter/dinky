@@ -234,6 +234,10 @@ const jumpHighlightCollection = editor.createDecorationsCollection();
 window.electronAPI.onSettingsUpdated(async (newSettings) => {
     if (newSettings.spellCheckerLocale) {
         await spellChecker.switchLocale(newSettings.spellCheckerLocale);
+        // Clear spell check cache when locale changes
+        spellCheckMarkersByLine.clear();
+        lastSpellCheckedFilePath = null;
+        lastSpellCheckContent = null;
         checkSpelling();
     }
 });
@@ -244,6 +248,10 @@ window.addEventListener('focus', async () => {
         console.log('Window focused, rerunning spellcheck...');
         const projectDict = await window.electronAPI.loadProjectDictionary();
         spellChecker.setPersonalDictionary(projectDict);
+        // Clear spell check cache when dictionary updates
+        spellCheckMarkersByLine.clear();
+        lastSpellCheckedFilePath = null;
+        lastSpellCheckContent = null;
         checkSpelling();
     }
 });
@@ -373,8 +381,27 @@ function checkSpelling() {
     const model = editor.getModel();
     if (!model) return;
 
-    // We can rely on internal state of spellChecker to know if it's ready
+    const currentContent = model.getValue();
+    const currentFilePath = model.uri.path;
+    
+    // Check if content has actually changed since last spell check
+    if (lastSpellCheckedFilePath === currentFilePath && lastSpellCheckContent === currentContent) {
+        // Content unchanged, restore cached markers instead of rechecking
+        const cachedMarkers = spellCheckMarkersByLine.get(currentFilePath);
+        if (cachedMarkers && cachedMarkers.length > 0) {
+            monaco.editor.setModelMarkers(model, 'spellcheck', cachedMarkers);
+        }
+        return;
+    }
+    
+    // Content changed - perform full spell check
     const markers = spellChecker.checkModel(model, monaco);
+    
+    // Cache markers for this file
+    spellCheckMarkersByLine.set(currentFilePath, markers);
+    lastSpellCheckedFilePath = currentFilePath;
+    lastSpellCheckContent = currentContent;
+    
     monaco.editor.setModelMarkers(model, 'spellcheck', markers);
 }
 
@@ -388,6 +415,11 @@ let rootInkPath = null;
 let isUpdatingContent = false;
 let lastTestKnot = null;
 
+// Spell check optimization - track changed lines
+let lastSpellCheckedFilePath = null;
+let lastSpellCheckContent = null; // Content hash or full text of last spell check
+let spellCheckMarkersByLine = new Map(); // filePath -> Map of line -> markers
+
 // Navigation history for back/forward functionality
 let navigationHistory = [];
 let navigationHistoryIndex = -1;
@@ -397,6 +429,52 @@ let isNavigatingHistory = false; // Flag to prevent adding history while navigat
 // Navigation structure caching for performance
 let cachedNavigationStructure = null;
 let navigationStructureDirty = true; // Mark as dirty when file list changes
+
+// Model pooling for efficient reuse of Monaco editor models
+const modelPool = new Map(); // filePath -> MonacoModel
+const MAX_POOLED_MODELS = 5; // Keep up to 5 models in memory
+let pooledModelOrder = []; // Track LRU order
+
+function getOrCreateModel(filePath, content, langId) {
+    // Check if model exists in pool
+    if (modelPool.has(filePath)) {
+        const model = modelPool.get(filePath);
+        // Update LRU order
+        pooledModelOrder = pooledModelOrder.filter(p => p !== filePath);
+        pooledModelOrder.push(filePath);
+        return model;
+    }
+
+    // Create new model
+    const newModel = monaco.editor.createModel(content, langId);
+    
+    // Add to pool and track order
+    modelPool.set(filePath, newModel);
+    pooledModelOrder.push(filePath);
+    
+    // Evict oldest model if pool exceeds max size
+    if (modelPool.size > MAX_POOLED_MODELS) {
+        const oldestPath = pooledModelOrder.shift();
+        const oldModel = modelPool.get(oldestPath);
+        if (oldModel) {
+            oldModel.dispose();
+        }
+        modelPool.delete(oldestPath);
+    }
+    
+    return newModel;
+}
+
+function clearModelPool() {
+    // Dispose all pooled models
+    for (const [filePath, model] of modelPool) {
+        if (model) {
+            model.dispose();
+        }
+    }
+    modelPool.clear();
+    pooledModelOrder = [];
+}
 
 document.getElementById('btn-load-project').addEventListener('click', () => {
     window.electronAPI.openProject();
@@ -432,6 +510,12 @@ window.electronAPI.onRootInkLoaded(async (files) => {
     spellChecker.setPersonalDictionary(projectDict);
 
     loadedInkFiles.clear();
+    // Clear model pool when loading new project
+    clearModelPool();
+    // Clear spell check cache when loading new project
+    spellCheckMarkersByLine.clear();
+    lastSpellCheckedFilePath = null;
+    lastSpellCheckContent = null;
     // Invalidate navigation structure cache when files change
     navigationStructureDirty = true;
     cachedNavigationStructure = null;
@@ -727,16 +811,16 @@ function loadFileToEditor(file, element, forceRefresh = false) {
 
     currentFilePath = file.absolutePath;
 
-    // ATOMIC MODEL SWAP STRATEGY
+    // ATOMIC MODEL SWAP STRATEGY with pooling
     const oldModel = editor.getModel();
 
     // Extract IDs and clean content
     const { cleanContent, extractedIds } = idManager.extractIds(file.content);
 
-    // Create new model (detached from editor)
+    // Get or create model from pool (reuses existing models when available)
     const isDinky = detectDinkyGlobal(cleanContent);
     const langId = isDinky ? 'ink-dinky' : 'ink';
-    const newModel = monaco.editor.createModel(cleanContent, langId);
+    const newModel = getOrCreateModel(file.absolutePath, cleanContent, langId);
 
     // Swap the model
     editor.setModel(newModel);
@@ -744,10 +828,16 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     // Apply decorations to track the IDs
     idManager.setupDecorations(extractedIds);
 
-    // Dispose old model to prevent leaks
-    if (oldModel) {
-        oldModel.dispose();
+    // Return old model to pool instead of immediately disposing
+    // This preserves its state for quick reuse when switching back
+    if (oldModel && oldModel.uri.path !== newModel.uri.path) {
+        // Old model is different, keep it in pool for later reuse
+        // Don't dispose it immediately - the pool will manage lifecycle
     }
+
+    // Reset spell check cache when switching files
+    lastSpellCheckedFilePath = null;
+    lastSpellCheckContent = null;
 
     isUpdatingContent = false;
 
