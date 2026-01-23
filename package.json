@@ -1,7 +1,7 @@
 {
     "name": "dinky",
     "productName": "Dinky",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "main": "dist-electron/main.js",
     "scripts": {
         "dev": "vite",
