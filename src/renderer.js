@@ -390,6 +390,12 @@ function checkSpelling() {
         const cachedMarkers = spellCheckMarkersByLine.get(currentFilePath);
         if (cachedMarkers && cachedMarkers.length > 0) {
             monaco.editor.setModelMarkers(model, 'spellcheck', cachedMarkers);
+            // Update error banner with spell check errors if there are no compilation errors
+            if (currentErrors.length === 0) {
+                currentErrors = cachedMarkers;
+                errorBannerIndex = 0;
+                updateErrorBanner();
+            }
         }
         return;
     }
@@ -401,6 +407,13 @@ function checkSpelling() {
     spellCheckMarkersByLine.set(currentFilePath, markers);
     lastSpellCheckedFilePath = currentFilePath;
     lastSpellCheckContent = currentContent;
+    
+    // Update error banner with spell check errors if there are no compilation errors
+    if (currentErrors.length === 0 && markers.length > 0) {
+        currentErrors = markers;
+        errorBannerIndex = 0;
+        updateErrorBanner();
+    }
     
     monaco.editor.setModelMarkers(model, 'spellcheck', markers);
 }
@@ -420,6 +433,11 @@ let lastSpellCheckedFilePath = null;
 let lastSpellCheckContent = null; // Content hash or full text of last spell check
 let spellCheckMarkersByLine = new Map(); // filePath -> Map of line -> markers
 
+// Error banner state
+let currentErrors = []; // Array of all current errors (compilation errors + spell check)
+let errorBannerIndex = 0; // Current error being displayed in the banner
+let previousErrorsCount = 0; // Track previous error count to detect changes
+
 // Navigation history for back/forward functionality
 let navigationHistory = [];
 let navigationHistoryIndex = -1;
@@ -430,6 +448,197 @@ let isNavigatingHistory = false; // Flag to prevent adding history while navigat
 let cachedNavigationStructure = null;
 let navigationStructureDirty = true; // Mark as dirty when file list changes
 
+// Error banner management functions
+function updateErrorBanner() {
+    const banner = document.getElementById('error-banner');
+    const bannerText = document.getElementById('error-banner-text');
+    const prevBtn = document.getElementById('error-banner-prev');
+    const nextBtn = document.getElementById('error-banner-next');
+    
+    if (!currentErrors || currentErrors.length === 0) {
+        banner.style.display = 'none';
+        currentErrors = [];
+        errorBannerIndex = 0;
+        return;
+    }
+    
+    // Reset index if out of bounds
+    if (errorBannerIndex >= currentErrors.length) {
+        errorBannerIndex = 0;
+    }
+    
+    // Show the banner
+    banner.style.display = 'block';
+    
+    const error = currentErrors[errorBannerIndex];
+    const errorCount = currentErrors.length;
+    const errorMessage = error.message || 'Unknown error';
+    const lineNumber = error.startLineNumber ? ` [${error.startLineNumber}:${error.startColumn || 1}]` : '';
+    
+    // Build file info if error has a filePath
+    let fileInfo = '';
+    if (error.filePath) {
+        // Get just the filename for display
+        const filename = error.filePath.replace(/^.*[\\\/]/, '');
+        fileInfo = ` in ${filename}`;
+    }
+    
+    bannerText.textContent = `Error (${errorBannerIndex + 1}/${errorCount}): ${errorMessage}${lineNumber}${fileInfo}`;
+    
+    // Buttons are always enabled since navigation wraps around
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
+}
+
+// Helper function to find a file in loadedInkFiles, handling path format differences
+function findFileByPath(errorPath) {
+    if (!errorPath) return null;
+    
+    // Try exact match first
+    if (loadedInkFiles.has(errorPath)) {
+        return loadedInkFiles.get(errorPath);
+    }
+    
+    // Normalize paths for comparison (handle separators, case sensitivity on some OS)
+    const normalizePath = (p) => p.replace(/\\/g, '/').toLowerCase();
+    const normalizedErrorPath = normalizePath(errorPath);
+    
+    // Try to find by normalized path
+    for (const [storedPath, file] of loadedInkFiles) {
+        if (normalizePath(storedPath) === normalizedErrorPath) {
+            return file;
+        }
+    }
+    
+    // Try to match by filename if full path doesn't work
+    const errorFileName = errorPath.replace(/^.*[\\\/]/, '');
+    for (const [storedPath, file] of loadedInkFiles) {
+        const storedFileName = storedPath.replace(/^.*[\\\/]/, '');
+        if (storedFileName === errorFileName) {
+            return file;
+        }
+    }
+    
+    return null;
+}
+
+// Helper function to sort errors by file path and line number
+// File order matches the order of files in loadedInkFiles (root first, then includes)
+function sortErrors(errors) {
+    // Create a map of file paths to their order in the sidebar
+    const fileOrder = new Map();
+    let order = 0;
+    for (const [filePath, file] of loadedInkFiles) {
+        fileOrder.set(filePath, order++);
+    }
+    
+    // Helper to find file order, handling path format differences
+    function getFileOrder(errorPath) {
+        if (!errorPath) return -1;
+        
+        // Try exact match first
+        if (fileOrder.has(errorPath)) {
+            return fileOrder.get(errorPath);
+        }
+        
+        // Normalize paths for comparison
+        const normalizePath = (p) => p.replace(/\\/g, '/').toLowerCase();
+        const normalizedErrorPath = normalizePath(errorPath);
+        
+        // Try to find by normalized path
+        for (const [storedPath, order] of fileOrder) {
+            if (normalizePath(storedPath) === normalizedErrorPath) {
+                return order;
+            }
+        }
+        
+        // Try to match by filename if full path doesn't work
+        const errorFileName = errorPath.replace(/^.*[\\\/]/, '');
+        for (const [storedPath, order] of fileOrder) {
+            const storedFileName = storedPath.replace(/^.*[\\\/]/, '');
+            if (storedFileName === errorFileName) {
+                return order;
+            }
+        }
+        
+        return fileOrder.size; // Unknown files go to the end
+    }
+    
+    return errors.slice().sort((a, b) => {
+        // First, sort by file order (as shown in the sidebar)
+        const orderA = getFileOrder(a.filePath);
+        const orderB = getFileOrder(b.filePath);
+        
+        if (orderA !== orderB) {
+            return orderA - orderB;
+        }
+        
+        // If same file, sort by line number
+        const lineA = a.startLineNumber || 0;
+        const lineB = b.startLineNumber || 0;
+        
+        return lineA - lineB;
+    });
+}
+
+function navigateToBannerError() {
+    if (!currentErrors || currentErrors.length === 0) return;
+    
+    const error = currentErrors[errorBannerIndex];
+    if (!error) return;
+    
+    // Check if error is in a different file
+    if (error.filePath && error.filePath !== currentFilePath) {
+        const file = findFileByPath(error.filePath);
+        if (file && file.listItem) {
+            // Click the file in the list to switch to it
+            file.listItem.click();
+            // Wait for the file to load and model to be swapped before navigating
+            // Use a longer timeout to ensure model swap completes
+            setTimeout(() => {
+                const line = error.startLineNumber || 1;
+                const column = error.startColumn || 1;
+                const model = editor.getModel();
+                if (model) {
+                    editor.revealLineInCenter(line);
+                    editor.setPosition({ lineNumber: line, column: column });
+                    editor.focus();
+                }
+            }, 200);
+            return;
+        }
+    }
+    
+    // Navigate to the error location in current file
+    const line = error.startLineNumber || 1;
+    const column = error.startColumn || 1;
+    
+    if (editor && editor.getModel()) {
+        editor.revealLineInCenter(line);
+        editor.setPosition({ lineNumber: line, column: column });
+        editor.focus();
+    }
+}
+
+function previousError() {
+    if (currentErrors.length === 0) return;
+    errorBannerIndex = (errorBannerIndex - 1 + currentErrors.length) % currentErrors.length;
+    updateErrorBanner();
+    navigateToBannerError();
+}
+
+function nextError() {
+    if (currentErrors.length === 0) return;
+    errorBannerIndex = (errorBannerIndex + 1) % currentErrors.length;
+    updateErrorBanner();
+    navigateToBannerError();
+}
+
+function closeErrorBanner() {
+    currentErrors = [];
+    errorBannerIndex = 0;
+    updateErrorBanner();
+}
 // Model pooling for efficient reuse of Monaco editor models
 const modelPool = new Map(); // filePath -> MonacoModel
 const MAX_POOLED_MODELS = 5; // Keep up to 5 models in memory
@@ -491,6 +700,12 @@ document.getElementById('btn-set-ink-root').addEventListener('click', () => {
 document.getElementById('btn-create-ink-root').addEventListener('click', () => {
     window.electronAPI.createInkRoot();
 });
+
+// Error banner event listeners
+document.getElementById('error-banner-prev').addEventListener('click', previousError);
+document.getElementById('error-banner-next').addEventListener('click', nextError);
+document.getElementById('error-banner-close').addEventListener('click', closeErrorBanner);
+document.getElementById('error-banner-text').addEventListener('click', navigateToBannerError);
 
 window.electronAPI.onProjectLoaded(({ hasRoot }) => {
     if (!hasRoot) {
@@ -942,7 +1157,7 @@ async function checkSyntax() {
         if (model) {
 
 
-            // Filter errors to display only those relevant to the current file
+            // Filter errors to display only those relevant to the current file (for Monaco markers)
             const visibleErrors = errors.filter(e => {
                 if (!e.filePath) return true;
 
@@ -964,15 +1179,83 @@ async function checkSyntax() {
                 return false;
             });
 
-            // Run Dinky Character Validation
-            const charErrors = validateCharacterNames(model);
+            // Run Dinky Character Validation for all files
+            let allCharErrors = [];
+            for (const [filePath, fileObj] of loadedInkFiles) {
+                const charErrors = validateCharacterNamesInText(fileObj.content);
+                // Add filePath to each character error
+                const charErrorsWithPath = charErrors.map(err => ({
+                    ...err,
+                    filePath: filePath
+                }));
+                allCharErrors = allCharErrors.concat(charErrorsWithPath);
+            }
+            
+            // For Monaco markers, only show character errors for the current file
+            const currentFileCharErrors = validateCharacterNames(model);
 
-            monaco.editor.setModelMarkers(model, 'ink', [...(visibleErrors || []), ...charErrors]);
+            // Update error banner with ALL errors from all files (compilation + character validation)
+            const newErrors = sortErrors([...(errors || []), ...allCharErrors]);
+            
+            // Update banner index intelligently
+            if (newErrors.length !== previousErrorsCount) {
+                // Error count changed, try to show an error in the current file, preferably near the cursor
+                const position = editor.getPosition();
+                const cursorLine = position ? position.lineNumber : -1;
+                
+                // Get the file object for the current file using the same path-matching that works for navigation
+                const currentFileObj = findFileByPath(currentFilePath);
+                
+                // Find all errors in the current file using the same matching strategy as findFileByPath
+                const errorsInCurrentFile = newErrors.filter(err => {
+                    if (!err.filePath) return false;
+                    const errorFileObj = findFileByPath(err.filePath);
+                    return errorFileObj === currentFileObj;
+                });
+                
+                if (errorsInCurrentFile.length > 0) {
+                    // Prioritize errors in the current file
+                    // Try to find one on the cursor line first
+                    let selectedErrorIndex = errorsInCurrentFile.findIndex(err => err.startLineNumber === cursorLine);
+                    
+                    // If no error on exact cursor line, find the closest one
+                    if (selectedErrorIndex === -1) {
+                        let closestError = 0;
+                        let minDistance = Math.abs(errorsInCurrentFile[0].startLineNumber - cursorLine);
+                        
+                        for (let i = 1; i < errorsInCurrentFile.length; i++) {
+                            const distance = Math.abs(errorsInCurrentFile[i].startLineNumber - cursorLine);
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                closestError = i;
+                            }
+                        }
+                        selectedErrorIndex = closestError;
+                    }
+                    
+                    // Find the index of this error in the full sorted list
+                    const selectedError = errorsInCurrentFile[selectedErrorIndex];
+                    errorBannerIndex = newErrors.findIndex(err => 
+                        err === selectedError
+                    );
+                } else {
+                    // No errors in current file, show the first error
+                    errorBannerIndex = 0;
+                }
+                previousErrorsCount = newErrors.length;
+            }
+            
+            currentErrors = newErrors;
+            updateErrorBanner();
+
+            // Update Monaco markers with visible errors + character errors for current file
+            monaco.editor.setModelMarkers(model, 'ink', [...(visibleErrors || []), ...currentFileCharErrors]);
         }
     } catch (e) {
         window.electronAPI.log('checkSyntax failed:', e.toString())
     }
 }
+
 
 async function autoTag() {
     if (!rootInkPath || !currentFilePath) return;
@@ -1929,8 +2212,7 @@ function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function validateCharacterNames(model) {
-    const text = model.getValue();
+function validateCharacterNamesInText(text) {
     const lines = text.split(/\r?\n/);
     const markers = [];
     const validIds = new Set(projectCharacters.map(c => c.ID));
@@ -1988,6 +2270,11 @@ function validateCharacterNames(model) {
     });
 
     return markers;
+}
+
+function validateCharacterNames(model) {
+    const text = model.getValue();
+    return validateCharacterNamesInText(text);
 }
 
 function levenshtein(a, b) {

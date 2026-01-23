@@ -1,7 +1,6 @@
 TODO:
 -----
 Add debug/watching
-Add go to next issue
 Add run Dink Compiler
 Dinky icons for Unreal 
 Add character list
@@ -53,6 +52,7 @@ BUG: Compile errors in Ink have stopped appearing on the correct line.
 BUG: Dinky runtime include path handling of an include inside an include doesn't seem to work the same as Inky.
 Navigate knot/stitch
 Back / forward location in editor
+Add error check bars and navigation
 
 NOTES:
 ------

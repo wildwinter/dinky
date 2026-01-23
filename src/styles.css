@@ -101,6 +101,73 @@ body {
     /* Align items to the left */
 }
 
+#error-banner {
+    background-color: #5d3d3d;
+    border-bottom: 1px solid var(--sidebar-border);
+    color: #f48771;
+    min-height: 32px;
+    display: none;
+}
+
+body.light #error-banner {
+    background-color: #fce8e6;
+    color: #c5221f;
+}
+
+#error-banner-content {
+    gap: 8px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+}
+
+#error-banner button {
+    padding: 4px 8px;
+    background-color: var(--sidebar-bg);
+    border: 1px solid var(--sidebar-border);
+    color: var(--text-color);
+    cursor: pointer;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+#error-banner button:hover {
+    background-color: var(--sidebar-hover);
+}
+
+#error-banner button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#error-banner-close {
+    background-color: transparent;
+    border: none;
+    opacity: 0.6;
+    margin-left: auto;
+}
+
+#error-banner-close:hover {
+    background-color: transparent;
+    opacity: 1;
+}
+
+#error-banner-text {
+    flex: 1;
+    cursor: pointer;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#error-banner-text:hover {
+    text-decoration: underline;
+}
+
 #editor-container {
     flex-grow: 1;
     height: 100%;

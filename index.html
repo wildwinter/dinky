@@ -167,6 +167,34 @@
                     <option value="">No location</option>
                 </select>
             </div>
+            <!-- Error Banner -->
+            <div id="error-banner" style="display: none;">
+                <div id="error-banner-content" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px;">
+                    <!-- Navigation buttons -->
+                    <button id="error-banner-prev" title="Previous Error" style="padding: 4px 8px; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color); cursor: pointer; border-radius: 3px; display: flex; align-items: center; justify-content: center;">
+                        <!-- Lucide ChevronUp -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="18 15 12 9 6 15"></polyline>
+                        </svg>
+                    </button>
+                    <button id="error-banner-next" title="Next Error" style="padding: 4px 8px; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color); cursor: pointer; border-radius: 3px; display: flex; align-items: center; justify-content: center;">
+                        <!-- Lucide ChevronDown -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                    <!-- Close button -->
+                    <button id="error-banner-close" title="Close" style="padding: 4px 8px; background-color: transparent; border: none; color: var(--text-color); cursor: pointer; margin-left: auto; display: flex; align-items: center; justify-content: center; opacity: 0.6;">
+                        <!-- Lucide X -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                    <!-- Error message (clickable) -->
+                    <div id="error-banner-text" style="flex: 1; cursor: pointer; color: #f48771; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+                </div>
+            </div>
             <!-- Loading Overlay removed -->
             <div id="editor-container"></div>
             <div id="empty-state">
