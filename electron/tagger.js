@@ -282,21 +282,9 @@ function findTagInSiblings(refNode, container) {
                 // We consumed the pending tag start state.
                 pendingTagStart = false;
             } else {
-                // This is normal text content.
-                // If it's non-empty, it means we have hit subsequent content on the same line.
-                // Does this invalidate the search? 
-
-                // If we are searching for an ID for 'refNode', usually the ID must be immediate.
-                // BUT the user reported issues where intervening text broke the link.
-                // To fix the "double tagging" bug where 'Option x #id:123' generates a new ID:
-                // We should NOT break on text if we are just looking for *an* ID on this line segment.
-
-                // However, we must be careful not to consume an ID that belongs to a NEXT line segment 
-                // if Ink considers them separate.
-                // But generally, one line = one ID.
-                // So we will CONTINUE searching even if we see text.
-
-                // Only break on explicit line breaks or ends
+                // Continue searching even if we encounter text on the same line.
+                // This handles cases like 'Option x #id:123' where text precedes the ID tag.
+                // Generally, one line = one ID, so break only on explicit line breaks.
                 if (node.text === "\n") break;
             }
         }

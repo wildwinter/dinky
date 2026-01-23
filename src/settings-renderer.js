@@ -33,14 +33,6 @@ async function init() {
         const newLocale = e.target.value;
         // Broadcast to all windows including main which handles the actual spellchecker switch
         window.electronAPI.setSetting('spellCheckerLocale', newLocale);
-        // Also send specific update if needed, but setSetting broadcasts settings-updated
-        // Let's check if we need to explicitly call update-spell-locale
-        // Actually, renderer.js listens for settings-updated if we add it there.
-        // Wait, renderer.js has window.electronAPI.onUpdateSpellLocale.
-        // Let's see if we should trigger that.
-        // The menu.js does:
-        // await saveSettings({ spellCheckerLocale: 'en_GB' });
-        // safeSend(win, 'update-spell-locale', 'en_GB');
     });
 
     const editDictBtn = document.getElementById('btn-edit-dictionary');
@@ -61,9 +53,6 @@ async function init() {
     });
 
     // Also listen for theme updates to update the window style itself
-    // Actually our setupThemeListener in main process handles this via nativeTheme event -> checks theme source -> updates window colors
-    // But we might want to ensure the body class is set if we were using CSS classes for theme (like in main window)
-    // The main window uses onThemeUpdated. Let's add that here too.
     window.electronAPI.onThemeUpdated((theme) => {
         // theme is likely 'vs' or 'vs-dark' based on main window logic?
         // Wait, setupThemeListener sends 'theme-updated' with 'vs' or 'vs-dark'.

@@ -44,7 +44,7 @@ if (!gotTheLock) {
     app.quit();
 } else {
     app.on('second-instance', (event, commandLine, workingDirectory) => {
-        // Someone tried to run a second instance, we should focus our window.
+        // Focus existing window when second instance is launched
         if (mainWindow) {
             if (mainWindow.isMinimized()) mainWindow.restore();
             mainWindow.focus();
@@ -58,10 +58,6 @@ if (!gotTheLock) {
             } else {
                 const inkPath = commandLine.find(arg => arg.endsWith('.ink'));
                 if (inkPath) {
-                    pendingAction = { type: 'open-ink', path: inkPath }; // Use distinct type for clarity? or just reuse 'load' and detect extension?
-                    // Let's reuse 'load' but make performPendingAction smarter?
-                    // Actually, let's keep it simple. 'load' calls loadProject.
-                    // I should update performPendingAction.
                     pendingAction = { type: 'load', path: inkPath };
                     safeSend(mainWindow, 'check-unsaved');
                 }
@@ -483,7 +479,6 @@ if (!gotTheLock) {
             let lines = content.split('\n').map(l => l.trim()).filter(l => l);
             if (!lines.includes(word)) {
                 lines.push(word);
-                // Sort for better user editing experience? Let's keep it simple for now but clean.
                 await fs.writeFile(dictPath, lines.join('\n') + '\n', 'utf-8');
             }
         } catch (e) {
@@ -535,10 +530,7 @@ if (!gotTheLock) {
         if (!content) return [];
 
         try {
-            // Strip comments if JSONC (simple replacement, not perfect but sufficient for config)
-            // Or if we assume standard JSON for .json and loose for .jsonc
-            // We should try to handle comments.
-            // Simple regex strip for // and /* */
+            // Strip comments from JSONC content (handles // and /* */ style comments)
             const cleanContent = content.replace(/\/\/.*(?:\r?\n|$)/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
             return JSON.parse(cleanContent);
         } catch (e) {
@@ -574,8 +566,6 @@ if (!gotTheLock) {
         }
 
         try {
-            // We need to parse, add, and write back. 
-            // We can check if it was JSONC and try to format nicely.
 
             let chars = [];
             try {

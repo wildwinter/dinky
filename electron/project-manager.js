@@ -157,10 +157,6 @@ async function loadAdhocInkProject(win, inkFilePath) {
         }
 
         // We don't add adhoc `.ink` files to recent projects in the same way as .dinkproj 
-        // because the "Recent Projects" menu expects .dinkproj files. 
-        // NOTE: We could support it if we changed getRecentProjects to support extensions, 
-        // but for now let's keep it simple as per plan.
-
         currentInkRoot = inkFilePath;
         const files = await loadRootInk(inkFilePath);
         safeSend(win, 'root-ink-loaded', files);

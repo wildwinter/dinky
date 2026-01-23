@@ -87,10 +87,7 @@ ipcMain.handle('set-theme', async (event, themeMode) => {
 
     // Notify all windows? setupThemeListener handles the nativeTheme 'updated' event for UI colors,
     // but we might want to ensure 'themeSource' prop is propagated if needed.
-    // Actually nativeTheme.themeSource change triggers 'updated' event on nativeTheme, 
-    // which our listeners in other windows pick up to change background colors.
-
-    // We should also notify renderer in case they need to update UI state (like the dropdown)
+    // Notify settings window to update UI state (like the theme dropdown)
     if (settingsWindow && !settingsWindow.isDestroyed()) {
         safeSend(settingsWindow, 'settings-updated', { theme: themeMode });
     }

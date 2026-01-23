@@ -61,11 +61,7 @@ function createFileHandler(filePath, projectFiles) {
         LoadInkFileContents: (filename) => {
             // Try the filename as-is first
             if (projectFiles && projectFiles[filename]) {
-                let val = projectFiles[filename]
-                if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
-                    val = val.slice(1)
-                }
-                return val
+                return removeBOM(projectFiles[filename])
             }
 
             // If not found, this might be a path relative to projectRoot that wasn't resolved correctly
@@ -74,11 +70,7 @@ function createFileHandler(filePath, projectFiles) {
             const rootRelativePath = path.resolve(projectRoot, basename)
 
             if (projectFiles && projectFiles[rootRelativePath]) {
-                let val = projectFiles[rootRelativePath]
-                if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
-                    val = val.slice(1)
-                }
-                return val
+                return removeBOM(projectFiles[rootRelativePath])
             }
 
             // Last resort: search by basename, but warn if ambiguous
@@ -88,29 +80,19 @@ function createFileHandler(filePath, projectFiles) {
                 )
 
                 if (matches.length === 1) {
-                    const [, content] = matches[0]
-                    let val = content
-                    if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
-                        val = val.slice(1)
-                    }
-                    return val
+                    return removeBOM(matches[0][1])
                 } else if (matches.length > 1) {
                     console.error('[LoadInkFileContents] AMBIGUOUS: Multiple files named', basename)
                     console.error('[LoadInkFileContents] Matches:', matches.map(([p]) => p))
                     console.error('[LoadInkFileContents] Using first match (this may be incorrect!)')
-                    const [, content] = matches[0]
-                    let val = content
-                    if (val && typeof val === 'string' && val.charCodeAt(0) === 0xFEFF) {
-                        val = val.slice(1)
-                    }
-                    return val
+                    return removeBOM(matches[0][1])
                 }
             }
 
             // Try original path on filesystem
             try {
                 const content = fsSync.readFileSync(filename, 'utf-8')
-                return content
+                return removeBOM(content)
             } catch (e) {
                 console.error('Failed to load included file:', filename, e)
                 return ''

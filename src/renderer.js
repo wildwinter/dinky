@@ -219,9 +219,7 @@ const spellChecker = new DinkySpellChecker();
 window.electronAPI.loadSettings().then(async settings => {
     const locale = settings.spellCheckerLocale || 'en_GB';
     await spellChecker.init(locale);
-    // If a project was already auto-loaded (e.g. by Electron did-finish-load), 
-    // it might have finished before the spellchecker.
-    // Let's force a check here just in case.
+    // Check spelling for any auto-loaded project
     if (rootInkPath) {
         checkSpelling();
     }
@@ -603,14 +601,9 @@ const findIdModal = new ModalHelper({
         let found = false;
 
         for (const [path, file] of loadedInkFiles) {
-            // We need to check content. If it's the current file, use editor value.
-            // But wait, ID searching relies on extractIds which parses the text.
-            // For current file, we should use editor content.
-            // For others, use file.content.
-
             let content = file.content;
             if (path === currentFilePath) {
-                // Use editor content, but MUST reconstruct IDs since they are stripped in editor
+                // Reconstruct IDs from editor content since they are stripped for display
                 content = idManager.reconstructContent(editor.getValue());
             }
 
@@ -621,28 +614,16 @@ const findIdModal = new ModalHelper({
             const match = extractedIds.find(item => item.id === idToFind);
 
             if (match) {
-                // Found it!
                 found = true;
 
-                // Navigate
+                // Switch to the file containing the ID if needed
                 if (path !== currentFilePath) {
-                    // We need to switch files.
-                    // We can reuse the logic from the list item click if available, 
-                    // or just call loadFileToEditor directly.
-                    // Ideally we find the listItem and click it to ensure UI sync.
                     if (file.listItem) {
                         file.listItem.click();
-                        // wait for load? loadFileToEditor is synchronous in terms of model swap
-                    } else {
-                        // Fallback if no list item (shouldn't happen for loaded files)
-                        // We can try to re-query the list or just manual load
-                        // But for now assuming listItem exists is safe as we populate it on load
                     }
                 }
 
-                // Now we are in the correct file.
-                // We need to focus the line.
-                // match.lineIndex is 0-based.
+                // Focus the line containing the ID (convert from 0-based to 1-based)
                 const lineNum = match.lineIndex + 1;
 
                 // Reveal and select
@@ -980,10 +961,6 @@ function isDinkyAtPosition(model, position) {
 
         // Check if there's a #dink tag on a line by itself or after some content (but before the next knot)
         if (/#\s*dink(?=\s|$)/.test(line)) {
-            // However, the rule says: "if the cursor is in a section where the tag #dink follows a knot name before the current line"
-            // This implies we should keep looking for the knot.
-            // But if we found #dink before finding a knot (and we already checked global), 
-            // it must be associated with the current section.
             return true;
         }
     }
@@ -1298,9 +1275,6 @@ async function handleTestKnot() {
 
     if (!position) {
         console.warn('handleTestKnot: No cursor position found. Editor might not have focus.');
-        // Try to rely on last known position? Or just fail?
-        // Let's just return for now or alert. 
-        // Attempting to focus and get position again might work but is racey.
         return;
     }
 
@@ -1311,11 +1285,7 @@ async function handleTestKnot() {
         lastTestKnot = knotName;
         await window.electronAPI.startTest(rootInkPath, projectFiles, knotName);
     } else {
-        // Fallback to normal start or alert? 
-        // For now, if no knot found, maybe just start from beginning or warn.
-        // Let's just start regular test if no knot found? Or maybe alert.
-        // User behavior "Test Knot" implies they expect a knot.
-        // But finding a knot is heuristic.
+        // No knot found at cursor, start from root
         console.log('No knot found, starting from root');
         lastTestKnot = null;
         await window.electronAPI.startTest(rootInkPath, projectFiles);
@@ -1475,7 +1445,6 @@ function validateCharacterNames(model) {
     lines.forEach((line, index) => {
         const trimmed = line.trim();
 
-        // If not global, we need to track local context
         if (!isGlobalDinky) {
             // Check for Knot Start
             if (/^={2,}/.test(trimmed)) {
