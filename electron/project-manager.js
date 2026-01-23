@@ -45,8 +45,8 @@ async function loadRootInk(rootFilePath) {
                 const match = line.match(/^\s*INCLUDE\s+(.+)/)
                 if (match) {
                     const includePath = match[1].trim()
-                    // INCLUDES are relative to the file they are in
-                    const nextAbsPath = path.resolve(path.dirname(currentPath), includePath)
+                    // INCLUDES are always relative to the root Ink file, not the current file
+                    const nextAbsPath = path.resolve(rootDir, includePath)
                     await traverse(nextAbsPath)
                 }
             }
