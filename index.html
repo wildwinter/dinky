@@ -368,6 +368,23 @@
             </div>
         </div>
     </div>
+
+    <!-- Compile Modal -->
+    <div id="modal-compile-overlay"
+        style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); align-items: center; justify-content: center; z-index: 1000;">
+        <div id="compile-modal"
+            style="background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); padding: 20px; width: 600px; height: 500px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column;">
+            <div class="modal-header">Compile Project</div>
+
+            <div id="compile-output-container" style="flex: 1; overflow-y: auto; background-color: var(--bg-color); border: 1px solid var(--sidebar-border); padding: 10px; font-family: 'Courier New', Courier, monospace; font-size: 12px; margin-bottom: 15px;">
+                <pre id="compile-output" style="margin: 0; white-space: pre-wrap; word-wrap: break-word; color: var(--text-color);"></pre>
+            </div>
+
+            <div class="modal-actions">
+                <button id="btn-close-compile" class="primary" disabled>Close</button>
+            </div>
+        </div>
+    </div>
     <script type="module" src="/src/renderer.js"></script>
 </body>
 

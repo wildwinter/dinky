@@ -189,6 +189,14 @@ async function buildMenu(win) {
                     click: () => {
                         safeSend(win, 'select-compiler');
                     }
+                },
+                {
+                    label: 'Compile...',
+                    accelerator: 'F5',
+                    enabled: !!compilerPath,
+                    click: () => {
+                        safeSend(win, 'show-compile-modal');
+                    }
                 }
             ]
         },

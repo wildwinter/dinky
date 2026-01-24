@@ -1,13 +1,14 @@
 import { app, BrowserWindow, nativeTheme, ipcMain, dialog, shell } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
+import { spawn } from 'child_process'
 
 import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowState, saveWindowState, flushSettings, getCompilerPath, setCompilerPath } from './config'
 import { buildMenu } from './menu'
 import { compileInk, parseInk } from './compiler'
 import { openTestWindow } from './test-runner'
 import { generateIdsForUntagged } from './tagger'
-import { loadProject, loadAdhocInkProject, switchToInkRoot, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject } from './project-manager'
+import { loadProject, loadAdhocInkProject, switchToInkRoot, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject, getCurrentInkRoot } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
 import { safeSend, setupThemeListener } from './utils'
 
@@ -416,6 +417,56 @@ if (!gotTheLock) {
 
     ipcMain.handle('get-compiler-path', async () => {
         return await getCompilerPath();
+    });
+
+    ipcMain.handle('run-compile', async (event) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const compilerPath = await getCompilerPath();
+        const project = getCurrentProject();
+        const inkRoot = getCurrentInkRoot();
+
+        if (!compilerPath) {
+            return { success: false, error: 'No compiler path set' };
+        }
+
+        if (!project || !project.path) {
+            return { success: false, error: 'No project loaded' };
+        }
+
+        if (!inkRoot) {
+            return { success: false, error: 'No ink root file selected' };
+        }
+
+        const projectPath = path.resolve(project.path);
+        const sourcePath = path.resolve(inkRoot);
+
+        const args = ['--project', projectPath, '--source', sourcePath];
+
+        // Send the command line being executed
+        const commandLine = `${compilerPath} ${args.join(' ')}\n\n`;
+        safeSend(win, 'compile-output', { type: 'command', data: commandLine });
+
+        return new Promise((resolve) => {
+            const compiler = spawn(compilerPath, args);
+
+            compiler.stdout.on('data', (data) => {
+                safeSend(win, 'compile-output', { type: 'stdout', data: data.toString() });
+            });
+
+            compiler.stderr.on('data', (data) => {
+                safeSend(win, 'compile-output', { type: 'stderr', data: data.toString() });
+            });
+
+            compiler.on('error', (error) => {
+                safeSend(win, 'compile-output', { type: 'error', data: `Failed to start compiler: ${error.message}` });
+                resolve({ success: false, error: error.message });
+            });
+
+            compiler.on('close', (code) => {
+                safeSend(win, 'compile-complete', { code });
+                resolve({ success: true, exitCode: code });
+            });
+        });
     });
 
     app.whenReady().then(() => {

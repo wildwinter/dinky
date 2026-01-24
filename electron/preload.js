@@ -75,7 +75,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Compiler path API
     selectCompiler: () => ipcRenderer.invoke('select-compiler'),
     getCompilerPath: () => ipcRenderer.invoke('get-compiler-path'),
-    onSelectCompiler: (callback) => ipcRenderer.on('select-compiler', (_event) => callback())
+    onSelectCompiler: (callback) => ipcRenderer.on('select-compiler', (_event) => callback()),
+
+    // Compilation API
+    runCompile: () => ipcRenderer.invoke('run-compile'),
+    onCompileOutput: (callback) => ipcRenderer.on('compile-output', (_event, value) => callback(value)),
+    onCompileComplete: (callback) => ipcRenderer.on('compile-complete', (_event, value) => callback(value)),
+    onShowCompileModal: (callback) => ipcRenderer.on('show-compile-modal', (_event) => callback())
 });
 
 window.addEventListener('DOMContentLoaded', () => {

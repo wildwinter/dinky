@@ -993,7 +993,71 @@ window.electronAPI.onMenuFindId(() => {
     findIdModal.open();
 });
 
+// Compile Modal
+const compileModalOverlay = document.getElementById('modal-compile-overlay');
+const compileOutput = document.getElementById('compile-output');
+const compileOutputContainer = document.getElementById('compile-output-container');
+const btnCloseCompile = document.getElementById('btn-close-compile');
 
+async function openCompileModal() {
+    compileModalOverlay.style.display = 'flex';
+    compileOutput.textContent = '';
+    btnCloseCompile.disabled = true;
+
+    // Reset scroll to top
+    compileOutputContainer.scrollTop = 0;
+
+    // Start compilation
+    const result = await window.electronAPI.runCompile();
+
+    // If compilation failed to start, show error and enable close button
+    if (result && !result.success) {
+        compileOutput.textContent = `Error: ${result.error}\n`;
+        btnCloseCompile.disabled = false;
+        compileOutputContainer.scrollTop = compileOutputContainer.scrollHeight;
+    }
+}
+
+function closeCompileModal() {
+    compileModalOverlay.style.display = 'none';
+    compileOutput.textContent = '';
+}
+
+btnCloseCompile.addEventListener('click', () => {
+    closeCompileModal();
+});
+
+// Escape key to close (only when enabled)
+compileModalOverlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !btnCloseCompile.disabled) {
+        closeCompileModal();
+    }
+});
+
+window.electronAPI.onShowCompileModal(() => {
+    openCompileModal();
+});
+
+window.electronAPI.onCompileOutput(({ type, data }) => {
+    const outputEl = document.getElementById('compile-output');
+    const container = document.getElementById('compile-output-container');
+    outputEl.textContent += data;
+
+    // Auto-scroll to bottom
+    container.scrollTop = container.scrollHeight;
+});
+
+window.electronAPI.onCompileComplete(({ code }) => {
+    const outputEl = document.getElementById('compile-output');
+    const container = document.getElementById('compile-output-container');
+    outputEl.textContent += `\n\nCompilation finished with exit code: ${code}\n`;
+
+    // Enable close button
+    btnCloseCompile.disabled = false;
+
+    // Auto-scroll to bottom
+    container.scrollTop = container.scrollHeight;
+});
 
 // Update loadFileToEditor to handle rename button state
 function loadFileToEditor(file, element, forceRefresh = false) {
