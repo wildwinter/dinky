@@ -221,7 +221,186 @@ async function init() {
                 defaultLocaleCodeInput.value = updatedConfig.defaultLocaleCode || '';
             }
         }
+
+        // Update writing status list if changed
+        if ('writingStatus' in updatedConfig) {
+            projectConfig.writingStatus = updatedConfig.writingStatus;
+            renderWritingStatusList();
+        }
     });
+
+    // Writing Status Management
+    const writingStatusList = document.getElementById('writing-status-list');
+    const addWritingStatusBtn = document.getElementById('add-writing-status');
+
+    function renderWritingStatusList() {
+        if (!writingStatusList) return;
+
+        writingStatusList.innerHTML = '';
+        const statuses = projectConfig.writingStatus || [];
+
+        statuses.forEach((status, index) => {
+            const statusItem = createStatusItem(status, index);
+            writingStatusList.appendChild(statusItem);
+        });
+    }
+
+    function createStatusItem(status, index) {
+        const div = document.createElement('div');
+        div.className = 'status-item';
+        div.dataset.index = index;
+
+        // Status name input
+        const statusInput = document.createElement('input');
+        statusInput.type = 'text';
+        statusInput.value = status.status || '';
+        statusInput.placeholder = 'Status Name';
+        statusInput.addEventListener('change', (e) => {
+            updateStatusField(index, 'status', e.target.value);
+        });
+
+        // Tag input (must be lowercase alphanumeric)
+        const tagInput = document.createElement('input');
+        tagInput.type = 'text';
+        tagInput.value = status.wstag || '';
+        tagInput.placeholder = 'tag';
+        tagInput.addEventListener('input', (e) => {
+            const value = e.target.value;
+            // Validate: only lowercase letters and numbers
+            if (!/^[a-z0-9]*$/.test(value)) {
+                e.target.classList.add('invalid');
+            } else {
+                e.target.classList.remove('invalid');
+            }
+        });
+        tagInput.addEventListener('change', (e) => {
+            const value = e.target.value;
+            // Only save if valid
+            if (/^[a-z0-9]*$/.test(value)) {
+                updateStatusField(index, 'wstag', value);
+                e.target.classList.remove('invalid');
+            } else {
+                // Revert to previous value
+                e.target.value = status.wstag || '';
+                e.target.classList.remove('invalid');
+            }
+        });
+
+        // Record checkbox
+        const recordCheckbox = document.createElement('input');
+        recordCheckbox.type = 'checkbox';
+        recordCheckbox.checked = !!status.record;
+        recordCheckbox.addEventListener('change', (e) => {
+            updateStatusField(index, 'record', e.target.checked);
+        });
+
+        // Loc checkbox
+        const locCheckbox = document.createElement('input');
+        locCheckbox.type = 'checkbox';
+        locCheckbox.checked = !!status.loc;
+        locCheckbox.addEventListener('change', (e) => {
+            updateStatusField(index, 'loc', e.target.checked);
+        });
+
+        // Color picker
+        const colorWrapper = document.createElement('div');
+        colorWrapper.className = 'color-picker-wrapper';
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        // Convert hex color (RRGGBB) to #RRGGBB format for color input
+        const hexColor = status.color || 'FFFFFF';
+        colorInput.value = '#' + hexColor;
+        colorInput.addEventListener('change', (e) => {
+            // Remove # and store just the hex value
+            const colorValue = e.target.value.substring(1).toUpperCase();
+            updateStatusField(index, 'color', colorValue);
+        });
+        colorWrapper.appendChild(colorInput);
+
+        // Delete button
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', () => {
+            deleteStatus(index);
+        });
+
+        div.appendChild(statusInput);
+        div.appendChild(tagInput);
+        div.appendChild(recordCheckbox);
+        div.appendChild(locCheckbox);
+        div.appendChild(colorWrapper);
+        div.appendChild(deleteBtn);
+
+        return div;
+    }
+
+    async function updateStatusField(index, field, value) {
+        if (!projectConfig.writingStatus) {
+            projectConfig.writingStatus = [];
+        }
+
+        if (index >= 0 && index < projectConfig.writingStatus.length) {
+            projectConfig.writingStatus[index][field] = value;
+
+            const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
+
+            if (!success) {
+                console.error('Failed to update writing status');
+            }
+        }
+    }
+
+    async function deleteStatus(index) {
+        // Show confirmation dialog
+        const statusName = projectConfig.writingStatus[index]?.status || 'this status';
+        const confirmed = confirm(`Are you sure you want to delete "${statusName}"?`);
+
+        if (!confirmed) return;
+
+        if (!projectConfig.writingStatus) return;
+
+        projectConfig.writingStatus.splice(index, 1);
+
+        const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
+
+        if (success) {
+            renderWritingStatusList();
+        } else {
+            console.error('Failed to delete status');
+        }
+    }
+
+    async function addStatus() {
+        if (!projectConfig.writingStatus) {
+            projectConfig.writingStatus = [];
+        }
+
+        const newStatus = {
+            status: 'New Status',
+            wstag: 'newstatus',
+            record: false,
+            loc: false,
+            color: 'CCCCCC'
+        };
+
+        projectConfig.writingStatus.push(newStatus);
+
+        const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
+
+        if (success) {
+            renderWritingStatusList();
+        } else {
+            console.error('Failed to add status');
+        }
+    }
+
+    if (addWritingStatusBtn) {
+        addWritingStatusBtn.addEventListener('click', addStatus);
+    }
+
+    // Initial render
+    renderWritingStatusList();
 
     // Apply initial theme based on system/settings
     const applyThemeClass = (theme) => {

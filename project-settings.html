@@ -228,6 +228,111 @@
         .text-setting-item input[type="text"].invalid {
             border-color: #ff3333;
         }
+
+        .status-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .status-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto auto auto auto;
+            gap: 10px;
+            align-items: center;
+            padding: 10px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--sidebar-border);
+            border-radius: 4px;
+        }
+
+        .status-item input[type="text"] {
+            background-color: var(--sidebar-bg);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .status-item input[type="text"]:focus {
+            border-color: var(--text-color);
+        }
+
+        .status-item input[type="text"].invalid {
+            border-color: #ff3333;
+        }
+
+        .status-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: var(--text-color);
+        }
+
+        .status-item .color-picker-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-item input[type="color"] {
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--sidebar-border);
+            border-radius: 4px;
+            cursor: pointer;
+            background: none;
+        }
+
+        .status-item .delete-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+        }
+
+        .status-item .delete-btn:hover {
+            border-color: #ff3333;
+            background-color: rgba(255, 51, 51, 0.1);
+        }
+
+        .add-status-btn {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+            align-self: flex-start;
+        }
+
+        .add-status-btn:hover {
+            border-color: var(--text-color);
+        }
+
+        .status-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto auto auto auto;
+            gap: 10px;
+            padding: 0 10px;
+            font-size: 12px;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .checkbox-label {
+            font-size: 11px;
+            opacity: 0.8;
+        }
     </style>
 </head>
 
@@ -241,6 +346,7 @@
     <div class="tabs">
         <div class="tab active" data-tab="general">General</div>
         <div class="tab" data-tab="outputs">Outputs</div>
+        <div class="tab" data-tab="writing-status">Writing Status</div>
     </div>
 
     <div class="content">
@@ -327,6 +433,29 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab-content="writing-status">
+            <div class="section">
+                <div class="section-description">
+                    Writing status tags can be used to track the state of your dialogue. Only lines with specific statuses will be included in recording scripts and localization files based on these settings.
+                </div>
+
+                <div class="status-header">
+                    <div>Status Name</div>
+                    <div>Tag</div>
+                    <div class="checkbox-label">Record</div>
+                    <div class="checkbox-label">Loc</div>
+                    <div>Color</div>
+                    <div></div>
+                </div>
+
+                <div id="writing-status-list" class="status-list">
+                    <!-- Status items will be dynamically added here -->
+                </div>
+
+                <button id="add-writing-status" class="add-status-btn">Add Status</button>
             </div>
         </div>
     </div>
