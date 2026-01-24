@@ -1,7 +1,7 @@
 import { app, Menu, dialog, nativeTheme, BrowserWindow } from 'electron'
 import path from 'path'
 import { getRecentProjects, saveSettings, loadSettings, getCompilerPath } from './config'
-import { loadProject, openNewIncludeUI, openNewInkRootUI } from './project-manager'
+import { loadProject, openNewIncludeUI, openNewInkRootUI, openInkRootUI } from './project-manager'
 import { openSearchWindow } from './search'
 import { openSettingsWindow } from './settings'
 import { safeSend } from './utils'
