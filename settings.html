@@ -92,12 +92,12 @@
             border-radius: 4px;
             font-size: 11px;
             font-family: monospace;
-            max-width: 400px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
             flex: 1;
-            margin-right: 10px;
+            min-width: 0;
+            margin: 0 10px;
         }
 
         .path-display.empty {
@@ -105,10 +105,16 @@
             opacity: 0.5;
         }
 
-        .path-row {
+        .path-setting-item {
             display: flex;
             align-items: center;
-            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+
+        .path-setting-item label {
+            font-size: 13px;
+            white-space: nowrap;
+            margin-right: 0;
         }
     </style>
 </head>
@@ -144,12 +150,10 @@
 
     <div class="setting-group">
         <h2>Compiler</h2>
-        <div class="setting-item">
+        <div class="path-setting-item">
             <label>Dink Compiler Path</label>
-            <button id="btn-select-compiler" class="secondary">Select...</button>
-        </div>
-        <div class="path-row">
             <div id="compiler-path-display" class="path-display empty">No compiler selected</div>
+            <button id="btn-select-compiler" class="secondary">Select...</button>
         </div>
     </div>
 

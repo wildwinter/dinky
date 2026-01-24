@@ -154,11 +154,12 @@
             border-radius: 4px;
             font-size: 11px;
             font-family: monospace;
-            max-width: 100%;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            margin-top: 5px;
+            flex: 1;
+            min-width: 0;
+            margin: 0 10px;
         }
 
         .path-display.empty {
@@ -166,9 +167,16 @@
             opacity: 0.5;
         }
 
-        .path-row {
+        .path-setting-item {
             display: flex;
             align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .path-setting-item label {
+            font-size: 13px;
+            white-space: nowrap;
+            margin-right: 0;
         }
     </style>
 </head>
@@ -188,12 +196,10 @@
     <div class="content">
         <div class="tab-content active" data-tab-content="general">
             <div class="section">
-                <div class="setting-item">
+                <div class="path-setting-item">
                     <label>Output Folder</label>
-                    <button id="btn-select-output-folder" class="secondary">Browse...</button>
-                </div>
-                <div class="path-row">
                     <div id="output-folder-display" class="path-display empty">No folder selected</div>
+                    <button id="btn-select-output-folder" class="secondary">Browse...</button>
                 </div>
             </div>
         </div>
