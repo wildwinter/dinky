@@ -5,6 +5,7 @@ Add run Dink Compiler
 Dinky icons for Unreal 
 Add character list
 Play connected audio?
+Set up Github auto building/blockmaps/update checker
 Add word count? (Remember Dink stats!)
 Code signing (costs money!)
 

@@ -10,14 +10,16 @@
         "clean": "rm -rf dist dist-electron release",
         "preview": "npm run build && electron .",
         "dist-mac": "npm run clean && npm run build && electron-builder --mac",
-        "dist-win": "npm run clean && npm run build && electron-builder --win --x64"
+        "dist-win": "npm run clean && npm run build && electron-builder --win --x64",
+        "dist": "npm run clean && npm run build && electron-builder --mac && electron-builder --win --x64"
     },
     "build": {
         "appId": "net.wildwinter.dinky",
         "productName": "Dinky",
         "mac": {
             "category": "public.app-category.productivity",
-            "icon": "build/DinkyApp.icns"
+            "icon": "build/DinkyApp.icns",
+            "identity": null
         },
         "files": [
             "dist-electron/**/*",
@@ -35,7 +37,8 @@
         },
         "win": {
             "target": "nsis",
-            "icon": "build/DinkyApp.ico"
+            "icon": "build/DinkyApp.ico",
+            "signAndEditExecutable": false
         },
         "fileAssociations": [
             {
