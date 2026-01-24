@@ -275,12 +275,6 @@ function checkSpelling() {
         const cachedMarkers = spellCheckMarkersByLine.get(currentFilePath);
         if (cachedMarkers && cachedMarkers.length > 0) {
             monaco.editor.setModelMarkers(model, 'spellcheck', cachedMarkers);
-            // Update error banner with spell check errors if there are no compilation errors
-            if (currentErrors.length === 0) {
-                currentErrors = cachedMarkers;
-                errorBannerIndex = 0;
-                updateErrorBanner();
-            }
         }
         return;
     }
@@ -292,14 +286,7 @@ function checkSpelling() {
     spellCheckMarkersByLine.set(currentFilePath, markers);
     lastSpellCheckedFilePath = currentFilePath;
     lastSpellCheckContent = currentContent;
-    
-    // Update error banner with spell check errors if there are no compilation errors
-    if (currentErrors.length === 0 && markers.length > 0) {
-        currentErrors = markers;
-        errorBannerIndex = 0;
-        updateErrorBanner();
-    }
-    
+
     monaco.editor.setModelMarkers(model, 'spellcheck', markers);
 }
 
