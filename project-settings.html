@@ -361,6 +361,144 @@
         .status-header .center-label {
             text-align: center;
         }
+
+        .audio-status-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr 50px 50px 40px;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 10px;
+            background-color: var(--bg-color);
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+
+        .audio-status-item:last-child {
+            border-bottom: none;
+        }
+
+        .audio-status-item:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .audio-status-item input[type="text"] {
+            background-color: var(--sidebar-bg);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .audio-status-item input[type="text"]:focus {
+            border-color: var(--text-color);
+        }
+
+        .audio-status-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: var(--text-color);
+            justify-self: center;
+        }
+
+        .audio-status-item .color-picker-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .audio-status-item input[type="color"] {
+            width: 32px;
+            height: 24px;
+            border: 1px solid var(--sidebar-border);
+            border-radius: 3px;
+            cursor: pointer;
+            background: none;
+            padding: 0;
+        }
+
+        .audio-status-item .delete-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+            font-size: 16px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .audio-status-item .delete-btn:hover {
+            opacity: 1;
+            color: #ff3333;
+        }
+
+        .audio-status-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 50px 50px 40px;
+            gap: 8px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .audio-status-header > div {
+            text-align: left;
+        }
+
+        .audio-status-header .center-label {
+            text-align: center;
+        }
+
+        .folder-display-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .folder-display {
+            background-color: var(--sidebar-bg);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-family: monospace;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .folder-display.empty {
+            font-style: italic;
+            opacity: 0.5;
+        }
+
+        .folder-browse-btn {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .folder-browse-btn:hover {
+            border-color: var(--text-color);
+        }
     </style>
 </head>
 
@@ -375,6 +513,7 @@
         <div class="tab active" data-tab="general">General</div>
         <div class="tab" data-tab="outputs">Outputs</div>
         <div class="tab" data-tab="writing-status">Writing Status</div>
+        <div class="tab" data-tab="audio-status">Audio Status</div>
         <div class="tab" data-tab="filters">Filters</div>
     </div>
 
@@ -486,6 +625,28 @@
                 </div>
 
                 <button id="add-writing-status" class="add-status-btn" title="Add Status">+</button>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab-content="audio-status">
+            <div class="section">
+                <div class="section-description">
+                    Define audio status locations and settings. The compiler will check each folder in order to determine the status of audio files based on their ID names.
+                </div>
+
+                <div class="audio-status-header">
+                    <div>Status Name</div>
+                    <div>Folder</div>
+                    <div class="center-label">Color</div>
+                    <div class="center-label">Recorded</div>
+                    <div></div>
+                </div>
+
+                <div id="audio-status-list" class="status-list">
+                    <!-- Audio status items will be dynamically added here -->
+                </div>
+
+                <button id="add-audio-status" class="add-status-btn" title="Add Audio Status">+</button>
             </div>
         </div>
 

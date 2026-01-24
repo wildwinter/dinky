@@ -336,6 +336,12 @@ async function init() {
             renderWritingStatusList();
         }
 
+        // Update audio status list if changed
+        if ('audioStatus' in updatedConfig) {
+            projectConfig.audioStatus = updatedConfig.audioStatus;
+            renderAudioStatusList();
+        }
+
         // Update filter fields if changed
         if ('commentFilters' in updatedConfig || 'tagFilters' in updatedConfig) {
             if ('commentFilters' in updatedConfig) {
@@ -541,6 +547,179 @@ async function init() {
 
     // Initial render
     renderWritingStatusList();
+
+    // Audio Status Management
+    const audioStatusList = document.getElementById('audio-status-list');
+    const addAudioStatusBtn = document.getElementById('add-audio-status');
+
+    function renderAudioStatusList() {
+        if (!audioStatusList) return;
+
+        audioStatusList.innerHTML = '';
+        const statuses = projectConfig.audioStatus || [];
+
+        statuses.forEach((status, index) => {
+            const statusItem = createAudioStatusItem(status, index);
+            audioStatusList.appendChild(statusItem);
+        });
+    }
+
+    function createAudioStatusItem(status, index) {
+        const div = document.createElement('div');
+        div.className = 'audio-status-item';
+        div.dataset.index = index;
+
+        // Status name input
+        const statusInput = document.createElement('input');
+        statusInput.type = 'text';
+        statusInput.value = status.status || '';
+        statusInput.placeholder = 'Status Name';
+        statusInput.addEventListener('change', (e) => {
+            updateAudioStatusField(index, 'status', e.target.value);
+        });
+
+        // Folder display and browse button
+        const folderWrapper = document.createElement('div');
+        folderWrapper.className = 'folder-display-item';
+
+        const folderDisplay = document.createElement('div');
+        folderDisplay.className = 'folder-display';
+        const folderPath = status.folder || '';
+        if (folderPath) {
+            // Prepend ./ if it doesn't already start with ../ to make it clear it's relative
+            const displayPath = folderPath.startsWith('../') ? folderPath : `./${folderPath}`;
+            folderDisplay.textContent = displayPath;
+            folderDisplay.classList.remove('empty');
+        } else {
+            folderDisplay.textContent = 'No folder selected';
+            folderDisplay.classList.add('empty');
+        }
+        folderDisplay.dataset.index = index;
+
+        const folderBrowseBtn = document.createElement('button');
+        folderBrowseBtn.className = 'folder-browse-btn';
+        folderBrowseBtn.textContent = 'Browse...';
+        folderBrowseBtn.dataset.index = index;
+        folderBrowseBtn.addEventListener('click', async () => {
+            const defaultPath = folderPath ? resolveRelativePath(folderPath) : projectDir;
+            const selectedPath = await window.electronAPI.selectFolder(defaultPath);
+
+            if (selectedPath) {
+                const relativePath = makeRelativePath(selectedPath);
+                updateAudioStatusField(index, 'folder', relativePath);
+                // Prepend ./ if it doesn't already start with ../ to make it clear it's relative
+                const displayPath = relativePath.startsWith('../') ? relativePath : `./${relativePath}`;
+                folderDisplay.textContent = displayPath;
+                folderDisplay.classList.remove('empty');
+            }
+        });
+
+        folderWrapper.appendChild(folderDisplay);
+        folderWrapper.appendChild(folderBrowseBtn);
+
+        // Color picker
+        const colorWrapper = document.createElement('div');
+        colorWrapper.className = 'color-picker-wrapper';
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        const hexColor = status.color || 'FFFFFF';
+        colorInput.value = '#' + hexColor;
+        colorInput.addEventListener('change', (e) => {
+            const colorValue = e.target.value.substring(1).toUpperCase();
+            updateAudioStatusField(index, 'color', colorValue);
+        });
+        colorWrapper.appendChild(colorInput);
+
+        // Recorded checkbox
+        const recordedCheckbox = document.createElement('input');
+        recordedCheckbox.type = 'checkbox';
+        recordedCheckbox.checked = !!status.recorded;
+        recordedCheckbox.addEventListener('change', (e) => {
+            updateAudioStatusField(index, 'recorded', e.target.checked);
+        });
+
+        // Delete button
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.title = 'Delete';
+        deleteBtn.addEventListener('click', () => {
+            deleteAudioStatus(index);
+        });
+
+        div.appendChild(statusInput);
+        div.appendChild(folderWrapper);
+        div.appendChild(colorWrapper);
+        div.appendChild(recordedCheckbox);
+        div.appendChild(deleteBtn);
+
+        return div;
+    }
+
+    async function updateAudioStatusField(index, field, value) {
+        if (!projectConfig.audioStatus) {
+            projectConfig.audioStatus = [];
+        }
+
+        if (index >= 0 && index < projectConfig.audioStatus.length) {
+            projectConfig.audioStatus[index][field] = value;
+
+            const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
+
+            if (!success) {
+                console.error('Failed to update audio status');
+            }
+        }
+    }
+
+    async function deleteAudioStatus(index) {
+        const statusName = projectConfig.audioStatus[index]?.status || 'this status';
+        const confirmed = confirm(`Are you sure you want to delete "${statusName}"?`);
+
+        if (!confirmed) return;
+
+        if (!projectConfig.audioStatus) return;
+
+        projectConfig.audioStatus.splice(index, 1);
+
+        const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
+
+        if (success) {
+            renderAudioStatusList();
+        } else {
+            console.error('Failed to delete audio status');
+        }
+    }
+
+    async function addAudioStatus() {
+        if (!projectConfig.audioStatus) {
+            projectConfig.audioStatus = [];
+        }
+
+        const newStatus = {
+            status: 'New Status',
+            folder: '',
+            color: 'CCCCCC',
+            recorded: false
+        };
+
+        projectConfig.audioStatus.push(newStatus);
+
+        const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
+
+        if (success) {
+            renderAudioStatusList();
+        } else {
+            console.error('Failed to add audio status');
+        }
+    }
+
+    if (addAudioStatusBtn) {
+        addAudioStatusBtn.addEventListener('click', addAudioStatus);
+    }
+
+    // Initial render
+    renderAudioStatusList();
 
     // Apply initial theme based on system/settings
     const applyThemeClass = (theme) => {
