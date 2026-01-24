@@ -9,6 +9,7 @@
 - [Key Features](#key-features)
 - [The ID format](#the-id-format)
 - [Getting Started](#getting-started)
+- [The Dink Compiler](#the-dink-compiler)
 - [Releases](#releases)
 - [Acknowledgements](#acknowledgements)
 - [License and Attribution](#license-and-attribution)
@@ -66,6 +67,7 @@ Dinky generates an ID for every line of text or choice. It's hidden in the edito
 - **Theme:** Supports light, dark, or current system theme!
 - **Error Navigation:** Step through the list of errors, including invalid character names in Dinky.
 - **Knot/Stitch Navigation:** Go straight to a particular knot or stitch.
+- **Dink Compiler Integration:** Dinky can run [the Dink Compiler](#the-dink-compiler) and show you the results.
 
 ## The ID format
 
@@ -81,6 +83,16 @@ Dinky generates IDs that are stable and descriptive:
 1. **Create a New Project:** Open Dinky and create a `.dinkproj` file.
 2. **Define Your Root:** Point Dinky to your main `.ink` file.
 3. **Write and Tag:** Just write! Dinky handles the background tagging so you can focus on the story.
+
+## The Dink Compiler
+
+[The Dink Compiler](https://github.com/wildwinter/dink) is a command-line tool that compiles Dink projects to JSON files for use in game engines.
+
+At the moment you'll need to install the Dink Compiler separately. You can get it [here](https://github.com/wildwinter/dink/releases).
+
+Set the path to the compiler in the Settings menu.
+
+There is a menu option in the Project menu, `Project Settings`, which gives all the settings for the Dink Compiler. The Project menu also has the `Compile` option, which will run the compiler and show you the results.
 
 ## Releases
 
