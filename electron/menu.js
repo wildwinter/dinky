@@ -1,6 +1,6 @@
 import { app, Menu, dialog, nativeTheme, BrowserWindow } from 'electron'
 import path from 'path'
-import { getRecentProjects, saveSettings, loadSettings } from './config'
+import { getRecentProjects, saveSettings, loadSettings, getCompilerPath } from './config'
 import { loadProject, openNewIncludeUI, openNewInkRootUI } from './project-manager'
 import { openSearchWindow } from './search'
 import { openSettingsWindow } from './settings'
@@ -10,6 +10,7 @@ async function buildMenu(win) {
     const recentProjects = await getRecentProjects();
     const settings = await loadSettings();
     const currentLocale = settings.spellCheckerLocale || 'en_GB';
+    const compilerPath = await getCompilerPath();
 
     const isMac = process.platform === 'darwin'
 
@@ -177,6 +178,18 @@ async function buildMenu(win) {
                 { role: 'zoomOut' },
                 { type: 'separator' },
                 { role: 'togglefullscreen' }
+            ]
+        },
+        {
+            label: 'Project',
+            submenu: [
+                {
+                    label: 'Select Dink Compiler...',
+                    enabled: !compilerPath,
+                    click: () => {
+                        safeSend(win, 'select-compiler');
+                    }
+                }
             ]
         },
         {

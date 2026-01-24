@@ -206,10 +206,20 @@ monaco.languages.setMonarchTokensProvider('ink', {
     }
 });
 
+// Detect initial theme based on system preference
+const initialTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dinky-dark' : 'dinky-light';
+if (initialTheme === 'dinky-light') {
+    document.body.classList.add('light');
+    document.body.classList.remove('dark');
+} else {
+    document.body.classList.add('dark');
+    document.body.classList.remove('light');
+}
+
 const editor = monaco.editor.create(document.getElementById('editor-container'), {
     value: '',
     language: 'ink',
-    theme: 'dinky-dark',
+    theme: initialTheme,
     automaticLayout: true,
     readOnly: true,
     glyphMargin: true
@@ -691,6 +701,10 @@ document.getElementById('btn-load-project').addEventListener('click', () => {
 
 document.getElementById('btn-new-project').addEventListener('click', () => {
     window.electronAPI.newProject();
+});
+
+document.getElementById('btn-select-compiler-path').addEventListener('click', async () => {
+    await window.electronAPI.selectCompiler();
 });
 
 document.getElementById('btn-set-ink-root').addEventListener('click', () => {
@@ -2179,6 +2193,11 @@ window.electronAPI.onReplaceRequested(({ query, replacement, caseSensitive }) =>
     if (totalReplacements > 0) {
         checkSyntax();
     }
+});
+
+// Compiler selection handlers
+window.electronAPI.onSelectCompiler(async () => {
+    await window.electronAPI.selectCompiler();
 });
 
 function openFileAndSelectLine(filePath, line, query) {

@@ -198,13 +198,21 @@
             <!-- Loading Overlay removed -->
             <div id="editor-container"></div>
             <div id="empty-state">
-                <div style="display: flex; gap: 10px;">
-                    <button id="btn-load-project"
-                        style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">Load
-                        Project...</button>
-                    <button id="btn-new-project"
-                        style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">New
-                        Project...</button>
+                <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
+                    <div style="display: flex; gap: 10px;">
+                        <button id="btn-load-project"
+                            style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">Load
+                            Project...</button>
+                        <button id="btn-new-project"
+                            style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color);">New
+                            Project...</button>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px; align-items: center; margin-top: 10px;">
+                        <div style="font-size: 12px; color: var(--text-color); opacity: 0.6; font-style: italic;">(Optional, if you're going to compile with Dink.)</div>
+                        <button id="btn-select-compiler-path"
+                            style="padding: 8px 16px; font-size: 14px; cursor: pointer; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color); opacity: 0.8;">Select
+                            Dink Compiler Path...</button>
+                    </div>
                 </div>
             </div>
             <div id="no-root-state" style="display: none;">

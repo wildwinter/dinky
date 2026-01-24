@@ -2,7 +2,7 @@ import { app, BrowserWindow, nativeTheme, ipcMain, dialog, shell } from 'electro
 import path from 'path'
 import fs from 'fs/promises'
 
-import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowState, saveWindowState, flushSettings } from './config'
+import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowState, saveWindowState, flushSettings, getCompilerPath, setCompilerPath } from './config'
 import { buildMenu } from './menu'
 import { compileInk, parseInk } from './compiler'
 import { openTestWindow } from './test-runner'
@@ -361,6 +361,61 @@ if (!gotTheLock) {
     ipcMain.handle('create-new-project', async (event, name, parentPath) => {
         const win = BrowserWindow.fromWebContents(event.sender);
         return await createNewProject(win, name, parentPath);
+    });
+
+    ipcMain.handle('select-compiler', async (event) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const currentPath = await getCompilerPath();
+
+        const isWindows = process.platform === 'win32';
+        const expectedFilename = isWindows ? 'dink.exe' : 'dink';
+
+        const dialogOptions = {
+            defaultPath: currentPath || undefined,
+            properties: ['openFile', 'showHiddenFiles'],
+            title: 'Select Dink Compiler',
+            message: isWindows ? 'Select dink.exe' : 'Select the dink executable',
+            buttonLabel: 'Select Compiler'
+        };
+
+        // Only add filters on Windows where they're effective
+        if (isWindows) {
+            dialogOptions.filters = [{ name: 'Dink Compiler (dink.exe)', extensions: ['exe'] }];
+        }
+
+        const { canceled, filePaths } = await dialog.showOpenDialog(win, dialogOptions);
+
+        if (!canceled && filePaths.length > 0) {
+            const selectedPath = filePaths[0];
+            const selectedFilename = path.basename(selectedPath);
+
+            // Validate the filename
+            const isValidFilename = isWindows
+                ? selectedFilename.toLowerCase() === 'dink.exe'
+                : selectedFilename === 'dink';
+
+            if (!isValidFilename) {
+                dialog.showErrorBox(
+                    'Invalid Compiler Selection',
+                    `Please select the Dink Compiler executable named "${expectedFilename}".`
+                );
+                return null;
+            }
+
+            await setCompilerPath(selectedPath);
+
+            // Rebuild menu to update the disabled state
+            if (win) {
+                await buildMenu(win);
+            }
+
+            return selectedPath;
+        }
+        return null;
+    });
+
+    ipcMain.handle('get-compiler-path', async () => {
+        return await getCompilerPath();
     });
 
     app.whenReady().then(() => {

@@ -70,7 +70,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     editProjectDictionary: () => ipcRenderer.invoke('edit-project-dictionary'),
     setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
     setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),
-    onSettingsUpdated: (callback) => ipcRenderer.on('settings-updated', (_event, value) => callback(value))
+    onSettingsUpdated: (callback) => ipcRenderer.on('settings-updated', (_event, value) => callback(value)),
+
+    // Compiler path API
+    selectCompiler: () => ipcRenderer.invoke('select-compiler'),
+    getCompilerPath: () => ipcRenderer.invoke('get-compiler-path'),
+    onSelectCompiler: (callback) => ipcRenderer.on('select-compiler', (_event) => callback())
 });
 
 window.addEventListener('DOMContentLoaded', () => {

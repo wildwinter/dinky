@@ -9,7 +9,7 @@ if (window.electronAPI.platform === 'win32') {
     document.body.classList.add('linux');
 }
 
-window.electronAPI.onThemeUpdated((theme) => {
+const applyTheme = (theme) => {
     console.log('Theme updated:', theme);
     if (theme === 'vs') {
         document.body.classList.add('light');
@@ -18,6 +18,17 @@ window.electronAPI.onThemeUpdated((theme) => {
         document.body.classList.add('dark');
         document.body.classList.remove('light');
     }
+};
+
+// Set initial theme based on system preference
+if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    applyTheme('vs-dark');
+} else {
+    applyTheme('vs');
+}
+
+window.electronAPI.onThemeUpdated((theme) => {
+    applyTheme(theme);
 });
 
 const contentArea = document.getElementById('content-area');

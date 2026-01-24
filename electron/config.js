@@ -22,7 +22,7 @@ async function loadSettings() {
 
             return settingsCache;
         } catch (e) {
-            settingsCache = { theme: 'system', recentProjects: [], projectSettings: {}, windowStates: {} };
+            settingsCache = { theme: 'system', recentProjects: [], projectSettings: {}, windowStates: {}, compilerPath: '' };
             return settingsCache;
         } finally {
             loadPromise = null;
@@ -137,6 +137,16 @@ async function removeFromRecentProjects(filePath) {
     await saveSettings({ recentProjects: recent }, true);
 }
 
+// Compiler Path Helpers
+async function getCompilerPath() {
+    const settings = await loadSettings();
+    return settings.compilerPath || '';
+}
+
+async function setCompilerPath(filePath) {
+    await saveSettings({ compilerPath: filePath }, true);
+}
+
 export {
     loadSettings,
     saveSettings,
@@ -147,5 +157,7 @@ export {
     removeFromRecentProjects,
     getWindowState,
     saveWindowState,
-    flushSettings
+    flushSettings,
+    getCompilerPath,
+    setCompilerPath
 }

@@ -78,7 +78,8 @@ window.electronAPI.onFocusSearchInput(() => {
     findInFilesInput.select();
 });
 
-window.electronAPI.onThemeUpdated((theme) => {
+// Apply initial theme based on system preference
+const applyTheme = (theme) => {
     if (theme === 'vs') {
         document.body.classList.add('light');
         document.body.classList.remove('dark');
@@ -86,4 +87,15 @@ window.electronAPI.onThemeUpdated((theme) => {
         document.body.classList.add('dark');
         document.body.classList.remove('light');
     }
+};
+
+// Set initial theme
+if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    applyTheme('vs-dark');
+} else {
+    applyTheme('vs');
+}
+
+window.electronAPI.onThemeUpdated((theme) => {
+    applyTheme(theme);
 });

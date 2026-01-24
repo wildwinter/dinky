@@ -83,6 +83,33 @@
         button.secondary {
             min-width: 120px;
         }
+
+        .path-display {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: monospace;
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .path-display.empty {
+            font-style: italic;
+            opacity: 0.5;
+        }
+
+        .path-row {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
     </style>
 </head>
 
@@ -112,6 +139,17 @@
         <div class="setting-item">
             <label>Project Dictionary</label>
             <button id="btn-edit-dictionary" class="secondary">Edit File...</button>
+        </div>
+    </div>
+
+    <div class="setting-group">
+        <h2>Compiler</h2>
+        <div class="setting-item">
+            <label>Dink Compiler Path</label>
+            <button id="btn-select-compiler" class="secondary">Select...</button>
+        </div>
+        <div class="path-row">
+            <div id="compiler-path-display" class="path-display empty">No compiler selected</div>
         </div>
     </div>
 

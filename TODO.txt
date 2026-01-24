@@ -54,6 +54,7 @@ BUG: Dinky runtime include path handling of an include inside an include doesn't
 Navigate knot/stitch
 Back / forward location in editor
 Add error check bars and navigation
+BUG: settings menu wrong theme
 
 NOTES:
 ------
