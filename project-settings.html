@@ -194,6 +194,40 @@
             white-space: nowrap;
             margin-right: 0;
         }
+
+        .text-setting-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .text-setting-item label {
+            font-size: 13px;
+            white-space: nowrap;
+            margin-right: 10px;
+            min-width: 150px;
+        }
+
+        .text-setting-item input[type="text"] {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: monospace;
+            outline: none;
+            transition: border-color 0.2s ease;
+            width: 120px;
+        }
+
+        .text-setting-item input[type="text"]:focus {
+            border-color: var(--text-color);
+        }
+
+        .text-setting-item input[type="text"].invalid {
+            border-color: #ff3333;
+        }
     </style>
 </head>
 
@@ -216,6 +250,13 @@
                     <label>Output Folder</label>
                     <div id="output-folder-display" class="path-display empty">No folder selected</div>
                     <button id="btn-select-output-folder" class="secondary">Browse...</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="text-setting-item">
+                    <label for="defaultLocaleCode">Default Locale Code</label>
+                    <input type="text" id="defaultLocaleCode" name="defaultLocaleCode" maxlength="7" placeholder="en-GB">
                 </div>
             </div>
 

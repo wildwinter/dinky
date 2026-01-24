@@ -115,6 +115,56 @@ async function init() {
         });
     }
 
+    // Set up Default Locale Code text field
+    const defaultLocaleCodeInput = document.getElementById('defaultLocaleCode');
+    if (defaultLocaleCodeInput) {
+        // Load initial value
+        const currentValue = projectConfig.defaultLocaleCode || '';
+        defaultLocaleCodeInput.value = currentValue;
+
+        // Validation function
+        const validateLocaleCode = (value) => {
+            // Only letters (a-z, A-Z) and hyphen (-), max 7 characters
+            const regex = /^[a-zA-Z-]{0,7}$/;
+            return regex.test(value);
+        };
+
+        // Handle input validation
+        defaultLocaleCodeInput.addEventListener('input', (e) => {
+            const value = e.target.value;
+            if (!validateLocaleCode(value)) {
+                e.target.classList.add('invalid');
+            } else {
+                e.target.classList.remove('invalid');
+            }
+        });
+
+        // Handle blur (when user leaves the field)
+        defaultLocaleCodeInput.addEventListener('blur', async (e) => {
+            const value = e.target.value.trim();
+
+            if (!validateLocaleCode(value)) {
+                // Revert to previous value if invalid
+                e.target.value = projectConfig.defaultLocaleCode || '';
+                e.target.classList.remove('invalid');
+                return;
+            }
+
+            // Save valid value
+            if (value !== projectConfig.defaultLocaleCode) {
+                const success = await window.electronAPI.setProjectConfig('defaultLocaleCode', value);
+
+                if (success) {
+                    projectConfig.defaultLocaleCode = value;
+                } else {
+                    console.error('Failed to update defaultLocaleCode');
+                    // Revert to previous value
+                    e.target.value = projectConfig.defaultLocaleCode || '';
+                }
+            }
+        });
+    }
+
     // Set up checkboxes
     const checkboxes = [
         'locActions',
@@ -161,6 +211,15 @@ async function init() {
         if ('destFolder' in updatedConfig) {
             projectConfig.destFolder = updatedConfig.destFolder;
             updateOutputFolderDisplay();
+        }
+
+        // Update default locale code if changed
+        if ('defaultLocaleCode' in updatedConfig) {
+            projectConfig.defaultLocaleCode = updatedConfig.defaultLocaleCode;
+            const defaultLocaleCodeInput = document.getElementById('defaultLocaleCode');
+            if (defaultLocaleCodeInput) {
+                defaultLocaleCodeInput.value = updatedConfig.defaultLocaleCode || '';
+            }
         }
     });
 
