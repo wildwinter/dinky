@@ -1,0 +1,138 @@
+{
+    // What's the source Ink file?
+   "source":"main.ink",
+
+    // Where's the folder to output everything?
+    "destFolder":"./output",
+
+    // What code should be used for the strings file name?
+    "defaultLocaleCode":"en-GB",
+    
+    // Localise actions?
+    // Default is false, which means no text in Action beats
+    // will be localised
+    "locActions":false,
+
+    // Don't strip the text from the compiled Ink
+    "nostrip":true,
+    
+    // If true, outputs the structured dink file (json)
+    "outputDinkStructure": false,
+    
+    // If true, outputs the loc file (xlsx)
+    "outputLocalization": false,
+    
+    // If true, outputs the recording script file (xlsx)
+    "outputRecordingScript": false,
+
+    // Sometimes you want to output every single line in a recording or loc script
+    // to see what you've got.
+    "ignoreWritingStatus": false,
+
+    // If true, outputs the stats file (xlsx)
+    "outputStats": true,
+
+    // This is where the game will look for
+    // audio files that start with the ID names of the lines.
+    // The folders (and their children) will be searched in this
+    // order, so if a line is found in (say) the Audio/Recorded folder first, 
+    // its status in the recording script will be set to Recorded.
+    // If not found, the status will be set to Unknown.
+    "audioStatus":[
+        {
+            "status": "Final",
+            "folder": "Audio/Final",
+            "color": "33FF33",
+            // Means this status counts as recorded for figuring out actor requirements.
+            "recorded": true
+        },
+        {
+            "status": "Recorded",
+            "folder": "Audio/Recorded",
+            "color": "FFFF33",
+            // Means this status counts as recorded for figuring out actor requirements.
+            "recorded": true
+        },
+        {
+            "status": "Scratch",
+            "folder": "Audio/Scratch",
+            "color": "FF8833"
+        },
+        {
+            "status": "TTS",
+            "folder": "Audio/TTS",
+            "color": "FF3333"
+        }
+    ],
+
+    // Writing status tags - OPTIONAL - can be written on an Ink line as #ws:someStatus
+    // e.g. #ws:final or #ws:draft1
+    // If defined here, the following rules kick in:
+    // - If a file has a tag, everything in it defaults to that tag.
+    // - If a knot has a writing tag that overrides the file tag.
+    // - If a stitch has a writing tag that overrides the knot or file tag.
+    // - If a line has a writing tag that overrides the stitch, knot or file tag.
+    // - Only statuses with a record value of true will get sent to the recording script.
+    // - Only statuses with a loc value of true will get sent to the localisation strings.
+    // - The stats file will show all statuses.
+    // If this section is not defined, no writing status tags are used and everything will be
+    // sent to recording script and localisation.
+    // If a line has no status it will be treated as "Unknown".
+    // The color is what ends up in the Excel file for a line of this status - it's optional.
+    "writingStatus": [
+        {
+            "status": "Final",
+            "wstag": "final",
+            "record": true,
+            "loc": true,
+            "color": "33FF33"
+        },
+        {
+            "status": "Second Draft",
+            "wstag": "draft2",
+            "color": "FFFF33"
+        },
+        {
+            "status": "First Draft",
+            "wstag": "draft1",
+            "color": "FF8833"
+        },
+        {
+            "status": "Stub",
+            "wstag": "stub",
+            "color": "FF3333",
+            "estimate": true
+        }
+    ],
+
+    // Control which comments are seen on which script
+    "commentFilters": {
+        // For localisation, include comments with no prefix, but also prefix LOC:
+        "loc": ["?","LOC"],
+        // For recording script, includes comments with no prefix, but also prefix VO:
+        "record": ["?","VO"]
+    },
+
+    // Control which tags are seen on which script
+    // By default nothing is passed.
+    "tagFilters": {
+        // Currently only the recording script exports tags. Same rules as comment filters!
+        // This passes tags such as #vo:loud or #vo:soft
+        "record": ["vo"]
+    },
+
+    // GoogleTTS parameters
+    "googleTTS": {
+        "generate":true, // If false, you'll need to use --tts on the command-line
+        "authentication":"google-tts-key.json",
+        "outputFolder":"Audio/TTS"
+    },
+
+    // Estimates
+    "estimates":[
+        {"tag":"type:conversation", "lines":50},
+        {"tag":"type:barks", "lines":20},   
+        {"tag":"type:ambients", "lines":2},   
+        {"tag":"type:cutscene", "lines":10}        
+    ]
+}

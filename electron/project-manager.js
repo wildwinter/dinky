@@ -218,11 +218,21 @@ async function createNewProject(win, name, parentPath) {
     try {
         await fs.mkdir(projectDir, { recursive: true });
 
-        // Create project JSON with source reference
-        const projectContent = {
-            source: 'main.ink',
-            destFolder: 'output'
-        };
+        // Load template from build directory
+        const templatePath = path.join(__dirname, '../build/template.dinkproj');
+        let projectContent;
+        try {
+            const templateData = await fs.readFile(templatePath, 'utf-8');
+            projectContent = JSON.parse(templateData);
+        } catch (templateError) {
+            console.warn('Failed to load template, using default:', templateError);
+            // Fallback to default structure if template is missing
+            projectContent = {
+                source: 'main.ink',
+                destFolder: 'output'
+            };
+        }
+
         await fs.writeFile(projectFile, JSON.stringify(projectContent, null, 2), 'utf-8');
 
         // Default Ink content
