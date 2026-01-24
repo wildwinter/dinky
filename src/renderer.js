@@ -239,6 +239,8 @@ window.electronAPI.loadSettings().then(async settings => {
 const idManager = new IdPreservationManager(editor, monaco);
 // Decoration collection for jump highlighting
 const jumpHighlightCollection = editor.createDecorationsCollection();
+// Decoration collection for writing status tag highlighting
+const wsTagDecorationCollection = editor.createDecorationsCollection();
 
 
 window.electronAPI.onSettingsUpdated(async (newSettings) => {
@@ -1203,6 +1205,9 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     lastSpellCheckedFilePath = null;
     lastSpellCheckContent = null;
 
+    // Update writing status tag highlighting immediately for visual feedback
+    highlightWritingStatusTags(newModel);
+
     isUpdatingContent = false;
 
     // Defer non-critical operations to keep UI responsive immediately after model swap
@@ -1313,6 +1318,8 @@ async function checkSyntax() {
 
         const model = editor.getModel();
         if (model) {
+            // Update writing status tag highlighting after loading tags
+            highlightWritingStatusTags(model);
 
 
             // Filter errors to display only those relevant to the current file (for Monaco markers)
@@ -1504,6 +1511,9 @@ editor.onDidChangeModelContent(() => {
     debouncedCheck();
     debouncedCheckSpelling();
     debouncedAutoTag();
+
+    // Update writing status tag highlighting
+    highlightWritingStatusTags(model);
 
     // Invalidate navigation structure cache when content changes (knots/stitches may be added/removed)
     navigationStructureDirty = true;
@@ -2566,6 +2576,77 @@ function validateWritingStatusTagsInText(text) {
 function validateWritingStatusTags(model) {
     const text = model.getValue();
     return validateWritingStatusTagsInText(text);
+}
+
+function highlightWritingStatusTags(model) {
+    if (!model || projectWritingStatusTags.length === 0) {
+        wsTagDecorationCollection.clear();
+        return;
+    }
+
+    const text = model.getValue();
+    const lines = text.split(/\r?\n/);
+    const decorations = [];
+
+    // Create a map of wstag -> color for quick lookup
+    const tagColorMap = new Map();
+    projectWritingStatusTags.forEach(ws => {
+        if (ws.wstag && ws.color) {
+            tagColorMap.set(ws.wstag, ws.color);
+        }
+    });
+
+    // Regex to capture #ws:tag
+    const wsTagRegex = /#ws:(\S+)/g;
+
+    lines.forEach((line, index) => {
+        let match;
+        // Reset regex for each line
+        wsTagRegex.lastIndex = 0;
+
+        while ((match = wsTagRegex.exec(line)) !== null) {
+            const tag = match[1];
+            const color = tagColorMap.get(tag);
+
+            if (color) {
+                // Convert hex color (RRGGBB) to rgba with transparency
+                const r = parseInt(color.substring(0, 2), 16);
+                const g = parseInt(color.substring(2, 4), 16);
+                const b = parseInt(color.substring(4, 6), 16);
+
+                // Dynamically create CSS rule for this specific color
+                const styleId = `ws-tag-style-${color}`;
+                const className = `ws-tag-highlight-${color}`;
+
+                if (!document.getElementById(styleId)) {
+                    const style = document.createElement('style');
+                    style.id = styleId;
+                    style.textContent = `
+                        .${className} {
+                            background-color: rgba(${r}, ${g}, ${b}, 0.25) !important;
+                            color: rgb(${r}, ${g}, ${b}) !important;
+                            border-radius: 2px;
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+
+                decorations.push({
+                    range: new monaco.Range(
+                        index + 1,
+                        match.index + 1,
+                        index + 1,
+                        match.index + 1 + match[0].length
+                    ),
+                    options: {
+                        inlineClassName: className
+                    }
+                });
+            }
+        }
+    });
+
+    wsTagDecorationCollection.set(decorations);
 }
 
 function levenshtein(a, b) {
