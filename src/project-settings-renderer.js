@@ -273,6 +273,93 @@ async function init() {
         }
     });
 
+    // Set up Google TTS
+    const googleTTSKeyFileDisplay = document.getElementById('google-tts-key-file-display');
+    const selectGoogleTTSKeyFileBtn = document.getElementById('btn-select-google-tts-key-file');
+    const googleTTSOutputFolderDisplay = document.getElementById('google-tts-output-folder-display');
+    const selectGoogleTTSOutputFolderBtn = document.getElementById('btn-select-google-tts-output-folder');
+
+    const updateGoogleTTSKeyFileDisplay = () => {
+        const authentication = projectConfig.googleTTS?.authentication || '';
+        if (authentication) {
+            // Prepend ./ if it doesn't already start with ../ to make it clear it's relative
+            const displayPath = authentication.startsWith('../') ? authentication : `./${authentication}`;
+            googleTTSKeyFileDisplay.textContent = displayPath;
+            googleTTSKeyFileDisplay.classList.remove('empty');
+        } else {
+            googleTTSKeyFileDisplay.textContent = 'No file selected';
+            googleTTSKeyFileDisplay.classList.add('empty');
+        }
+    };
+
+    const updateGoogleTTSOutputFolderDisplay = () => {
+        const outputFolder = projectConfig.googleTTS?.outputFolder || '';
+        if (outputFolder) {
+            // Prepend ./ if it doesn't already start with ../ to make it clear it's relative
+            const displayPath = outputFolder.startsWith('../') ? outputFolder : `./${outputFolder}`;
+            googleTTSOutputFolderDisplay.textContent = displayPath;
+            googleTTSOutputFolderDisplay.classList.remove('empty');
+        } else {
+            googleTTSOutputFolderDisplay.textContent = 'No folder selected';
+            googleTTSOutputFolderDisplay.classList.add('empty');
+        }
+    };
+
+    updateGoogleTTSKeyFileDisplay();
+    updateGoogleTTSOutputFolderDisplay();
+
+    if (selectGoogleTTSKeyFileBtn) {
+        selectGoogleTTSKeyFileBtn.addEventListener('click', async () => {
+            const currentKeyFile = projectConfig.googleTTS?.authentication || '';
+            const defaultPath = currentKeyFile ? resolveRelativePath(currentKeyFile) : projectDir;
+
+            const selectedPath = await window.electronAPI.selectFile(defaultPath, [
+                { name: 'JSON Files', extensions: ['json'] }
+            ]);
+
+            if (selectedPath) {
+                const relativePath = makeRelativePath(selectedPath);
+                if (!projectConfig.googleTTS) {
+                    projectConfig.googleTTS = {};
+                }
+                projectConfig.googleTTS.authentication = relativePath;
+
+                const success = await window.electronAPI.setProjectConfig('googleTTS', projectConfig.googleTTS);
+
+                if (success) {
+                    updateGoogleTTSKeyFileDisplay();
+                } else {
+                    console.error('Failed to update Google TTS key file');
+                }
+            }
+        });
+    }
+
+    if (selectGoogleTTSOutputFolderBtn) {
+        selectGoogleTTSOutputFolderBtn.addEventListener('click', async () => {
+            const currentOutputFolder = projectConfig.googleTTS?.outputFolder || '';
+            const defaultPath = currentOutputFolder ? resolveRelativePath(currentOutputFolder) : projectDir;
+
+            const selectedPath = await window.electronAPI.selectFolder(defaultPath);
+
+            if (selectedPath) {
+                const relativePath = makeRelativePath(selectedPath);
+                if (!projectConfig.googleTTS) {
+                    projectConfig.googleTTS = {};
+                }
+                projectConfig.googleTTS.outputFolder = relativePath;
+
+                const success = await window.electronAPI.setProjectConfig('googleTTS', projectConfig.googleTTS);
+
+                if (success) {
+                    updateGoogleTTSOutputFolderDisplay();
+                } else {
+                    console.error('Failed to update Google TTS output folder');
+                }
+            }
+        });
+    }
+
     // Set up checkboxes
     const checkboxes = [
         'locActions',
@@ -303,6 +390,27 @@ async function init() {
             });
         }
     });
+
+    // Set up Google TTS Generate checkbox
+    const googleTTSGenerateCheckbox = document.getElementById('googleTTSGenerate');
+    if (googleTTSGenerateCheckbox) {
+        googleTTSGenerateCheckbox.checked = !!projectConfig.googleTTS?.generate;
+
+        googleTTSGenerateCheckbox.addEventListener('change', async (e) => {
+            const newValue = e.target.checked;
+            if (!projectConfig.googleTTS) {
+                projectConfig.googleTTS = {};
+            }
+            projectConfig.googleTTS.generate = newValue;
+
+            const success = await window.electronAPI.setProjectConfig('googleTTS', projectConfig.googleTTS);
+
+            if (!success) {
+                console.error('Failed to update googleTTS.generate');
+                e.target.checked = !newValue;
+            }
+        });
+    }
 
     // Listen for project config updates from main process
     window.electronAPI.onProjectConfigUpdated((updatedConfig) => {
@@ -362,6 +470,19 @@ async function init() {
                     recordTagsInput.value = arrayToCSV(updatedConfig.tagFilters.record || []);
                 }
             }
+        }
+
+        // Update Google TTS if changed
+        if ('googleTTS' in updatedConfig) {
+            projectConfig.googleTTS = updatedConfig.googleTTS;
+            
+            const generateCheckbox = document.getElementById('googleTTSGenerate');
+            if (generateCheckbox) {
+                generateCheckbox.checked = !!updatedConfig.googleTTS?.generate;
+            }
+            
+            updateGoogleTTSKeyFileDisplay();
+            updateGoogleTTSOutputFolderDisplay();
         }
     });
 

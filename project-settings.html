@@ -563,6 +563,7 @@
         <div class="tab" data-tab="writing-status">Writing Status</div>
         <div class="tab" data-tab="audio-status">Audio Status</div>
         <div class="tab" data-tab="filters">Filters</div>
+        <div class="tab" data-tab="google-tts">Google TTS</div>
     </div>
 
     <div class="content">
@@ -728,6 +729,33 @@
                 </div>
                 <div class="section-description" style="margin-left: 150px; margin-top: -5px;">
                     Any tags starting with one of these prefixes followed by a colon (e.g. #mytag:) will be output to the recording script.
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab-content="google-tts">
+            <div class="section">
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="googleTTSGenerate" name="googleTTSGenerate">
+                        <label for="googleTTSGenerate">Generate TTS</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="path-setting-item">
+                    <label>Key File</label>
+                    <div id="google-tts-key-file-display" class="path-display empty">No file selected</div>
+                    <button id="btn-select-google-tts-key-file" class="secondary">Browse...</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="path-setting-item">
+                    <label>Output Folder</label>
+                    <div id="google-tts-output-folder-display" class="path-display empty">No folder selected</div>
+                    <button id="btn-select-google-tts-output-folder" class="secondary">Browse...</button>
                 </div>
             </div>
         </div>
