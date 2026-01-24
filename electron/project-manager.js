@@ -208,7 +208,8 @@ async function createNewProject(win, name, parentPath) {
 
         // Create project JSON with source reference
         const projectContent = {
-            source: 'main.ink'
+            source: 'main.ink',
+            destFolder: 'output'
         };
         await fs.writeFile(projectFile, JSON.stringify(projectContent, null, 2), 'utf-8');
 
