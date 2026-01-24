@@ -368,19 +368,19 @@ if (!gotTheLock) {
         const currentPath = await getCompilerPath();
 
         const isWindows = process.platform === 'win32';
-        const expectedFilename = isWindows ? 'dink.exe' : 'dink';
+        const expectedFilename = isWindows ? 'DinkCompiler.exe' : 'DinkCompiler';
 
         const dialogOptions = {
             defaultPath: currentPath || undefined,
             properties: ['openFile', 'showHiddenFiles'],
             title: 'Select Dink Compiler',
-            message: isWindows ? 'Select dink.exe' : 'Select the dink executable',
+            message: isWindows ? 'Select DinkCompiler.exe' : 'Select the DinkCompiler executable',
             buttonLabel: 'Select Compiler'
         };
 
         // Only add filters on Windows where they're effective
         if (isWindows) {
-            dialogOptions.filters = [{ name: 'Dink Compiler (dink.exe)', extensions: ['exe'] }];
+            dialogOptions.filters = [{ name: 'Dink Compiler (DinkCompiler.exe)', extensions: ['exe'] }];
         }
 
         const { canceled, filePaths } = await dialog.showOpenDialog(win, dialogOptions);
@@ -391,8 +391,8 @@ if (!gotTheLock) {
 
             // Validate the filename
             const isValidFilename = isWindows
-                ? selectedFilename.toLowerCase() === 'dink.exe'
-                : selectedFilename === 'dink';
+                ? selectedFilename.toLowerCase() === 'dinkcompiler.exe'
+                : selectedFilename === 'DinkCompiler';
 
             if (!isValidFilename) {
                 dialog.showErrorBox(
