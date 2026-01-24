@@ -240,7 +240,7 @@
 
         .status-item {
             display: grid;
-            grid-template-columns: 1fr 1fr 50px 50px 50px 50px 40px;
+            grid-template-columns: 1fr 1fr 50px 50px 50px 50px 30px 30px 40px;
             gap: 8px;
             align-items: center;
             padding: 6px 10px;
@@ -319,6 +319,30 @@
             color: #ff3333;
         }
 
+        .status-item .move-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+            font-size: 14px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .status-item .move-btn:hover:not(:disabled) {
+            opacity: 1;
+        }
+
+        .status-item .move-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
         .add-status-btn {
             background-color: transparent;
             color: var(--text-color);
@@ -345,7 +369,7 @@
 
         .status-header {
             display: grid;
-            grid-template-columns: 1fr 1fr 50px 50px 50px 50px 40px;
+            grid-template-columns: 1fr 1fr 50px 50px 50px 50px 30px 30px 40px;
             gap: 8px;
             padding: 6px 10px;
             font-size: 11px;
@@ -364,7 +388,7 @@
 
         .audio-status-item {
             display: grid;
-            grid-template-columns: 1fr 1fr 50px 50px 40px;
+            grid-template-columns: 1fr 1fr 50px 50px 30px 30px 40px;
             gap: 8px;
             align-items: center;
             padding: 6px 10px;
@@ -439,9 +463,33 @@
             color: #ff3333;
         }
 
+        .audio-status-item .move-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+            font-size: 14px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .audio-status-item .move-btn:hover:not(:disabled) {
+            opacity: 1;
+        }
+
+        .audio-status-item .move-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
         .audio-status-header {
             display: grid;
-            grid-template-columns: 1fr 1fr 50px 50px 40px;
+            grid-template-columns: 1fr 1fr 50px 50px 30px 30px 40px;
             gap: 8px;
             padding: 6px 10px;
             font-size: 11px;
@@ -631,7 +679,7 @@
         <div class="tab-content" data-tab-content="audio-status">
             <div class="section">
                 <div class="section-description">
-                    Define audio status locations and settings. The compiler will check each folder in order to determine the status of audio files based on their ID names.
+                    Define audio status locations and settings. The compiler will check each folder in order to determine the status of audio files based on their ID names. If Recorded is checked, the stats report will treat these lines as no longer needing recording.
                 </div>
 
                 <div class="audio-status-header">

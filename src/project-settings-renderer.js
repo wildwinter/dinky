@@ -470,12 +470,34 @@ async function init() {
             deleteStatus(index);
         });
 
+        // Move up button
+        const moveUpBtn = document.createElement('button');
+        moveUpBtn.className = 'move-btn';
+        moveUpBtn.innerHTML = '↑';
+        moveUpBtn.title = 'Move Up';
+        moveUpBtn.disabled = index === 0;
+        moveUpBtn.addEventListener('click', () => {
+            moveStatusUp(index);
+        });
+
+        // Move down button
+        const moveDownBtn = document.createElement('button');
+        moveDownBtn.className = 'move-btn';
+        moveDownBtn.innerHTML = '↓';
+        moveDownBtn.title = 'Move Down';
+        moveDownBtn.disabled = index === (projectConfig.writingStatus?.length || 0) - 1;
+        moveDownBtn.addEventListener('click', () => {
+            moveStatusDown(index);
+        });
+
         div.appendChild(statusInput);
         div.appendChild(tagInput);
         div.appendChild(recordCheckbox);
         div.appendChild(locCheckbox);
         div.appendChild(estimateCheckbox);
         div.appendChild(colorWrapper);
+        div.appendChild(moveUpBtn);
+        div.appendChild(moveDownBtn);
         div.appendChild(deleteBtn);
 
         return div;
@@ -514,6 +536,38 @@ async function init() {
             renderWritingStatusList();
         } else {
             console.error('Failed to delete status');
+        }
+    }
+
+    async function moveStatusUp(index) {
+        if (!projectConfig.writingStatus || index <= 0) return;
+
+        // Swap with previous item
+        [projectConfig.writingStatus[index - 1], projectConfig.writingStatus[index]] = 
+        [projectConfig.writingStatus[index], projectConfig.writingStatus[index - 1]];
+
+        const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
+
+        if (success) {
+            renderWritingStatusList();
+        } else {
+            console.error('Failed to move status up');
+        }
+    }
+
+    async function moveStatusDown(index) {
+        if (!projectConfig.writingStatus || index >= projectConfig.writingStatus.length - 1) return;
+
+        // Swap with next item
+        [projectConfig.writingStatus[index], projectConfig.writingStatus[index + 1]] = 
+        [projectConfig.writingStatus[index + 1], projectConfig.writingStatus[index]];
+
+        const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
+
+        if (success) {
+            renderWritingStatusList();
+        } else {
+            console.error('Failed to move status down');
         }
     }
 
@@ -647,10 +701,32 @@ async function init() {
             deleteAudioStatus(index);
         });
 
+        // Move up button
+        const moveUpBtn = document.createElement('button');
+        moveUpBtn.className = 'move-btn';
+        moveUpBtn.innerHTML = '↑';
+        moveUpBtn.title = 'Move Up';
+        moveUpBtn.disabled = index === 0;
+        moveUpBtn.addEventListener('click', () => {
+            moveAudioStatusUp(index);
+        });
+
+        // Move down button
+        const moveDownBtn = document.createElement('button');
+        moveDownBtn.className = 'move-btn';
+        moveDownBtn.innerHTML = '↓';
+        moveDownBtn.title = 'Move Down';
+        moveDownBtn.disabled = index === (projectConfig.audioStatus?.length || 0) - 1;
+        moveDownBtn.addEventListener('click', () => {
+            moveAudioStatusDown(index);
+        });
+
         div.appendChild(statusInput);
         div.appendChild(folderWrapper);
         div.appendChild(colorWrapper);
         div.appendChild(recordedCheckbox);
+        div.appendChild(moveUpBtn);
+        div.appendChild(moveDownBtn);
         div.appendChild(deleteBtn);
 
         return div;
@@ -688,6 +764,38 @@ async function init() {
             renderAudioStatusList();
         } else {
             console.error('Failed to delete audio status');
+        }
+    }
+
+    async function moveAudioStatusUp(index) {
+        if (!projectConfig.audioStatus || index <= 0) return;
+
+        // Swap with previous item
+        [projectConfig.audioStatus[index - 1], projectConfig.audioStatus[index]] = 
+        [projectConfig.audioStatus[index], projectConfig.audioStatus[index - 1]];
+
+        const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
+
+        if (success) {
+            renderAudioStatusList();
+        } else {
+            console.error('Failed to move audio status up');
+        }
+    }
+
+    async function moveAudioStatusDown(index) {
+        if (!projectConfig.audioStatus || index >= projectConfig.audioStatus.length - 1) return;
+
+        // Swap with next item
+        [projectConfig.audioStatus[index], projectConfig.audioStatus[index + 1]] = 
+        [projectConfig.audioStatus[index + 1], projectConfig.audioStatus[index]];
+
+        const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
+
+        if (success) {
+            renderAudioStatusList();
+        } else {
+            console.error('Failed to move audio status down');
         }
     }
 
