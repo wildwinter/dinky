@@ -7,12 +7,19 @@
  * Error banner state management
  */
 export class ErrorManager {
-    constructor(editorRef) {
+    constructor(editorRef, loadedInkFilesRef = null) {
         this.editor = editorRef;
         this.currentErrors = [];
         this.errorBannerIndex = 0;
         this.previousErrorsCount = 0;
-        this.loadedInkFiles = new Map();
+        this.loadedInkFiles = loadedInkFilesRef || new Map();
+    }
+
+    /**
+     * Set reference to loadedInkFiles Map
+     */
+    setLoadedInkFiles(filesRef) {
+        this.loadedInkFiles = filesRef;
     }
 
     /**

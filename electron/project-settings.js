@@ -96,6 +96,9 @@ ipcMain.handle('get-project-config', async (event) => {
     };
 });
 
+// Keys that affect menu state and require a menu rebuild when changed
+const menuAffectingKeys = ['outputRecordingScript', 'outputLocalization', 'outputStats'];
+
 ipcMain.handle('set-project-config', async (event, key, value) => {
     try {
         await updateProjectConfig(key, value);
@@ -103,6 +106,11 @@ ipcMain.handle('set-project-config', async (event, key, value) => {
         // Notify the project settings window of the update
         if (projectSettingsWindow && !projectSettingsWindow.isDestroyed()) {
             safeSend(projectSettingsWindow, 'project-config-updated', { [key]: value });
+        }
+
+        // Rebuild menu if this key affects menu item enablement
+        if (menuAffectingKeys.includes(key)) {
+            ipcMain.emit('rebuild-menu');
         }
 
         return true;

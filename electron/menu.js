@@ -1,11 +1,39 @@
-import { app, Menu, dialog, nativeTheme, BrowserWindow } from 'electron'
+import { app, Menu, dialog, nativeTheme, BrowserWindow, shell } from 'electron'
 import path from 'path'
 import { getRecentProjects, saveSettings, loadSettings, getCompilerPath } from './config'
-import { loadProject, openNewIncludeUI, openNewInkRootUI, openInkRootUI, getCurrentProject } from './project-manager'
+import { loadProject, openNewIncludeUI, openNewInkRootUI, openInkRootUI, getCurrentProject, getCurrentInkRoot } from './project-manager'
 import { openSearchWindow } from './search'
 import { openSettingsWindow } from './settings'
 import { openProjectSettingsWindow } from './project-settings'
 import { safeSend } from './utils'
+
+/**
+ * Opens an output file (xlsx) from the project's destFolder using the platform's default application
+ * @param {object} project - The current project object
+ * @param {string} suffix - The file suffix (e.g., '-recording.xlsx', '-loc.xlsx', '-stats.xlsx')
+ */
+async function openOutputFile(project, suffix) {
+    if (!project || !project.content) return;
+
+    const projectDir = path.dirname(project.path);
+    const destFolder = project.content.destFolder || './output';
+    const inkRoot = getCurrentInkRoot();
+
+    if (!inkRoot) return;
+
+    // Get basename of the ink root file (without .ink extension)
+    const basename = path.basename(inkRoot, '.ink');
+
+    // Build the full path: projectDir / destFolder / basename + suffix
+    const filePath = path.resolve(projectDir, destFolder, basename + suffix);
+
+    // Open with the platform's default application
+    const result = await shell.openPath(filePath);
+    if (result) {
+        // shell.openPath returns an error string if it fails, empty string on success
+        dialog.showErrorBox('Error', `Could not open file: ${result}`);
+    }
+}
 
 async function buildMenu(win) {
     const recentProjects = await getRecentProjects();
@@ -207,6 +235,28 @@ async function buildMenu(win) {
                     enabled: hasNonAdhocProject,
                     click: () => {
                         openProjectSettingsWindow(win);
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Open Recording Script...',
+                    enabled: !!compilerPath && hasNonAdhocProject && !!currentProject?.content?.outputRecordingScript,
+                    click: () => {
+                        openOutputFile(currentProject, '-recording.xlsx');
+                    }
+                },
+                {
+                    label: 'Open Localization Spreadsheet...',
+                    enabled: !!compilerPath && hasNonAdhocProject && !!currentProject?.content?.outputLocalization,
+                    click: () => {
+                        openOutputFile(currentProject, '-loc.xlsx');
+                    }
+                },
+                {
+                    label: 'Open Statistics...',
+                    enabled: !!compilerPath && hasNonAdhocProject && !!currentProject?.content?.outputStats,
+                    click: () => {
+                        openOutputFile(currentProject, '-stats.xlsx');
                     }
                 }
             ]

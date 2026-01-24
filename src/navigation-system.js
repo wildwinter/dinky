@@ -7,10 +7,10 @@
  * Navigation system management
  */
 export class NavigationSystem {
-    constructor(editorRef) {
+    constructor(editorRef, loadedInkFilesRef = null) {
         this.editor = editorRef;
         this.navDropdown = document.getElementById('nav-dropdown');
-        this.loadedInkFiles = new Map();
+        this.loadedInkFiles = loadedInkFilesRef || new Map();
         this.currentFilePath = null;
         
         // Navigation history for back/forward functionality
@@ -32,6 +32,13 @@ export class NavigationSystem {
     setupEventListeners() {
         this.navDropdown.addEventListener('change', () => this.onDropdownChange());
         this.editor.onDidChangeCursorPosition(() => this.onCursorPositionChange());
+    }
+
+    /**
+     * Set reference to loadedInkFiles Map
+     */
+    setLoadedInkFiles(filesRef) {
+        this.loadedInkFiles = filesRef;
     }
 
     /**

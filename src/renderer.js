@@ -38,6 +38,35 @@ setupThemeListener((newTheme) => {
     // Additional theme setup if needed
 });
 
+// Declare global state variables early (before manager initialization)
+let loadedInkFiles = new Map();
+let projectCharacters = [];
+let projectWritingStatusTags = [];
+let currentFilePath = null;
+let rootInkPath = null;
+let isUpdatingContent = false;
+let lastTestKnot = null;
+
+// Spell check optimization - track changed lines
+let lastSpellCheckedFilePath = null;
+let lastSpellCheckContent = null; // Content hash or full text of last spell check
+let spellCheckMarkersByLine = new Map(); // filePath -> Map of line -> markers
+
+// Error banner state
+let currentErrors = []; // Array of all current errors (compilation errors + spell check)
+let errorBannerIndex = 0; // Current error being displayed in the banner
+let previousErrorsCount = 0; // Track previous error count to detect changes
+
+// Navigation history for back/forward functionality
+let navigationHistory = [];
+let navigationHistoryIndex = -1;
+let lastNavigationLocation = { filePath: null, knotName: null };
+let isNavigatingHistory = false; // Flag to prevent adding history while navigating via back/forward
+
+// Navigation structure caching for performance
+let cachedNavigationStructure = null;
+let navigationStructureDirty = true; // Mark as dirty when file list changes
+
 // Initialize core instances
 const spellChecker = new DinkySpellChecker();
 const idManager = new IdPreservationManager(editor, monaco);
@@ -47,11 +76,11 @@ const wsTagDecorationCollection = editor.createDecorationsCollection();
 // Initialize ModelPool for efficient model reuse
 const modelPool = new ModelPool(5);
 
-// Initialize ErrorManager for error display and navigation
-const errorManager = new ErrorManager(editor);
+// Initialize ErrorManager for error display and navigation (with reference to loadedInkFiles)
+const errorManager = new ErrorManager(editor, loadedInkFiles);
 
-// Initialize NavigationSystem for dropdown and history
-const navigationSystem = new NavigationSystem(editor);
+// Initialize NavigationSystem for dropdown and history (with reference to loadedInkFiles)
+const navigationSystem = new NavigationSystem(editor, loadedInkFiles);
 
 // Initialize ValidationEngine for character and tag validation
 const validationEngine = new ValidationEngine(monaco);
@@ -274,36 +303,6 @@ function checkSpelling() {
     monaco.editor.setModelMarkers(model, 'spellcheck', markers);
 }
 
-
-
-
-let loadedInkFiles = new Map();
-let projectCharacters = [];
-let projectWritingStatusTags = [];
-let currentFilePath = null;
-let rootInkPath = null;
-let isUpdatingContent = false;
-let lastTestKnot = null;
-
-// Spell check optimization - track changed lines
-let lastSpellCheckedFilePath = null;
-let lastSpellCheckContent = null; // Content hash or full text of last spell check
-let spellCheckMarkersByLine = new Map(); // filePath -> Map of line -> markers
-
-// Error banner state
-let currentErrors = []; // Array of all current errors (compilation errors + spell check)
-let errorBannerIndex = 0; // Current error being displayed in the banner
-let previousErrorsCount = 0; // Track previous error count to detect changes
-
-// Navigation history for back/forward functionality
-let navigationHistory = [];
-let navigationHistoryIndex = -1;
-let lastNavigationLocation = { filePath: null, knotName: null };
-let isNavigatingHistory = false; // Flag to prevent adding history while navigating via back/forward
-
-// Navigation structure caching for performance
-let cachedNavigationStructure = null;
-let navigationStructureDirty = true; // Mark as dirty when file list changes
 
 // Error banner management functions
 function updateErrorBanner() {
