@@ -375,6 +375,7 @@
         <div class="tab active" data-tab="general">General</div>
         <div class="tab" data-tab="outputs">Outputs</div>
         <div class="tab" data-tab="writing-status">Writing Status</div>
+        <div class="tab" data-tab="filters">Filters</div>
     </div>
 
     <div class="content">
@@ -485,6 +486,40 @@
                 </div>
 
                 <button id="add-writing-status" class="add-status-btn" title="Add Status">+</button>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab-content="filters">
+            <div class="section">
+                <h2 style="font-size: 1.1em; margin: 0 0 15px 0;">Comment Filters</h2>
+
+                <div class="text-setting-item">
+                    <label for="commentFiltersLoc">Localization Comments</label>
+                    <input type="text" id="commentFiltersLoc" name="commentFiltersLoc" placeholder="e.g. LOC,TRANS,?">
+                </div>
+                <div class="section-description" style="margin-left: 150px; margin-top: -5px;">
+                    Any comments starting with one of these prefixes followed by a colon (e.g. //MYPREFIX:) will be output to the localization spreadsheet. A ? means any comment with no prefix.
+                </div>
+
+                <div class="text-setting-item" style="margin-top: 10px;">
+                    <label for="commentFiltersRecord">Recording Comments</label>
+                    <input type="text" id="commentFiltersRecord" name="commentFiltersRecord" placeholder="e.g. RECORD,VO,?">
+                </div>
+                <div class="section-description" style="margin-left: 150px; margin-top: -5px;">
+                    Any comments starting with one of these prefixes followed by a colon (e.g. //MYPREFIX:) will be output to the recording script. A ? means any comment with no prefix.
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 style="font-size: 1.1em; margin: 0 0 15px 0;">Tag Filters</h2>
+
+                <div class="text-setting-item">
+                    <label for="tagFiltersRecord">Recording Tags</label>
+                    <input type="text" id="tagFiltersRecord" name="tagFiltersRecord" placeholder="e.g. vo,music,sfx">
+                </div>
+                <div class="section-description" style="margin-left: 150px; margin-top: -5px;">
+                    Any tags starting with one of these prefixes followed by a colon (e.g. #mytag:) will be output to the recording script.
+                </div>
             </div>
         </div>
     </div>

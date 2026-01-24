@@ -165,6 +165,114 @@ async function init() {
         });
     }
 
+    // Helper function to convert array to comma-separated string
+    const arrayToCSV = (arr) => {
+        if (!arr || !Array.isArray(arr)) return '';
+        return arr.join(', ');
+    };
+
+    // Helper function to convert comma-separated string to array
+    const csvToArray = (str) => {
+        if (!str || typeof str !== 'string') return [];
+        return str.split(',').map(s => s.trim()).filter(s => s);
+    };
+
+    // Set up filter textfields (commentFiltersLoc, commentFiltersRecord, tagFiltersRecord)
+    const filterFields = [
+        {
+            id: 'commentFiltersLoc',
+            configPath: ['commentFilters', 'loc'],
+            isCommentFilter: true
+        },
+        {
+            id: 'commentFiltersRecord',
+            configPath: ['commentFilters', 'record'],
+            isCommentFilter: true
+        },
+        {
+            id: 'tagFiltersRecord',
+            configPath: ['tagFilters', 'record'],
+            isCommentFilter: false
+        }
+    ];
+
+    filterFields.forEach(field => {
+        const input = document.getElementById(field.id);
+        if (input) {
+            // Get initial value from config
+            const configValue = field.configPath.reduce((obj, key) => obj?.[key], projectConfig);
+            const displayValue = arrayToCSV(configValue);
+            input.value = displayValue;
+
+            // Validation function for comment filters (uppercase letters and ?)
+            const validateFilter = (value) => {
+                if (value === '') return true;
+                const parts = csvToArray(value);
+                if (field.isCommentFilter) {
+                    // For comment filters: uppercase letters only, or single ?
+                    return parts.every(part => /^[A-Z]+$/.test(part) || part === '?');
+                } else {
+                    // For tag filters: lowercase letters and numbers only
+                    return parts.every(part => /^[a-z0-9]+$/.test(part));
+                }
+            };
+
+            // Handle input validation
+            input.addEventListener('input', (e) => {
+                const value = e.target.value;
+                if (!validateFilter(value)) {
+                    e.target.classList.add('invalid');
+                } else {
+                    e.target.classList.remove('invalid');
+                }
+            });
+
+            // Handle blur (when user leaves the field)
+            input.addEventListener('blur', async (e) => {
+                const value = e.target.value.trim();
+
+                if (!validateFilter(value)) {
+                    // Revert to previous value if invalid
+                    e.target.value = displayValue;
+                    e.target.classList.remove('invalid');
+                    return;
+                }
+
+                // Convert CSV string to array
+                const arrayValue = csvToArray(value);
+
+                // Check if value actually changed
+                const currentValue = field.configPath.reduce((obj, key) => obj?.[key], projectConfig);
+                const changed = JSON.stringify(arrayValue) !== JSON.stringify(currentValue || []);
+
+                if (changed) {
+                    // Update config object
+                    let obj = projectConfig;
+                    for (let i = 0; i < field.configPath.length - 1; i++) {
+                        const key = field.configPath[i];
+                        if (!obj[key]) {
+                            obj[key] = {};
+                        }
+                        obj = obj[key];
+                    }
+                    obj[field.configPath[field.configPath.length - 1]] = arrayValue;
+
+                    // Save to project config
+                    const success = await window.electronAPI.setProjectConfig(field.configPath[0], projectConfig[field.configPath[0]]);
+
+                    if (success) {
+                        // Update display value
+                        e.target.value = arrayToCSV(arrayValue);
+                    } else {
+                        console.error(`Failed to update ${field.id}`);
+                        // Revert to previous value
+                        e.target.value = displayValue;
+                    }
+                }
+            });
+        }
+    });
+
     // Set up checkboxes
     const checkboxes = [
         'locActions',
@@ -226,6 +334,28 @@ async function init() {
         if ('writingStatus' in updatedConfig) {
             projectConfig.writingStatus = updatedConfig.writingStatus;
             renderWritingStatusList();
+        }
+
+        // Update filter fields if changed
+        if ('commentFilters' in updatedConfig || 'tagFilters' in updatedConfig) {
+            if ('commentFilters' in updatedConfig) {
+                projectConfig.commentFilters = updatedConfig.commentFilters;
+                const locInput = document.getElementById('commentFiltersLoc');
+                if (locInput) {
+                    locInput.value = arrayToCSV(updatedConfig.commentFilters.loc || []);
+                }
+                const recordInput = document.getElementById('commentFiltersRecord');
+                if (recordInput) {
+                    recordInput.value = arrayToCSV(updatedConfig.commentFilters.record || []);
+                }
+            }
+            if ('tagFilters' in updatedConfig) {
+                projectConfig.tagFilters = updatedConfig.tagFilters;
+                const recordTagsInput = document.getElementById('tagFiltersRecord');
+                if (recordTagsInput) {
+                    recordTagsInput.value = arrayToCSV(updatedConfig.tagFilters.record || []);
+                }
+            }
         }
     });
 
