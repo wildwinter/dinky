@@ -1,8 +1,8 @@
 TODO:
 -----
+Add character list
 Add debug/watching
 Dinky icons for Unreal 
-Add character list
 Play connected audio?
 Set up Github auto building/blockmaps/update checker
 Add word count? (Remember Dink stats!)
