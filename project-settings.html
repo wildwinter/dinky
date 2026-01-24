@@ -547,6 +547,108 @@
         .folder-browse-btn:hover {
             border-color: var(--text-color);
         }
+
+        .estimate-item {
+            display: grid;
+            grid-template-columns: 1fr 80px 30px 30px 40px;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 10px;
+            background-color: var(--bg-color);
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+
+        .estimate-item:last-child {
+            border-bottom: none;
+        }
+
+        .estimate-item:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .estimate-item input[type="text"],
+        .estimate-item input[type="number"] {
+            background-color: var(--sidebar-bg);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .estimate-item input[type="text"]:focus,
+        .estimate-item input[type="number"]:focus {
+            border-color: var(--text-color);
+        }
+
+        .estimate-item input[type="text"].invalid {
+            border-color: #ff3333;
+        }
+
+        .estimate-item .move-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+            font-size: 14px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .estimate-item .move-btn:hover:not(:disabled) {
+            opacity: 1;
+        }
+
+        .estimate-item .move-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
+        .estimate-item .delete-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+            font-size: 16px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .estimate-item .delete-btn:hover {
+            opacity: 1;
+            color: #ff3333;
+        }
+
+        .estimate-header {
+            display: grid;
+            grid-template-columns: 1fr 80px 30px 30px 40px;
+            gap: 8px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .estimate-header > div {
+            text-align: left;
+        }
+
+        .estimate-header .center-label {
+            text-align: center;
+        }
     </style>
 </head>
 
@@ -564,6 +666,7 @@
         <div class="tab" data-tab="audio-status">Audio Status</div>
         <div class="tab" data-tab="filters">Filters</div>
         <div class="tab" data-tab="google-tts">Google TTS</div>
+        <div class="tab" data-tab="estimating">Estimating</div>
     </div>
 
     <div class="content">
@@ -757,6 +860,28 @@
                     <div id="google-tts-output-folder-display" class="path-display empty">No folder selected</div>
                     <button id="btn-select-google-tts-output-folder" class="secondary">Browse...</button>
                 </div>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab-content="estimating">
+            <div class="section">
+                <div class="section-description">
+                    If a scene has a tag that matches this set, and the writing status ticked Est for Estimate, then the number of lines will be taken from this label, rather than from what's actually written in the script.
+                </div>
+
+                <div class="estimate-header">
+                    <div>Tag</div>
+                    <div class="center-label">Lines</div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                </div>
+
+                <div id="estimates-list" class="status-list">
+                    <!-- Estimate items will be dynamically added here -->
+                </div>
+
+                <button id="add-estimate" class="add-status-btn" title="Add Estimate">+</button>
             </div>
         </div>
     </div>

@@ -484,6 +484,12 @@ async function init() {
             updateGoogleTTSKeyFileDisplay();
             updateGoogleTTSOutputFolderDisplay();
         }
+
+        // Update estimates list if changed
+        if ('estimates' in updatedConfig) {
+            projectConfig.estimates = updatedConfig.estimates;
+            renderEstimatesList();
+        }
     });
 
     // Writing Status Management
@@ -949,6 +955,203 @@ async function init() {
 
     // Initial render
     renderAudioStatusList();
+
+    // Estimates Management
+    const estimatesList = document.getElementById('estimates-list');
+    const addEstimateBtn = document.getElementById('add-estimate');
+
+    function renderEstimatesList() {
+        if (!estimatesList) return;
+
+        estimatesList.innerHTML = '';
+        const estimates = projectConfig.estimates || [];
+
+        estimates.forEach((estimate, index) => {
+            const estimateItem = createEstimateItem(estimate, index);
+            estimatesList.appendChild(estimateItem);
+        });
+    }
+
+    function createEstimateItem(estimate, index) {
+        const div = document.createElement('div');
+        div.className = 'estimate-item';
+        div.dataset.index = index;
+
+        // Tag input (lowercase, underscore, colon only)
+        const tagInput = document.createElement('input');
+        tagInput.type = 'text';
+        tagInput.value = estimate.tag || '';
+        tagInput.placeholder = 'e.g. type:conversation';
+        tagInput.addEventListener('input', (e) => {
+            const value = e.target.value;
+            // Validate: only lowercase, underscore, and colon
+            if (!/^[a-z_:]*$/.test(value)) {
+                e.target.classList.add('invalid');
+            } else {
+                e.target.classList.remove('invalid');
+            }
+        });
+        tagInput.addEventListener('change', (e) => {
+            const value = e.target.value;
+            // Only save if valid
+            if (/^[a-z_:]*$/.test(value)) {
+                updateEstimateField(index, 'tag', value);
+                e.target.classList.remove('invalid');
+            } else {
+                // Revert to previous value
+                e.target.value = estimate.tag || '';
+                e.target.classList.remove('invalid');
+            }
+        });
+
+        // Lines input (integer only)
+        const linesInput = document.createElement('input');
+        linesInput.type = 'number';
+        linesInput.value = estimate.lines || '';
+        linesInput.placeholder = '0';
+        linesInput.min = '0';
+        linesInput.addEventListener('change', (e) => {
+            const value = parseInt(e.target.value, 10);
+            if (!isNaN(value) && value >= 0) {
+                updateEstimateField(index, 'lines', value);
+            } else {
+                // Revert to previous value
+                e.target.value = estimate.lines || '';
+            }
+        });
+
+        // Move up button
+        const moveUpBtn = document.createElement('button');
+        moveUpBtn.className = 'move-btn';
+        moveUpBtn.innerHTML = '↑';
+        moveUpBtn.title = 'Move Up';
+        moveUpBtn.disabled = index === 0;
+        moveUpBtn.addEventListener('click', () => {
+            moveEstimateUp(index);
+        });
+
+        // Move down button
+        const moveDownBtn = document.createElement('button');
+        moveDownBtn.className = 'move-btn';
+        moveDownBtn.innerHTML = '↓';
+        moveDownBtn.title = 'Move Down';
+        moveDownBtn.disabled = index === (projectConfig.estimates?.length || 0) - 1;
+        moveDownBtn.addEventListener('click', () => {
+            moveEstimateDown(index);
+        });
+
+        // Delete button
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.title = 'Delete';
+        deleteBtn.addEventListener('click', () => {
+            deleteEstimate(index);
+        });
+
+        div.appendChild(tagInput);
+        div.appendChild(linesInput);
+        div.appendChild(moveUpBtn);
+        div.appendChild(moveDownBtn);
+        div.appendChild(deleteBtn);
+
+        return div;
+    }
+
+    async function updateEstimateField(index, field, value) {
+        if (!projectConfig.estimates) {
+            projectConfig.estimates = [];
+        }
+
+        if (index >= 0 && index < projectConfig.estimates.length) {
+            projectConfig.estimates[index][field] = value;
+
+            const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
+
+            if (!success) {
+                console.error('Failed to update estimate');
+            }
+        }
+    }
+
+    async function deleteEstimate(index) {
+        const tagName = projectConfig.estimates[index]?.tag || 'this estimate';
+        const confirmed = confirm(`Are you sure you want to delete "${tagName}"?`);
+
+        if (!confirmed) return;
+
+        if (!projectConfig.estimates) return;
+
+        projectConfig.estimates.splice(index, 1);
+
+        const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
+
+        if (success) {
+            renderEstimatesList();
+        } else {
+            console.error('Failed to delete estimate');
+        }
+    }
+
+    async function moveEstimateUp(index) {
+        if (!projectConfig.estimates || index <= 0) return;
+
+        // Swap with previous item
+        [projectConfig.estimates[index - 1], projectConfig.estimates[index]] = 
+        [projectConfig.estimates[index], projectConfig.estimates[index - 1]];
+
+        const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
+
+        if (success) {
+            renderEstimatesList();
+        } else {
+            console.error('Failed to move estimate up');
+        }
+    }
+
+    async function moveEstimateDown(index) {
+        if (!projectConfig.estimates || index >= projectConfig.estimates.length - 1) return;
+
+        // Swap with next item
+        [projectConfig.estimates[index], projectConfig.estimates[index + 1]] = 
+        [projectConfig.estimates[index + 1], projectConfig.estimates[index]];
+
+        const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
+
+        if (success) {
+            renderEstimatesList();
+        } else {
+            console.error('Failed to move estimate down');
+        }
+    }
+
+    async function addEstimate() {
+        if (!projectConfig.estimates) {
+            projectConfig.estimates = [];
+        }
+
+        const newEstimate = {
+            tag: 'type:new',
+            lines: 10
+        };
+
+        projectConfig.estimates.push(newEstimate);
+
+        const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
+
+        if (success) {
+            renderEstimatesList();
+        } else {
+            console.error('Failed to add estimate');
+        }
+    }
+
+    if (addEstimateBtn) {
+        addEstimateBtn.addEventListener('click', addEstimate);
+    }
+
+    // Initial render
+    renderEstimatesList();
 
     // Apply initial theme based on system/settings
     const applyThemeClass = (theme) => {
