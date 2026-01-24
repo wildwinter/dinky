@@ -81,7 +81,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     runCompile: () => ipcRenderer.invoke('run-compile'),
     onCompileOutput: (callback) => ipcRenderer.on('compile-output', (_event, value) => callback(value)),
     onCompileComplete: (callback) => ipcRenderer.on('compile-complete', (_event, value) => callback(value)),
-    onShowCompileModal: (callback) => ipcRenderer.on('show-compile-modal', (_event) => callback())
+    onShowCompileModal: (callback) => ipcRenderer.on('show-compile-modal', (_event) => callback()),
+
+    // Project Settings API
+    getProjectConfig: () => ipcRenderer.invoke('get-project-config'),
+    setProjectConfig: (key, value) => ipcRenderer.invoke('set-project-config', key, value),
+    onProjectConfigUpdated: (callback) => ipcRenderer.on('project-config-updated', (_event, value) => callback(value))
 });
 
 window.addEventListener('DOMContentLoaded', () => {

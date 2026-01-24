@@ -1,9 +1,10 @@
 import { app, Menu, dialog, nativeTheme, BrowserWindow } from 'electron'
 import path from 'path'
 import { getRecentProjects, saveSettings, loadSettings, getCompilerPath } from './config'
-import { loadProject, openNewIncludeUI, openNewInkRootUI, openInkRootUI } from './project-manager'
+import { loadProject, openNewIncludeUI, openNewInkRootUI, openInkRootUI, getCurrentProject } from './project-manager'
 import { openSearchWindow } from './search'
 import { openSettingsWindow } from './settings'
+import { openProjectSettingsWindow } from './project-settings'
 import { safeSend } from './utils'
 
 async function buildMenu(win) {
@@ -11,6 +12,8 @@ async function buildMenu(win) {
     const settings = await loadSettings();
     const currentLocale = settings.spellCheckerLocale || 'en_GB';
     const compilerPath = await getCompilerPath();
+    const currentProject = getCurrentProject();
+    const hasNonAdhocProject = currentProject && !currentProject.isAdhoc;
 
     const isMac = process.platform === 'darwin'
 
@@ -196,6 +199,14 @@ async function buildMenu(win) {
                     enabled: !!compilerPath,
                     click: () => {
                         safeSend(win, 'show-compile-modal');
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Project Settings...',
+                    enabled: hasNonAdhocProject,
+                    click: () => {
+                        openProjectSettingsWindow(win);
                     }
                 }
             ]

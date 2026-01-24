@@ -10,6 +10,7 @@ import { openTestWindow } from './test-runner'
 import { generateIdsForUntagged } from './tagger'
 import { loadProject, loadAdhocInkProject, switchToInkRoot, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject, getCurrentInkRoot } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
+import './project-settings' // Import to register IPC handlers
 import { safeSend, setupThemeListener } from './utils'
 
 app.setName('Dinky')

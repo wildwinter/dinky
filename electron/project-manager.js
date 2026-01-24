@@ -20,6 +20,18 @@ function getCurrentInkRoot() {
     return currentInkRoot;
 }
 
+async function updateProjectConfig(key, value) {
+    if (!currentDinkProject || currentDinkProject.isAdhoc) {
+        throw new Error('No project loaded or project is adhoc');
+    }
+
+    // Update the in-memory config
+    currentDinkProject.content[key] = value;
+
+    // Write to disk
+    await fs.writeFile(currentDinkProject.path, JSON.stringify(currentDinkProject.content, null, 2), 'utf-8');
+}
+
 // Helper to recursively load ink files
 async function loadRootInk(rootFilePath) {
     const rootDir = path.dirname(rootFilePath)
@@ -470,6 +482,7 @@ export {
     getCurrentProject,
     setMenuRebuildCallback,
     getCurrentInkRoot,
+    updateProjectConfig,
     createNewInclude,
     openNewIncludeUI,
     openInkRootUI,

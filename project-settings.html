@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Settings</title>
+    <link rel="stylesheet" href="/src/styles.css">
+    <style>
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+            background-color: var(--sidebar-bg);
+            color: var(--text-color);
+            position: relative;
+            -webkit-user-select: none;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        /* Windows-specific padding fix for titleBarOverlay */
+        body.windows {
+            padding-top: 10px;
+        }
+
+        .drag-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            -webkit-app-region: drag;
+            z-index: 100;
+        }
+
+        .header {
+            padding: 30px 20px 10px 20px;
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            margin: 0;
+        }
+
+        .tabs {
+            display: flex;
+            padding: 0 20px;
+            background-color: var(--sidebar-bg);
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: border-color 0.2s ease;
+            font-size: 13px;
+        }
+
+        .tab:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .tab.active {
+            border-bottom-color: var(--text-color);
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-description {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: var(--text-color);
+        }
+
+        .checkbox-item label {
+            font-size: 13px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="drag-bar"></div>
+
+    <div class="header">
+        <h1>Project Settings</h1>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="outputs">Outputs</div>
+    </div>
+
+    <div class="content">
+        <div class="tab-content active" data-tab-content="outputs">
+            <div class="section">
+                <div class="section-description">
+                    The Dink Compiler always generates the compiled Ink file, the compiled Dink data, and the compiled strings file.
+                </div>
+
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="outputLocalization" name="outputLocalization">
+                        <label for="outputLocalization">Localization Spreadsheet</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="outputRecordingScript" name="outputRecordingScript">
+                        <label for="outputRecordingScript">Recording Script</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="outputDinkStructure" name="outputDinkStructure">
+                        <label for="outputDinkStructure">Dink Structure</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="outputStats" name="outputStats">
+                        <label for="outputStats">Stats Spreadsheet</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/project-settings-renderer.js"></script>
+</body>
+
+</html>
