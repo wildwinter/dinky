@@ -357,6 +357,16 @@ button.secondary:hover {
     font-size: 11px !important;
 }
 
+/* Hide only "View Problem" (first action) in marker hover status bar, keep Quick Fix visible */
+.monaco-hover .hover-row.status-bar .actions .action-container:first-child {
+    display: none !important;
+}
+
+/* Hide the source/validator name (greyed out text after error message) */
+.monaco-hover .marker.hover-contents > span:not(:first-child) {
+    display: none !important;
+}
+
 /* Triangle Pointer (Left side) */
 .monaco-hover::before {
     content: '';
