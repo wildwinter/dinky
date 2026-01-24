@@ -302,6 +302,14 @@ async function init() {
             updateStatusField(index, 'loc', e.target.checked);
         });
 
+        // Estimate checkbox
+        const estimateCheckbox = document.createElement('input');
+        estimateCheckbox.type = 'checkbox';
+        estimateCheckbox.checked = !!status.estimate;
+        estimateCheckbox.addEventListener('change', (e) => {
+            updateStatusField(index, 'estimate', e.target.checked);
+        });
+
         // Color picker
         const colorWrapper = document.createElement('div');
         colorWrapper.className = 'color-picker-wrapper';
@@ -330,6 +338,7 @@ async function init() {
         div.appendChild(tagInput);
         div.appendChild(recordCheckbox);
         div.appendChild(locCheckbox);
+        div.appendChild(estimateCheckbox);
         div.appendChild(colorWrapper);
         div.appendChild(deleteBtn);
 

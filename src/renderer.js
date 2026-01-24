@@ -367,6 +367,32 @@ window.electronAPI.loadSettings().then(settings => {
                         }
                     }
                 }
+                else if (marker.source === 'ws-validator') {
+                    if (monaco.Range.containsRange(marker, range) || monaco.Range.intersectRanges(marker, range)) {
+                        const invalidTag = marker.code; // We stored tag in code
+                        if (invalidTag && projectWritingStatusTags.length > 0) {
+                            // Suggest all valid writing status tags
+                            projectWritingStatusTags.forEach(ws => {
+                                const fullTag = `#ws:${ws.wstag}`;
+                                actions.push({
+                                    title: `Change to "${fullTag}"`,
+                                    kind: 'quickfix',
+                                    isPreferred: true,
+                                    diagnostics: [marker],
+                                    edit: {
+                                        edits: [{
+                                            resource: model.uri,
+                                            textEdit: {
+                                                range: marker,
+                                                text: fullTag
+                                            }
+                                        }]
+                                    }
+                                });
+                            });
+                        }
+                    }
+                }
             }
             return { actions: actions, dispose: () => { } };
         }
@@ -433,6 +459,7 @@ function checkSpelling() {
 
 let loadedInkFiles = new Map();
 let projectCharacters = [];
+let projectWritingStatusTags = [];
 let currentFilePath = null;
 let rootInkPath = null;
 let isUpdatingContent = false;
@@ -1272,6 +1299,15 @@ async function checkSyntax() {
             projectCharacters = [];
         }
 
+        // Load writing status tags from project config
+        try {
+            const projectConfig = await window.electronAPI.getProjectConfig();
+            projectWritingStatusTags = (projectConfig && projectConfig.writingStatus) || [];
+        } catch (e) {
+            console.error('Failed to load writing status tags', e);
+            projectWritingStatusTags = [];
+        }
+
         const errors = await window.electronAPI.compileInk(contentToCompile, rootInkPath, projectFiles);
 
 
@@ -1312,12 +1348,27 @@ async function checkSyntax() {
                 }));
                 allCharErrors = allCharErrors.concat(charErrorsWithPath);
             }
-            
+
+            // Run Writing Status Tag Validation for all files
+            let allWsErrors = [];
+            for (const [filePath, fileObj] of loadedInkFiles) {
+                const wsErrors = validateWritingStatusTagsInText(fileObj.content);
+                // Add filePath to each writing status error
+                const wsErrorsWithPath = wsErrors.map(err => ({
+                    ...err,
+                    filePath: filePath
+                }));
+                allWsErrors = allWsErrors.concat(wsErrorsWithPath);
+            }
+
             // For Monaco markers, only show character errors for the current file
             const currentFileCharErrors = validateCharacterNames(model);
 
-            // Update error banner with ALL errors from all files (compilation + character validation)
-            const newErrors = sortErrors([...(errors || []), ...allCharErrors]);
+            // For Monaco markers, only show writing status errors for the current file
+            const currentFileWsErrors = validateWritingStatusTags(model);
+
+            // Update error banner with ALL errors from all files (compilation + character validation + writing status validation)
+            const newErrors = sortErrors([...(errors || []), ...allCharErrors, ...allWsErrors]);
             
             // Update banner index intelligently
             if (newErrors.length !== previousErrorsCount) {
@@ -1370,8 +1421,8 @@ async function checkSyntax() {
             currentErrors = newErrors;
             updateErrorBanner();
 
-            // Update Monaco markers with visible errors + character errors for current file
-            monaco.editor.setModelMarkers(model, 'ink', [...(visibleErrors || []), ...currentFileCharErrors]);
+            // Update Monaco markers with visible errors + character errors + writing status errors for current file
+            monaco.editor.setModelMarkers(model, 'ink', [...(visibleErrors || []), ...currentFileCharErrors, ...currentFileWsErrors]);
         }
     } catch (e) {
         window.electronAPI.log('checkSyntax failed:', e.toString())
@@ -1574,6 +1625,74 @@ monaco.languages.registerCompletionItemProvider('ink-dinky', {
             range: range,
             detail: char.Name || 'Character',
             filterText: ':' // Ensure it matches the trigger character
+        }));
+
+        return { suggestions };
+    }
+});
+
+// Writing status tag autocomplete for 'ink' language
+monaco.languages.registerCompletionItemProvider('ink', {
+    triggerCharacters: [':'],
+    provideCompletionItems: (model, position) => {
+        const lineContent = model.getLineContent(position.lineNumber);
+        const textBeforeCursor = lineContent.substring(0, position.column - 1);
+
+        // Check if user is typing #ws:
+        if (!/#ws:$/.test(textBeforeCursor)) {
+            return { suggestions: [] };
+        }
+
+        console.log('[Autocomplete] Providing writing status suggestions. Count:', projectWritingStatusTags.length);
+
+        const range = new monaco.Range(
+            position.lineNumber,
+            textBeforeCursor.lastIndexOf('#ws:') + 4, // Start after #ws:
+            position.lineNumber,
+            position.column
+        );
+
+        const suggestions = projectWritingStatusTags.map(ws => ({
+            label: ws.wstag,
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: ws.wstag,
+            range: range,
+            detail: ws.status || 'Writing Status',
+            documentation: `Status: ${ws.status}${ws.record ? ' (record)' : ''}${ws.loc ? ' (loc)' : ''}`
+        }));
+
+        return { suggestions };
+    }
+});
+
+// Writing status tag autocomplete for 'ink-dinky' language
+monaco.languages.registerCompletionItemProvider('ink-dinky', {
+    triggerCharacters: [':'],
+    provideCompletionItems: (model, position) => {
+        const lineContent = model.getLineContent(position.lineNumber);
+        const textBeforeCursor = lineContent.substring(0, position.column - 1);
+
+        // Check if user is typing #ws:
+        if (!/#ws:$/.test(textBeforeCursor)) {
+            return { suggestions: [] };
+        }
+
+        console.log('[Autocomplete] Providing writing status suggestions (ink-dinky). Count:', projectWritingStatusTags.length);
+
+        const range = new monaco.Range(
+            position.lineNumber,
+            textBeforeCursor.lastIndexOf('#ws:') + 4, // Start after #ws:
+            position.lineNumber,
+            position.column
+        );
+
+        const suggestions = projectWritingStatusTags.map(ws => ({
+            label: ws.wstag,
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: ws.wstag,
+            range: range,
+            detail: ws.status || 'Writing Status',
+            documentation: `Status: ${ws.status}${ws.record ? ' (record)' : ''}${ws.loc ? ' (loc)' : ''}`
         }));
 
         return { suggestions };
@@ -2402,6 +2521,47 @@ function validateCharacterNamesInText(text) {
 function validateCharacterNames(model) {
     const text = model.getValue();
     return validateCharacterNamesInText(text);
+}
+
+function validateWritingStatusTagsInText(text) {
+    const lines = text.split(/\r?\n/);
+    const markers = [];
+    const validTags = new Set(projectWritingStatusTags.map(ws => ws.wstag));
+
+    // Regex to capture #ws:tag
+    const wsTagRegex = /#ws:(\S+)/g;
+
+    lines.forEach((line, index) => {
+        let match;
+        // Reset regex for each line
+        wsTagRegex.lastIndex = 0;
+
+        while ((match = wsTagRegex.exec(line)) !== null) {
+            const tag = match[1];
+            const tagStartCol = match.index + 1; // +1 for Monaco 1-based columns
+            const tagEndCol = tagStartCol + match[0].length;
+
+            if (!validTags.has(tag)) {
+                markers.push({
+                    message: `Invalid writing status tag: ${tag}`,
+                    severity: monaco.MarkerSeverity.Error,
+                    startLineNumber: index + 1,
+                    startColumn: tagStartCol,
+                    endLineNumber: index + 1,
+                    endColumn: tagEndCol,
+                    source: 'ws-validator',
+                    code: tag // Store tag for quick fix
+                });
+            }
+        }
+    });
+
+    return markers;
+}
+
+function validateWritingStatusTags(model) {
+    const text = model.getValue();
+    return validateWritingStatusTagsInText(text);
 }
 
 function levenshtein(a, b) {
