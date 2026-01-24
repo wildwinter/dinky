@@ -1,8 +1,6 @@
 TODO:
 -----
 Add debug/watching
-Add run Dink Compiler
-Add WS error-checking
 Dinky icons for Unreal 
 Add character list
 Play connected audio?
@@ -56,6 +54,8 @@ Navigate knot/stitch
 Back / forward location in editor
 Add error check bars and navigation
 BUG: settings menu wrong theme
+Add run Dink Compiler
+Add WS error-checking
 
 NOTES:
 ------

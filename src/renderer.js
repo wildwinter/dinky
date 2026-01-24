@@ -1,13 +1,16 @@
-import * as monaco from 'monaco-editor';
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
+// Core imports
 import { DinkySpellChecker } from './spellchecker';
 import { IdPreservationManager } from './id-manager';
 import { ModalHelper } from './modal-helper';
 
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+// Module imports - Refactored editor functionality
+import { configureMonacoWorkers, getInitialTheme, applyThemeToDOM, createEditor, setupThemeListener, monaco } from './editor-setup';
+import { defineThemes, registerInkLanguage } from './tokenizer-rules';
+import { ErrorManager } from './error-manager';
+import { NavigationSystem } from './navigation-system';
+import { ModelPool } from './model-pool';
+import { ValidationEngine } from './validation-engine';
+import { escapeRegExp, levenshtein, debounce } from './utils/string-utilities';
 
 // Add platform-specific CSS class
 if (window.electronAPI.platform === 'win32') {
@@ -18,214 +21,42 @@ if (window.electronAPI.platform === 'win32') {
     document.body.classList.add('linux');
 }
 
-self.MonacoEnvironment = {
-    getWorker(_, label) {
-        if (label === 'json') {
-            return new jsonWorker();
-        }
-        if (label === 'css' || label === 'scss' || label === 'less') {
-            return new cssWorker();
-        }
-        if (label === 'html' || label === 'handlebars' || label === 'razor') {
-            return new htmlWorker();
-        }
-        if (label === 'typescript' || label === 'javascript') {
-            return new tsWorker();
-        }
-        return new editorWorker();
-    },
-};
+// Initialize Monaco worker environment
+configureMonacoWorkers();
 
-// ModalHelper moved to ./modal-helper.js
+// Define and register themes
+defineThemes(monaco);
 
+// Register Ink language with Monaco
+registerInkLanguage(monaco);
 
-
-// Define custom themes
-monaco.editor.defineTheme('dinky-dark', {
-    base: 'vs-dark',
-    inherit: true,
-    rules: [
-        { token: 'code', foreground: 'C586C0' }, // Magenta
-        { token: 'dinky.name', foreground: 'D7BA7D' }, // Gold
-        { token: 'dinky.qualifier', foreground: '6A9955', fontStyle: 'italic' }, // Green Italic
-        { token: 'dinky.direction', foreground: '569CD6', fontStyle: 'italic' }, // Blue Italic
-        { token: 'dinky.text', foreground: '9CDCFE' }, // Light Blue
-    ],
-    colors: {}
+// Initialize refactored managers
+const initialTheme = getInitialTheme();
+applyThemeToDOM(initialTheme);
+const editor = createEditor('editor-container', initialTheme);
+setupThemeListener((newTheme) => {
+    // Additional theme setup if needed
 });
 
-monaco.editor.defineTheme('dinky-light', {
-    base: 'vs',
-    inherit: true,
-    rules: [
-        { token: 'code', foreground: '800080' }, // Purple
-        { token: 'dinky.name', foreground: '795E26' }, // Dark Gold
-        { token: 'dinky.qualifier', foreground: '008000', fontStyle: 'italic' }, // Green Italic
-        { token: 'dinky.direction', foreground: '0000FF', fontStyle: 'italic' }, // Blue Italic
-        { token: 'dinky.text', foreground: '001080' }, // Dark Blue
-    ],
-    colors: {}
-});
-
-// Common Tokenizer Pattern Parts
-const commonInkStates = {
-    codeMode: [
-        [/\/\/.*$/, 'comment', '@pop'],
-        [/\/\*/, 'comment', '@comment'],
-        [/[^/*]+$/, 'code', '@pop'],
-        [/\/(?!\/|\*)$/, 'code', '@pop'],
-        [/\*(?!\/)$/, 'code', '@pop'],
-        [/[^/*]+/, 'code'],
-        [/\//, 'code'],
-        [/\*/, 'code'],
-        [/$/, 'code', '@pop']
-    ],
-    tagMode: [
-        [/\/\/.*$/, 'comment', '@pop'],
-        [/\/\*/, 'comment', '@comment'],
-        [/\]/, '@rematch', '@pop'],
-        [/[^\]\/]+$/, 'annotation', '@pop'],
-        [/\/(?!\/|\*)$/, 'annotation', '@pop'],
-        [/[^\]\/]+/, 'annotation'],
-        [/\/(?!\/|\*)/, 'annotation'],
-        [/$/, 'annotation', '@pop']
-    ],
-    comment: [
-        [/[^\/*]+/, 'comment'],
-        [/\*\//, 'comment', '@pop'],
-        [/[\/*]/, 'comment']
-    ]
-};
-
-const standardInkRules = [
-    // Comments (Top priority)
-    [/\/\/.*$/, 'comment'],
-    [/\/\*/, 'comment', '@comment'],
-
-    // Code Lines - Solitary
-    [/^\s*~$/, 'code'],
-    [/^\s*(?:INCLUDE|VAR|CONST|LIST)$/, 'code'],
-
-    // Code Lines - Start
-    [/^\s*(?:INCLUDE|VAR|CONST|LIST)\b/, 'code', '@codeMode'],
-    [/^\s*~/, 'code', '@codeMode'],
-
-    // Code Blocks
-    [/^\s*\{[^}]*$/, 'code'],
-    [/^[^\{]*\}\s*$/, 'code'],
-    [/\{[^\{\}]*\}/, 'code'],
-
-    // Diverts
-    [/->\s*[\w_\.]+/, 'keyword'],
-
-    // Stitches (= Name) - Knots handled by state machine or root override
-    [/^=\s*\w+/, 'type.identifier'],
-
-    // Choices
-    [/^[\*\+]+/, 'keyword'],
-
-    // Gather points
-    [/^\-/, 'keyword'],
-
-    // Tags
-    [/#(?=$)/, 'annotation'],
-    [/#/, 'annotation', '@tagMode'],
-
-    // Logic
-    [/[{}]/, 'delimiter.bracket'],
-    [/\w+(?=\()/, 'function'],
-];
-
-const dinkyDialogueRule = [
-    // NAME (qual): (dir) Text
-    /^(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/,
-    ['white', 'dinky.name', 'white', 'dinky.qualifier', 'white', 'delimiter', 'white', 'dinky.direction', 'white', 'dinky.text']
-];
-
-const dinkyDialogueGatherRule = [
-    // - NAME (qual): (dir) Text
-    /^(\s*)(-)(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/,
-    ['white', 'keyword', 'white', 'dinky.name', 'white', 'dinky.qualifier', 'white', 'delimiter', 'white', 'dinky.direction', 'white', 'dinky.text']
-];
-
-const dinkyDialogueBracketedRule = [
-    // * [NAME (qual): (dir) Text
-    /^(\s*)([\*\+-]+)(\s*)(\[)(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^\]/#]|\/(?![/*]))*)/,
-    ['white', 'keyword', 'white', 'delimiter.bracket', 'white', 'dinky.name', 'white', 'dinky.qualifier', 'white', 'delimiter', 'white', 'dinky.direction', 'white', 'dinky.text']
-];
-
-monaco.languages.register({ id: 'ink' });
-monaco.languages.register({ id: 'ink-dinky' });
-
-// Ink Dinky (Global Mode)
-monaco.languages.setMonarchTokensProvider('ink-dinky', {
-    tokenizer: {
-        root: [
-            dinkyDialogueBracketedRule,
-            dinkyDialogueGatherRule,
-            dinkyDialogueRule,
-            // Knot Header - simple highlight, no state reset in global mode
-            [/^\s*={2,}.*$/, 'type.identifier'],
-            ...standardInkRules
-        ],
-        ...commonInkStates
-    }
-});
-
-// Standard Ink (Stateful)
-monaco.languages.setMonarchTokensProvider('ink', {
-    defaultToken: '',
-    tokenizer: {
-        root: [
-            { include: 'normalMode' }
-        ],
-        knotStart: [
-            // Check for #dink
-            [/\s*#\s*dink(?=\s|$)/, { token: 'annotation', next: '@dinkyMode' }],
-            // Comments/Whitespace don't change state
-            [/\/\/.*$/, 'comment'],
-            [/\/\*/, 'comment', '@comment'],
-            [/\s+/, 'white'],
-            // Transition to normal on anything else
-            [/^/, { token: '@rematch', next: '@normalMode' }]
-        ],
-        dinkyMode: [
-            // Knot -> Reset to knotStart
-            [/^\s*={2,}.*$/, { token: 'type.identifier', next: '@knotStart' }],
-            dinkyDialogueBracketedRule,
-            dinkyDialogueGatherRule,
-            dinkyDialogueRule,
-            ...standardInkRules
-        ],
-        normalMode: [
-            // Knot -> Reset to knotStart
-            [/^\s*={2,}.*$/, { token: 'type.identifier', next: '@knotStart' }],
-            ...standardInkRules
-        ],
-        ...commonInkStates
-    }
-});
-
-// Detect initial theme based on system preference
-const initialTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dinky-dark' : 'dinky-light';
-if (initialTheme === 'dinky-light') {
-    document.body.classList.add('light');
-    document.body.classList.remove('dark');
-} else {
-    document.body.classList.add('dark');
-    document.body.classList.remove('light');
-}
-
-const editor = monaco.editor.create(document.getElementById('editor-container'), {
-    value: '',
-    language: 'ink',
-    theme: initialTheme,
-    automaticLayout: true,
-    readOnly: true,
-    glyphMargin: true
-});
-
+// Initialize core instances
 const spellChecker = new DinkySpellChecker();
+const idManager = new IdPreservationManager(editor, monaco);
+const jumpHighlightCollection = editor.createDecorationsCollection();
+const wsTagDecorationCollection = editor.createDecorationsCollection();
+
+// Initialize ModelPool for efficient model reuse
+const modelPool = new ModelPool(5);
+
+// Initialize ErrorManager for error display and navigation
+const errorManager = new ErrorManager(editor);
+
+// Initialize NavigationSystem for dropdown and history
+const navigationSystem = new NavigationSystem(editor);
+
+// Initialize ValidationEngine for character and tag validation
+const validationEngine = new ValidationEngine(monaco);
+
+// Load spell checker settings
 window.electronAPI.loadSettings().then(async settings => {
     const locale = settings.spellCheckerLocale || 'en_GB';
     await spellChecker.init(locale);
@@ -234,14 +65,6 @@ window.electronAPI.loadSettings().then(async settings => {
         checkSpelling();
     }
 });
-
-// ID Preservation Manager
-const idManager = new IdPreservationManager(editor, monaco);
-// Decoration collection for jump highlighting
-const jumpHighlightCollection = editor.createDecorationsCollection();
-// Decoration collection for writing status tag highlighting
-const wsTagDecorationCollection = editor.createDecorationsCollection();
-
 
 window.electronAPI.onSettingsUpdated(async (newSettings) => {
     if (newSettings.spellCheckerLocale) {
@@ -266,11 +89,6 @@ window.addEventListener('focus', async () => {
         lastSpellCheckContent = null;
         checkSpelling();
     }
-});
-
-// Initial load check - Settings not needed for this manager but kept for structure if needed later
-window.electronAPI.loadSettings().then(settings => {
-    // idManager settings if any
 });
 
 
@@ -678,51 +496,6 @@ function closeErrorBanner() {
     errorBannerIndex = 0;
     updateErrorBanner();
 }
-// Model pooling for efficient reuse of Monaco editor models
-const modelPool = new Map(); // filePath -> MonacoModel
-const MAX_POOLED_MODELS = 5; // Keep up to 5 models in memory
-let pooledModelOrder = []; // Track LRU order
-
-function getOrCreateModel(filePath, content, langId) {
-    // Check if model exists in pool
-    if (modelPool.has(filePath)) {
-        const model = modelPool.get(filePath);
-        // Update LRU order
-        pooledModelOrder = pooledModelOrder.filter(p => p !== filePath);
-        pooledModelOrder.push(filePath);
-        return model;
-    }
-
-    // Create new model
-    const newModel = monaco.editor.createModel(content, langId);
-    
-    // Add to pool and track order
-    modelPool.set(filePath, newModel);
-    pooledModelOrder.push(filePath);
-    
-    // Evict oldest model if pool exceeds max size
-    if (modelPool.size > MAX_POOLED_MODELS) {
-        const oldestPath = pooledModelOrder.shift();
-        const oldModel = modelPool.get(oldestPath);
-        if (oldModel) {
-            oldModel.dispose();
-        }
-        modelPool.delete(oldestPath);
-    }
-    
-    return newModel;
-}
-
-function clearModelPool() {
-    // Dispose all pooled models
-    for (const [filePath, model] of modelPool) {
-        if (model) {
-            model.dispose();
-        }
-    }
-    modelPool.clear();
-    pooledModelOrder = [];
-}
 
 document.getElementById('btn-load-project').addEventListener('click', () => {
     window.electronAPI.openProject();
@@ -769,7 +542,7 @@ window.electronAPI.onRootInkLoaded(async (files) => {
 
     loadedInkFiles.clear();
     // Clear model pool when loading new project
-    clearModelPool();
+    modelPool.clearPool();
     // Clear spell check cache when loading new project
     spellCheckMarkersByLine.clear();
     lastSpellCheckedFilePath = null;
@@ -1186,7 +959,7 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     // Get or create model from pool (reuses existing models when available)
     const isDinky = detectDinkyGlobal(cleanContent);
     const langId = isDinky ? 'ink-dinky' : 'ink';
-    const newModel = getOrCreateModel(file.absolutePath, cleanContent, langId);
+    const newModel = modelPool.getOrCreateModel(file.absolutePath, cleanContent, langId, monaco);
 
     // Swap the model
     editor.setModel(newModel);
@@ -1261,21 +1034,6 @@ function updateDeleteButtonState(isRoot) {
         renameRootBtn.style.pointerEvents = 'none';
     }
 
-}
-
-
-
-// Debounce helper
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
 }
 
 function getProjectFilesContent() {
@@ -2468,10 +2226,6 @@ function openFileAndSelectLine(filePath, line, query) {
     }
 }
 
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function validateCharacterNamesInText(text) {
     const lines = text.split(/\r?\n/);
     const markers = [];
@@ -2647,26 +2401,4 @@ function highlightWritingStatusTags(model) {
     });
 
     wsTagDecorationCollection.set(decorations);
-}
-
-function levenshtein(a, b) {
-    if (a.length === 0) return b.length;
-    if (b.length === 0) return a.length;
-    const matrix = [];
-    for (let i = 0; i <= b.length; i++) {
-        matrix[i] = [i];
-    }
-    for (let j = 0; j <= a.length; j++) {
-        matrix[0][j] = j;
-    }
-    for (let i = 1; i <= b.length; i++) {
-        for (let j = 1; j <= a.length; j++) {
-            if (b.charAt(i - 1) == a.charAt(j - 1)) {
-                matrix[i][j] = matrix[i - 1][j - 1];
-            } else {
-                matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
-            }
-        }
-    }
-    return matrix[b.length][a.length];
 }
