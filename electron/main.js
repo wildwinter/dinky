@@ -407,8 +407,8 @@ if (!gotTheLock) {
             await setCompilerPath(selectedPath);
 
             // Rebuild menu to update the disabled state
-            if (win) {
-                await buildMenu(win);
+            if (mainWindow) {
+                await buildMenu(mainWindow);
             }
 
             return selectedPath;

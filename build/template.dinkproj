@@ -123,7 +123,7 @@
 
     // GoogleTTS parameters
     "googleTTS": {
-        "generate":true, // If false, you'll need to use --tts on the command-line
+        "generate":false, // If false, you'll need to use --tts on the command-line
         "authentication":"google-tts-key.json",
         "outputFolder":"Audio/TTS"
     },
