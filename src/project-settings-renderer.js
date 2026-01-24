@@ -320,7 +320,8 @@ async function init() {
         // Delete button
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-btn';
-        deleteBtn.textContent = 'Delete';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.title = 'Delete';
         deleteBtn.addEventListener('click', () => {
             deleteStatus(index);
         });

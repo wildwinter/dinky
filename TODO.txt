@@ -2,6 +2,7 @@ TODO:
 -----
 Add debug/watching
 Add run Dink Compiler
+Add WS error-checking
 Dinky icons for Unreal 
 Add character list
 Play connected audio?
