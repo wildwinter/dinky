@@ -122,7 +122,8 @@ async function init() {
         'outputLocalization',
         'outputRecordingScript',
         'outputDinkStructure',
-        'outputStats'
+        'outputStats',
+        'ignoreWritingStatus'
     ];
 
     // Initialize checkbox values from project config
