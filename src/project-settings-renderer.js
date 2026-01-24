@@ -117,6 +117,8 @@ async function init() {
 
     // Set up checkboxes
     const checkboxes = [
+        'locActions',
+        'nostrip',
         'outputLocalization',
         'outputRecordingScript',
         'outputDinkStructure',

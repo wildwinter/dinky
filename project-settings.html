@@ -103,7 +103,7 @@
 
         .checkbox-item {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 10px;
         }
 
@@ -112,11 +112,27 @@
             height: 16px;
             cursor: pointer;
             accent-color: var(--text-color);
+            flex-shrink: 0;
+            margin-top: 1px;
         }
 
         .checkbox-item label {
             font-size: 13px;
             cursor: pointer;
+            flex: 1;
+        }
+
+        .checkbox-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .checkbox-description {
+            font-size: 12px;
+            opacity: 0.7;
+            line-height: 1.4;
         }
 
         .setting-item {
@@ -200,6 +216,34 @@
                     <label>Output Folder</label>
                     <div id="output-folder-display" class="path-display empty">No folder selected</div>
                     <button id="btn-select-output-folder" class="secondary">Browse...</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="locActions" name="locActions">
+                        <div class="checkbox-content">
+                            <label for="locActions">Localize Actions</label>
+                            <div class="checkbox-description">
+                                If true, then the text of the action beats will be stored in the localization files.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="nostrip" name="nostrip">
+                        <div class="checkbox-content">
+                            <label for="nostrip">Include Debug Text</label>
+                            <div class="checkbox-description">
+                                If true, then the original Ink text will be left in the compiled Ink json for debugging.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
