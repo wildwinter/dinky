@@ -1007,12 +1007,23 @@ async function openCompileModal() {
     // Reset scroll to top
     compileOutputContainer.scrollTop = 0;
 
+    // Save all files before compiling
+    compileOutput.textContent = 'Saving files...\n';
+    try {
+        await saveAllFiles();
+        compileOutput.textContent += 'Files saved.\n\n';
+    } catch (error) {
+        compileOutput.textContent = `Error saving files: ${error.message}\n`;
+        btnCloseCompile.disabled = false;
+        return;
+    }
+
     // Start compilation
     const result = await window.electronAPI.runCompile();
 
     // If compilation failed to start, show error and enable close button
     if (result && !result.success) {
-        compileOutput.textContent = `Error: ${result.error}\n`;
+        compileOutput.textContent += `Error: ${result.error}\n`;
         btnCloseCompile.disabled = false;
         compileOutputContainer.scrollTop = compileOutputContainer.scrollHeight;
     }
@@ -1047,10 +1058,43 @@ window.electronAPI.onCompileOutput(({ type, data }) => {
     container.scrollTop = container.scrollHeight;
 });
 
-window.electronAPI.onCompileComplete(({ code }) => {
+window.electronAPI.onCompileComplete(({ code, destFolder }) => {
     const outputEl = document.getElementById('compile-output');
     const container = document.getElementById('compile-output-container');
-    outputEl.textContent += `\n\nCompilation finished with exit code: ${code}\n`;
+
+    // Add spacing
+    outputEl.textContent += '\n\n';
+
+    // Add colored status message
+    const statusSpan = document.createElement('span');
+    statusSpan.style.fontWeight = 'bold';
+    statusSpan.style.fontSize = '14px';
+    statusSpan.style.display = 'block';
+    statusSpan.style.padding = '5px';
+    statusSpan.style.marginTop = '5px';
+    statusSpan.style.marginBottom = '5px';
+    statusSpan.style.borderRadius = '3px';
+
+    if (code === 0) {
+        statusSpan.textContent = '✓ COMPILE SUCCESSFUL';
+        statusSpan.style.color = '#4CAF50';
+        statusSpan.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
+        statusSpan.style.border = '1px solid #4CAF50';
+    } else {
+        statusSpan.textContent = `✗ COMPILE FAILED (Exit Code: ${code})`;
+        statusSpan.style.color = '#f44336';
+        statusSpan.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
+        statusSpan.style.border = '1px solid #f44336';
+    }
+
+    // Append the status message
+    outputEl.appendChild(statusSpan);
+    outputEl.appendChild(document.createTextNode('\n'));
+
+    // Add output folder location if compilation was successful
+    if (code === 0 && destFolder) {
+        outputEl.appendChild(document.createTextNode(`Files are available in ${destFolder}`));
+    }
 
     // Enable close button
     btnCloseCompile.disabled = false;

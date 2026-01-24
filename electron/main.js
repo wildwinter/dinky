@@ -463,7 +463,15 @@ if (!gotTheLock) {
             });
 
             compiler.on('close', (code) => {
-                safeSend(win, 'compile-complete', { code });
+                // Get destFolder from project content
+                let destFolderPath = null;
+                if (project.content && project.content.destFolder) {
+                    // Resolve relative to project directory
+                    const projectDir = path.dirname(projectPath);
+                    destFolderPath = path.resolve(projectDir, project.content.destFolder);
+                }
+
+                safeSend(win, 'compile-complete', { code, destFolder: destFolderPath });
                 resolve({ success: true, exitCode: code });
             });
         });
