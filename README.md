@@ -67,7 +67,7 @@ Dinky generates an ID for every line of text or choice. It's hidden in the edito
 - **Theme:** Supports light, dark, or current system theme!
 - **Error Navigation:** Step through the list of errors, including invalid character names in Dinky.
 - **Knot/Stitch Navigation:** Go straight to a particular knot or stitch.
-- **Dink Compiler Integration:** Dinky can run [the Dink Compiler](#the-dink-compiler) and show you the results.
+- **Dink Compiler Integration:** Dinky can run [the Dink Compiler](#the-dink-compiler) and show you the results. It also has an editor for all the Dink Compiler settings.
 
 ## The ID format
 
@@ -92,7 +92,11 @@ At the moment you'll need to install the Dink Compiler separately. You can get i
 
 Set the path to the compiler in the Settings menu.
 
+![Dink Compile](doc/DinkCompile.png)
+
 There is a menu option in the Project menu, `Project Settings`, which gives all the settings for the Dink Compiler. The Project menu also has the `Compile` option, which will run the compiler and show you the results.
+
+![Dink Project Settings](doc/DinkProjectSettings.png)
 
 ## Releases
 
