@@ -87,7 +87,11 @@ ipcMain.handle('get-project-config', async (event) => {
     if (!project) {
         return null;
     }
-    return project.content;
+    // Include project path so renderer can calculate relative paths
+    return {
+        ...project.content,
+        _projectPath: project.path
+    };
 });
 
 ipcMain.handle('set-project-config', async (event, key, value) => {

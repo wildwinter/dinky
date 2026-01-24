@@ -37,6 +37,84 @@ async function init() {
         return;
     }
 
+    // Get project path for relative path calculations
+    const projectPath = projectConfig._projectPath;
+    const projectDir = projectPath ? projectPath.substring(0, projectPath.lastIndexOf('/')) : '';
+
+    // Helper function to convert relative path to absolute
+    const resolveRelativePath = (relativePath) => {
+        if (!relativePath || !projectDir) return '';
+        return `${projectDir}/${relativePath}`;
+    };
+
+    // Helper function to convert absolute path to relative
+    const makeRelativePath = (absolutePath) => {
+        if (!absolutePath || !projectDir) return absolutePath;
+
+        // Split paths into parts
+        const projectParts = projectDir.split('/');
+        const absoluteParts = absolutePath.split('/');
+
+        // Find common prefix
+        let i = 0;
+        while (i < projectParts.length && i < absoluteParts.length && projectParts[i] === absoluteParts[i]) {
+            i++;
+        }
+
+        // Build relative path
+        const upLevels = projectParts.length - i;
+        const relativeParts = [];
+
+        for (let j = 0; j < upLevels; j++) {
+            relativeParts.push('..');
+        }
+
+        relativeParts.push(...absoluteParts.slice(i));
+
+        return relativeParts.join('/');
+    };
+
+    // Set up Output Folder display and button
+    const outputFolderDisplay = document.getElementById('output-folder-display');
+    const selectOutputFolderBtn = document.getElementById('btn-select-output-folder');
+
+    const updateOutputFolderDisplay = () => {
+        const destFolder = projectConfig.destFolder || '';
+        if (destFolder) {
+            // Prepend ./ if it doesn't already start with ../ to make it clear it's relative
+            const displayPath = destFolder.startsWith('../') ? destFolder : `./${destFolder}`;
+            outputFolderDisplay.textContent = displayPath;
+            outputFolderDisplay.classList.remove('empty');
+        } else {
+            outputFolderDisplay.textContent = 'No folder selected';
+            outputFolderDisplay.classList.add('empty');
+        }
+    };
+
+    updateOutputFolderDisplay();
+
+    if (selectOutputFolderBtn) {
+        selectOutputFolderBtn.addEventListener('click', async () => {
+            const currentDestFolder = projectConfig.destFolder || '';
+            const defaultPath = currentDestFolder ? resolveRelativePath(currentDestFolder) : projectDir;
+
+            const selectedPath = await window.electronAPI.selectFolder(defaultPath);
+
+            if (selectedPath) {
+                const relativePath = makeRelativePath(selectedPath);
+                projectConfig.destFolder = relativePath;
+
+                const success = await window.electronAPI.setProjectConfig('destFolder', relativePath);
+
+                if (success) {
+                    updateOutputFolderDisplay();
+                } else {
+                    console.error('Failed to update destFolder');
+                }
+            }
+        });
+    }
+
     // Set up checkboxes
     const checkboxes = [
         'outputLocalization',
@@ -75,6 +153,12 @@ async function init() {
                 }
             }
         });
+
+        // Update output folder display if changed
+        if ('destFolder' in updatedConfig) {
+            projectConfig.destFolder = updatedConfig.destFolder;
+            updateOutputFolderDisplay();
+        }
     });
 
     // Apply initial theme based on system/settings

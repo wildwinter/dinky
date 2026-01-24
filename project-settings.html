@@ -118,6 +118,58 @@
             font-size: 13px;
             cursor: pointer;
         }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .setting-item label {
+            font-size: 13px;
+        }
+
+        button.secondary {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            min-width: 120px;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+        }
+
+        button.secondary:hover {
+            border-color: var(--text-color);
+        }
+
+        .path-display {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: monospace;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-top: 5px;
+        }
+
+        .path-display.empty {
+            font-style: italic;
+            opacity: 0.5;
+        }
+
+        .path-row {
+            display: flex;
+            align-items: center;
+        }
     </style>
 </head>
 
@@ -129,11 +181,24 @@
     </div>
 
     <div class="tabs">
-        <div class="tab active" data-tab="outputs">Outputs</div>
+        <div class="tab active" data-tab="general">General</div>
+        <div class="tab" data-tab="outputs">Outputs</div>
     </div>
 
     <div class="content">
-        <div class="tab-content active" data-tab-content="outputs">
+        <div class="tab-content active" data-tab-content="general">
+            <div class="section">
+                <div class="setting-item">
+                    <label>Output Folder</label>
+                    <button id="btn-select-output-folder" class="secondary">Browse...</button>
+                </div>
+                <div class="path-row">
+                    <div id="output-folder-display" class="path-display empty">No folder selected</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab-content="outputs">
             <div class="section">
                 <div class="section-description">
                     The Dink Compiler always generates the compiled Ink file, the compiled Dink data, and the compiled strings file.
