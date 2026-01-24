@@ -1638,16 +1638,18 @@ monaco.languages.registerCompletionItemProvider('ink', {
         const lineContent = model.getLineContent(position.lineNumber);
         const textBeforeCursor = lineContent.substring(0, position.column - 1);
 
-        // Check if user is typing #ws:
-        if (!/#ws:$/.test(textBeforeCursor)) {
+        // Check if user is typing #ws: followed by optional alphanumeric characters
+        const match = textBeforeCursor.match(/#ws:([a-z0-9]*)$/);
+        if (!match) {
             return { suggestions: [] };
         }
 
         console.log('[Autocomplete] Providing writing status suggestions. Count:', projectWritingStatusTags.length);
 
+        const wsStartIndex = textBeforeCursor.lastIndexOf('#ws:');
         const range = new monaco.Range(
             position.lineNumber,
-            textBeforeCursor.lastIndexOf('#ws:') + 4, // Start after #ws:
+            wsStartIndex + 5, // +1 for 1-based column, +4 for '#ws:' length
             position.lineNumber,
             position.column
         );
@@ -1672,16 +1674,18 @@ monaco.languages.registerCompletionItemProvider('ink-dinky', {
         const lineContent = model.getLineContent(position.lineNumber);
         const textBeforeCursor = lineContent.substring(0, position.column - 1);
 
-        // Check if user is typing #ws:
-        if (!/#ws:$/.test(textBeforeCursor)) {
+        // Check if user is typing #ws: followed by optional alphanumeric characters
+        const match = textBeforeCursor.match(/#ws:([a-z0-9]*)$/);
+        if (!match) {
             return { suggestions: [] };
         }
 
         console.log('[Autocomplete] Providing writing status suggestions (ink-dinky). Count:', projectWritingStatusTags.length);
 
+        const wsStartIndex = textBeforeCursor.lastIndexOf('#ws:');
         const range = new monaco.Range(
             position.lineNumber,
-            textBeforeCursor.lastIndexOf('#ws:') + 4, // Start after #ws:
+            wsStartIndex + 5, // +1 for 1-based column, +4 for '#ws:' length
             position.lineNumber,
             position.column
         );
