@@ -258,7 +258,7 @@ function startStory(storyData) {
         isDinkMode = false;
 
         // Check global tags
-        if (story.globalTags && story.globalTags.includes('dink')) {
+        if (story.globalTags && story.globalTags.some(tag => tag.trim() === 'dink')) {
             isDinkMode = true;
             console.log('Dink mode enabled via global tag');
         }
@@ -269,7 +269,7 @@ function startStory(storyData) {
                 // Note: TagsForContentAtPath returns an array of strings or null
                 if (!isDinkMode) {
                     const params = story.TagsForContentAtPath(startKnot);
-                    if (params && params.includes('dink')) {
+                    if (params && params.some(tag => tag.trim() === 'dink')) {
                         isDinkMode = true;
                         console.log('Dink mode enabled via knot tag');
                     }
