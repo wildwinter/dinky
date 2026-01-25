@@ -16,6 +16,10 @@ import { safeSend, setupThemeListener } from './utils'
 
 app.setName('Dinky')
 app.commandLine.appendSwitch('disable-features', 'Autofill')
+app.setAboutPanelOptions({
+    copyright: 'Copyright © 2026 Ian Thomas',
+    credits: `Powered by inkjs v2.3.2`
+})
 
 // Wire up the menu rebuild callback
 setMenuRebuildCallback(buildMenu);
