@@ -34,7 +34,7 @@ CHARACTER (qualifier): (direction) The spoken line of text. #tag
 
 ### Character Name Handling
 
-Your cast of characters will be real-time checked against a `characters.json` file, which will work with the **Dink Compiler** too.
+Your cast of characters will be real-time checked against the list for your project, which can be edited in Dinky or in the project's `characters.json` file.
 
 Typed an unrecognised name wrong? Dinky will catch it and offer a quick-fix to add it to the project or correct it.
 
@@ -43,6 +43,11 @@ Typed an unrecognised name wrong? Dinky will catch it and offer a quick-fix to a
 At the beginning of a Dink line, type the `:` key to start an auto-complete - the list of available characters will pop up for you to choose from.
 
 ![AutoComplete](doc/CharComplete.png)
+
+#### Editing Characters
+
+You can manage the characters in the **Characters** option in the **Project** menu.
+![Characters](doc/Characters.png)
 
 ### Line ID Management
 
@@ -64,9 +69,12 @@ Dinky generates an ID for every line of text or choice. It's hidden in the edito
 ![SearchReplace](doc/SearchReplace.png)
 - **Built-in Spellchecker:** Real-time spellchecking with support for project-specific dictionaries - you can add your own terms to the spellchecker. Useful for projects with arcane terms! Currently support US English and UK English.
 ![Spelling](doc/Spelling.png)
+![Spelling2](doc/Spelling2.png)
 - **Theme:** Supports light, dark, or current system theme!
-- **Error Navigation:** Step through the list of errors, including invalid character names in Dinky.
+- **Error Navigation:** Step through the list of errors, including any Ink errors and invalid character names.
+![Errors](doc/Errors.png)
 - **Knot/Stitch Navigation:** Go straight to a particular knot or stitch.
+![Navigations](doc/Navigations.png)
 - **Dink Compiler Integration:** Dinky can run [the Dink Compiler](#the-dink-compiler) and show you the results. It also has an editor for all the Dink Compiler settings.
 
 ## The ID format
@@ -80,13 +88,14 @@ Dinky generates IDs that are stable and descriptive:
 
 ## Getting Started
 
-1. **Create a New Project:** Open Dinky and create a `.dinkproj` file.
-2. **Define Your Root:** Point Dinky to your main `.ink` file.
-3. **Write and Tag:** Just write! Dinky handles the background tagging so you can focus on the story.
+1. **Create a New Project**: Open Dinky and create a `.dinkproj` file.
+2. **Define Your Root**: Point Dinky to your main `.ink` file.
+3. **Configure Settings**: Set up your compiler path and project preferences.
+4. **Write**: Focus on the story.
 
 ## The Dink Compiler
 
-[The Dink Compiler](https://github.com/wildwinter/dink) is a command-line tool that compiles Dink projects to JSON files for use in game engines.
+[The Dink Compiler](https://github.com/wildwinter/dink) is a separate command-line tool that compiles Dink projects into JSON for game engines.
 
 At the moment you'll need to install the Dink Compiler separately. You can get it [here](https://github.com/wildwinter/dink/releases).
 
