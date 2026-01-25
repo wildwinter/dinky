@@ -1,11 +1,13 @@
 TODO:
 -----
 Add character list
+Move spelling to project
+Update Readme
+
 Add debug/watching
 Dinky icons for Unreal 
 Play connected audio?
 Set up Github auto building/blockmaps/update checker
-Add word count? (Remember Dink stats!)
 Code signing (costs money!)
 
 Done:

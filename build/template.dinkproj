@@ -5,6 +5,9 @@
     // Where's the folder to output everything?
     "destFolder":"./output",
 
+    // What language should the spell checker use?
+    "spellCheckerLocale":"en-GB",
+
     // What code should be used for the strings file name?
     "defaultLocaleCode":"en-GB",
     

@@ -38,7 +38,7 @@ async function openOutputFile(project, suffix) {
 async function buildMenu(win) {
     const recentProjects = await getRecentProjects();
     const settings = await loadSettings();
-    const currentLocale = settings.spellCheckerLocale || 'en_GB';
+    const currentLocale = settings.spellCheckerLocale || 'en-GB';
     const compilerPath = await getCompilerPath();
     const currentProject = getCurrentProject();
     const hasNonAdhocProject = currentProject && !currentProject.isAdhoc;
@@ -159,12 +159,12 @@ async function buildMenu(win) {
                         {
                             label: 'English (UK)',
                             type: 'radio',
-                            checked: currentLocale === 'en_GB',
+                            checked: currentLocale === 'en-GB',
                             click: async () => {
-                                await saveSettings({ spellCheckerLocale: 'en_GB' });
+                                await saveSettings({ spellCheckerLocale: 'en-GB' });
                                 BrowserWindow.getAllWindows().forEach(w => {
                                     if (!w.isDestroyed()) {
-                                        safeSend(w, 'settings-updated', { spellCheckerLocale: 'en_GB' });
+                                        safeSend(w, 'settings-updated', { spellCheckerLocale: 'en-GB' });
                                     }
                                 });
                                 await buildMenu(win);
@@ -173,12 +173,12 @@ async function buildMenu(win) {
                         {
                             label: 'English (US)',
                             type: 'radio',
-                            checked: currentLocale === 'en_US',
+                            checked: currentLocale === 'en-US',
                             click: async () => {
-                                await saveSettings({ spellCheckerLocale: 'en_US' });
+                                await saveSettings({ spellCheckerLocale: 'en-US' });
                                 BrowserWindow.getAllWindows().forEach(w => {
                                     if (!w.isDestroyed()) {
-                                        safeSend(w, 'settings-updated', { spellCheckerLocale: 'en_US' });
+                                        safeSend(w, 'settings-updated', { spellCheckerLocale: 'en-US' });
                                     }
                                 });
                                 // Rebuild menu to update selection state visual
@@ -232,6 +232,7 @@ async function buildMenu(win) {
                 { type: 'separator' },
                 {
                     label: 'Project Settings...',
+                    accelerator: 'Shift+CmdOrCtrl+,',
                     enabled: hasNonAdhocProject,
                     click: () => {
                         openProjectSettingsWindow(win);

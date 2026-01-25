@@ -87,7 +87,7 @@ const validationEngine = new ValidationEngine(monaco);
 
 // Load spell checker settings
 window.electronAPI.loadSettings().then(async settings => {
-    const locale = settings.spellCheckerLocale || 'en_GB';
+    const locale = settings.spellCheckerLocale || 'en-GB';
     await spellChecker.init(locale);
     // Check spelling for any auto-loaded project
     if (rootInkPath) {
@@ -1317,7 +1317,6 @@ monaco.languages.registerCompletionItemProvider('ink', {
     triggerCharacters: [':'],
     provideCompletionItems: (model, position) => {
         const isDinky = isDinkyAtPosition(model, position);
-        console.log('[Autocomplete] Triggered at', position.lineNumber, 'IsDinky:', isDinky);
 
         if (!isDinky) {
             return { suggestions: [] };
@@ -1357,7 +1356,6 @@ monaco.languages.registerCompletionItemProvider('ink', {
 monaco.languages.registerCompletionItemProvider('ink-dinky', {
     triggerCharacters: [':'],
     provideCompletionItems: (model, position) => {
-        console.log('[Autocomplete] Triggered (ink-dinky mode)');
         const lineContent = model.getLineContent(position.lineNumber);
         const textBeforeCursor = lineContent.substring(0, position.column - 1);
 

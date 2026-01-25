@@ -60,6 +60,8 @@
             border-bottom: 2px solid transparent;
             transition: border-color 0.2s ease;
             font-size: 13px;
+            display: flex;
+            align-items: flex-end;
         }
 
         .tab:hover {
@@ -649,6 +651,23 @@
         .estimate-header .center-label {
             text-align: center;
         }
+
+        select {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 13px;
+            min-width: 120px;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s ease;
+        }
+
+        select:hover {
+            border-color: var(--text-color);
+        }
     </style>
 </head>
 
@@ -662,6 +681,7 @@
     <div class="tabs">
         <div class="tab active" data-tab="general">General</div>
         <div class="tab" data-tab="outputs">Outputs</div>
+        <div class="tab" data-tab="spelling">Spelling</div>
         <div class="tab" data-tab="writing-status">Writing Status</div>
         <div class="tab" data-tab="audio-status">Audio Status</div>
         <div class="tab" data-tab="filters">Filters</div>
@@ -683,6 +703,9 @@
                 <div class="text-setting-item">
                     <label for="defaultLocaleCode">Default Locale Code</label>
                     <input type="text" id="defaultLocaleCode" name="defaultLocaleCode" maxlength="7" placeholder="en-GB">
+                </div>
+                <div class="section-description" style="margin-left: 160px; margin-top: -5px;">
+                    This is used for naming the output strings JSON file.
                 </div>
             </div>
 
@@ -752,6 +775,28 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab-content="spelling">
+            <div class="section">
+                <div class="setting-item">
+                    <label for="language-select">Language</label>
+                    <select id="language-select">
+                        <option value="en-GB">English (UK)</option>
+                        <option value="en-US">English (US)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="setting-item">
+                    <label>Project Dictionary</label>
+                    <button id="btn-edit-dictionary" class="secondary">Edit File...</button>
+                </div>
+                <div class="section-description" style="margin-left: 160px; margin-top: -5px;">
+                    The project dictionary contains words that should not be flagged as spelling errors. One word per line.
                 </div>
             </div>
         </div>

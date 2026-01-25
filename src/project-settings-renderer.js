@@ -115,6 +115,35 @@ async function init() {
         });
     }
 
+    // Set up Spelling Language dropdown
+    const languageSelect = document.getElementById('language-select');
+    if (languageSelect) {
+        const currentLocale = projectConfig.spellCheckerLocale || 'en-GB';
+        languageSelect.value = currentLocale;
+
+        languageSelect.addEventListener('change', async (e) => {
+            const newLocale = e.target.value;
+            projectConfig.spellCheckerLocale = newLocale;
+
+            const success = await window.electronAPI.setProjectConfig('spellCheckerLocale', newLocale);
+
+            if (success) {
+                // Broadcast to all windows including main which handles the actual spellchecker switch
+                window.electronAPI.setSetting('spellCheckerLocale', newLocale);
+            } else {
+                console.error('Failed to update spellCheckerLocale');
+            }
+        });
+    }
+
+    // Set up Edit Dictionary button
+    const editDictBtn = document.getElementById('btn-edit-dictionary');
+    if (editDictBtn) {
+        editDictBtn.addEventListener('click', () => {
+            window.electronAPI.editProjectDictionary();
+        });
+    }
+
     // Set up Default Locale Code text field
     const defaultLocaleCodeInput = document.getElementById('defaultLocaleCode');
     if (defaultLocaleCodeInput) {
@@ -435,6 +464,15 @@ async function init() {
             const defaultLocaleCodeInput = document.getElementById('defaultLocaleCode');
             if (defaultLocaleCodeInput) {
                 defaultLocaleCodeInput.value = updatedConfig.defaultLocaleCode || '';
+            }
+        }
+
+        // Update spell checker locale if changed
+        if ('spellCheckerLocale' in updatedConfig) {
+            projectConfig.spellCheckerLocale = updatedConfig.spellCheckerLocale;
+            const languageSelect = document.getElementById('language-select');
+            if (languageSelect) {
+                languageSelect.value = updatedConfig.spellCheckerLocale || 'en-GB';
             }
         }
 

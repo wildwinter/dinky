@@ -11,8 +11,10 @@ export class DinkySpellChecker {
         this.baseDic = null;
     }
 
-    async init(locale = 'en_GB') {
-        if (this.initialized && this.currentLocale === locale) return;
+    async init(locale = 'en-GB') {
+        // Normalize locale format for comparison
+        const normalizedLocale = locale.replace('_', '-');
+        if (this.initialized && this.currentLocale === normalizedLocale) return;
 
         await this.switchLocale(locale);
         this.initialized = true;
@@ -20,11 +22,12 @@ export class DinkySpellChecker {
 
     async switchLocale(locale) {
         try {
-            console.log(`Fetching dictionaries for ${locale}...`);
-            const dictName = locale.replace('-', '_');
+            // Normalize locale format: convert en_GB to en-GB for file lookup
+            const normalizedLocale = locale.replace('_', '-');
+            console.log(`Fetching dictionaries for ${normalizedLocale}...`);
 
-            const affResponse = await fetch(`dictionaries/${dictName}.aff`);
-            const dicResponse = await fetch(`dictionaries/${dictName}.dic`);
+            const affResponse = await fetch(`dictionaries/${normalizedLocale}.aff`);
+            const dicResponse = await fetch(`dictionaries/${normalizedLocale}.dic`);
 
             if (!affResponse.ok || !dicResponse.ok) {
                 console.error('Failed to load dictionaries for', locale);
@@ -35,9 +38,9 @@ export class DinkySpellChecker {
             this.baseDic = await dicResponse.text();
 
             this.spell = nspell(this.baseAff, this.baseDic);
-            this.currentLocale = locale;
+            this.currentLocale = normalizedLocale;
             this.dictionariesLoaded = true;
-            console.log(`Spellchecker initialized with ${locale}`);
+            console.log(`Spellchecker initialized with ${normalizedLocale}`);
 
             // Reprocess personal dictionary
             this.personalDictionary.forEach(word => this.spell.add(word));

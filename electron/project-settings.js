@@ -17,9 +17,9 @@ export async function openProjectSettingsWindow(parentWindow) {
 
     projectSettingsWindow = new BrowserWindow({
         title: 'Project Settings',
-        width: windowState?.width || 750,
+        width: windowState?.width || 800,
         height: windowState?.height || 450,
-        minWidth: 700,
+        minWidth: 780,
         minHeight: 550,
         x: windowState?.x,
         y: windowState?.y,
