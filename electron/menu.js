@@ -5,6 +5,7 @@ import { loadProject, openNewIncludeUI, openNewInkRootUI, openInkRootUI, getCurr
 import { openSearchWindow } from './search'
 import { openSettingsWindow } from './settings'
 import { openProjectSettingsWindow } from './project-settings'
+import { openCharactersWindow } from './characters-editor'
 import { safeSend } from './utils'
 
 /**
@@ -236,6 +237,13 @@ async function buildMenu(win) {
                     enabled: hasNonAdhocProject,
                     click: () => {
                         openProjectSettingsWindow(win);
+                    }
+                },
+                {
+                    label: 'Characters...',
+                    enabled: hasNonAdhocProject,
+                    click: () => {
+                        openCharactersWindow(win);
                     }
                 },
                 { type: 'separator' },

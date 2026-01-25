@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Characters</title>
+    <link rel="stylesheet" href="/src/styles.css">
+    <style>
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+            background-color: var(--sidebar-bg);
+            color: var(--text-color);
+            position: relative;
+            -webkit-user-select: none;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        /* Windows-specific padding fix for titleBarOverlay */
+        body.windows {
+            padding-top: 10px;
+        }
+
+        .drag-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            -webkit-app-region: drag;
+            z-index: 100;
+        }
+
+        .header {
+            padding: 30px 20px 10px 20px;
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            margin: 0;
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-description {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .character-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            border: 1px solid var(--sidebar-border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .character-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr 30px 30px 40px;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 10px;
+            background-color: var(--bg-color);
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+
+        .character-item:last-child {
+            border-bottom: none;
+        }
+
+        .character-item:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .character-item input[type="text"] {
+            background-color: var(--sidebar-bg);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .character-item input[type="text"]:focus {
+            border-color: var(--text-color);
+        }
+
+        .character-item input[type="text"].invalid {
+            border-color: #ff3333;
+        }
+
+        .character-item .delete-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+            font-size: 16px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .character-item .delete-btn:hover {
+            opacity: 1;
+            color: #ff3333;
+        }
+
+        .character-item .move-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+            font-size: 14px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .character-item .move-btn:hover:not(:disabled) {
+            opacity: 1;
+        }
+
+        .character-item .move-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
+        .add-character-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 4px;
+            border-radius: 4px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background-color 0.2s ease;
+            align-self: flex-start;
+            margin-top: 10px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+
+        .add-character-btn:hover {
+            border-color: var(--text-color);
+            background-color: var(--hover-bg);
+        }
+
+        .character-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 30px 30px 40px;
+            gap: 8px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .character-header > div {
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="drag-bar"></div>
+
+    <div class="header">
+        <h1>Characters</h1>
+    </div>
+
+    <div class="content">
+        <div class="section">
+            <div class="section-description">
+                Define characters used in your dialogue. The Script Name is used in Ink files to identify the speaker, and the Actor is the real name used in recording scripts.
+            </div>
+
+            <div class="character-header">
+                <div>Script Name</div>
+                <div>Actor</div>
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
+
+            <div id="character-list" class="character-list">
+                <!-- Character items will be dynamically added here -->
+            </div>
+
+            <button id="add-character" class="add-character-btn" title="Add Character">+</button>
+        </div>
+    </div>
+
+    <script type="module" src="/src/characters-renderer.js"></script>
+</body>
+
+</html>

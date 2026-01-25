@@ -87,7 +87,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getProjectConfig: () => ipcRenderer.invoke('get-project-config'),
     setProjectConfig: (key, value) => ipcRenderer.invoke('set-project-config', key, value),
     onProjectConfigUpdated: (callback) => ipcRenderer.on('project-config-updated', (_event, value) => callback(value)),
-    openProjectSettings: () => ipcRenderer.send('open-project-settings')
+    openProjectSettings: () => ipcRenderer.send('open-project-settings'),
+
+    // Characters API
+    getCharacters: () => ipcRenderer.invoke('get-characters'),
+    saveCharacters: (characters) => ipcRenderer.invoke('save-characters', characters),
+    openCharacters: () => ipcRenderer.send('open-characters'),
+    onCharactersUpdated: (callback) => ipcRenderer.on('characters-updated', (_event) => callback())
 });
 
 window.addEventListener('DOMContentLoaded', () => {

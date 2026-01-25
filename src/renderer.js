@@ -268,7 +268,7 @@ function checkSpelling() {
 
     const currentContent = model.getValue();
     const currentFilePath = model.uri.path;
-    
+
     // Check if content has actually changed since last spell check
     if (lastSpellCheckedFilePath === currentFilePath && lastSpellCheckContent === currentContent) {
         // Content unchanged, restore cached markers instead of rechecking
@@ -278,10 +278,10 @@ function checkSpelling() {
         }
         return;
     }
-    
+
     // Content changed - perform full spell check
     const markers = spellChecker.checkModel(model, monaco);
-    
+
     // Cache markers for this file
     spellCheckMarkersByLine.set(currentFilePath, markers);
     lastSpellCheckedFilePath = currentFilePath;
@@ -297,27 +297,27 @@ function updateErrorBanner() {
     const bannerText = document.getElementById('error-banner-text');
     const prevBtn = document.getElementById('error-banner-prev');
     const nextBtn = document.getElementById('error-banner-next');
-    
+
     if (!currentErrors || currentErrors.length === 0) {
         banner.style.display = 'none';
         currentErrors = [];
         errorBannerIndex = 0;
         return;
     }
-    
+
     // Reset index if out of bounds
     if (errorBannerIndex >= currentErrors.length) {
         errorBannerIndex = 0;
     }
-    
+
     // Show the banner
     banner.style.display = 'block';
-    
+
     const error = currentErrors[errorBannerIndex];
     const errorCount = currentErrors.length;
     const errorMessage = error.message || 'Unknown error';
     const lineNumber = error.startLineNumber ? ` [${error.startLineNumber}:${error.startColumn || 1}]` : '';
-    
+
     // Build file info if error has a filePath
     let fileInfo = '';
     if (error.filePath) {
@@ -325,9 +325,9 @@ function updateErrorBanner() {
         const filename = error.filePath.replace(/^.*[\\\/]/, '');
         fileInfo = ` in ${filename}`;
     }
-    
+
     bannerText.textContent = `Error (${errorBannerIndex + 1}/${errorCount}): ${errorMessage}${lineNumber}${fileInfo}`;
-    
+
     // Buttons are always enabled since navigation wraps around
     prevBtn.disabled = false;
     nextBtn.disabled = false;
@@ -336,23 +336,23 @@ function updateErrorBanner() {
 // Helper function to find a file in loadedInkFiles, handling path format differences
 function findFileByPath(errorPath) {
     if (!errorPath) return null;
-    
+
     // Try exact match first
     if (loadedInkFiles.has(errorPath)) {
         return loadedInkFiles.get(errorPath);
     }
-    
+
     // Normalize paths for comparison (handle separators, case sensitivity on some OS)
     const normalizePath = (p) => p.replace(/\\/g, '/').toLowerCase();
     const normalizedErrorPath = normalizePath(errorPath);
-    
+
     // Try to find by normalized path
     for (const [storedPath, file] of loadedInkFiles) {
         if (normalizePath(storedPath) === normalizedErrorPath) {
             return file;
         }
     }
-    
+
     // Try to match by filename if full path doesn't work
     const errorFileName = errorPath.replace(/^.*[\\\/]/, '');
     for (const [storedPath, file] of loadedInkFiles) {
@@ -361,7 +361,7 @@ function findFileByPath(errorPath) {
             return file;
         }
     }
-    
+
     return null;
 }
 
@@ -374,27 +374,27 @@ function sortErrors(errors) {
     for (const [filePath, file] of loadedInkFiles) {
         fileOrder.set(filePath, order++);
     }
-    
+
     // Helper to find file order, handling path format differences
     function getFileOrder(errorPath) {
         if (!errorPath) return -1;
-        
+
         // Try exact match first
         if (fileOrder.has(errorPath)) {
             return fileOrder.get(errorPath);
         }
-        
+
         // Normalize paths for comparison
         const normalizePath = (p) => p.replace(/\\/g, '/').toLowerCase();
         const normalizedErrorPath = normalizePath(errorPath);
-        
+
         // Try to find by normalized path
         for (const [storedPath, order] of fileOrder) {
             if (normalizePath(storedPath) === normalizedErrorPath) {
                 return order;
             }
         }
-        
+
         // Try to match by filename if full path doesn't work
         const errorFileName = errorPath.replace(/^.*[\\\/]/, '');
         for (const [storedPath, order] of fileOrder) {
@@ -403,33 +403,33 @@ function sortErrors(errors) {
                 return order;
             }
         }
-        
+
         return fileOrder.size; // Unknown files go to the end
     }
-    
+
     return errors.slice().sort((a, b) => {
         // First, sort by file order (as shown in the sidebar)
         const orderA = getFileOrder(a.filePath);
         const orderB = getFileOrder(b.filePath);
-        
+
         if (orderA !== orderB) {
             return orderA - orderB;
         }
-        
+
         // If same file, sort by line number
         const lineA = a.startLineNumber || 0;
         const lineB = b.startLineNumber || 0;
-        
+
         return lineA - lineB;
     });
 }
 
 function navigateToBannerError() {
     if (!currentErrors || currentErrors.length === 0) return;
-    
+
     const error = currentErrors[errorBannerIndex];
     if (!error) return;
-    
+
     // Check if error is in a different file
     if (error.filePath && error.filePath !== currentFilePath) {
         const file = findFileByPath(error.filePath);
@@ -451,11 +451,11 @@ function navigateToBannerError() {
             return;
         }
     }
-    
+
     // Navigate to the error location in current file
     const line = error.startLineNumber || 1;
     const column = error.startColumn || 1;
-    
+
     if (editor && editor.getModel()) {
         editor.revealLineInCenter(line);
         editor.setPosition({ lineNumber: line, column: column });
@@ -536,7 +536,7 @@ window.electronAPI.onRootInkLoaded(async (files) => {
     // Invalidate navigation structure cache when files change
     navigationStructureDirty = true;
     cachedNavigationStructure = null;
-    
+
     const fileList = document.getElementById('file-list');
     fileList.innerHTML = '';
     const rootFileStepInfo = document.getElementById('ink-root-file-item');
@@ -987,12 +987,12 @@ function loadFileToEditor(file, element, forceRefresh = false) {
             refreshNavigationDropdown();
         }, 0);
     }
-    
+
     // Track navigation when switching files (but not if we're in the middle of back/forward navigation)
     if (!isNavigatingHistory) {
         addToNavigationHistory(file.absolutePath, 1);
     }
-    
+
     // Update last navigation location to the file start
     lastNavigationLocation = { filePath: file.absolutePath, knotName: null };
 }
@@ -1120,33 +1120,33 @@ async function checkSyntax() {
 
             // Update error banner with ALL errors from all files (compilation + character validation + writing status validation)
             const newErrors = sortErrors([...(errors || []), ...allCharErrors, ...allWsErrors]);
-            
+
             // Update banner index intelligently
             if (newErrors.length !== previousErrorsCount) {
                 // Error count changed, try to show an error in the current file, preferably near the cursor
                 const position = editor.getPosition();
                 const cursorLine = position ? position.lineNumber : -1;
-                
+
                 // Get the file object for the current file using the same path-matching that works for navigation
                 const currentFileObj = findFileByPath(currentFilePath);
-                
+
                 // Find all errors in the current file using the same matching strategy as findFileByPath
                 const errorsInCurrentFile = newErrors.filter(err => {
                     if (!err.filePath) return false;
                     const errorFileObj = findFileByPath(err.filePath);
                     return errorFileObj === currentFileObj;
                 });
-                
+
                 if (errorsInCurrentFile.length > 0) {
                     // Prioritize errors in the current file
                     // Try to find one on the cursor line first
                     let selectedErrorIndex = errorsInCurrentFile.findIndex(err => err.startLineNumber === cursorLine);
-                    
+
                     // If no error on exact cursor line, find the closest one
                     if (selectedErrorIndex === -1) {
                         let closestError = 0;
                         let minDistance = Math.abs(errorsInCurrentFile[0].startLineNumber - cursorLine);
-                        
+
                         for (let i = 1; i < errorsInCurrentFile.length; i++) {
                             const distance = Math.abs(errorsInCurrentFile[i].startLineNumber - cursorLine);
                             if (distance < minDistance) {
@@ -1156,10 +1156,10 @@ async function checkSyntax() {
                         }
                         selectedErrorIndex = closestError;
                     }
-                    
+
                     // Find the index of this error in the full sorted list
                     const selectedError = errorsInCurrentFile[selectedErrorIndex];
-                    errorBannerIndex = newErrors.findIndex(err => 
+                    errorBannerIndex = newErrors.findIndex(err =>
                         err === selectedError
                     );
                 } else {
@@ -1168,7 +1168,7 @@ async function checkSyntax() {
                 }
                 previousErrorsCount = newErrors.length;
             }
-            
+
             currentErrors = newErrors;
             updateErrorBanner();
 
@@ -1565,6 +1565,13 @@ window.electronAPI.onCheckUnsaved(() => {
     window.electronAPI.sendUnsavedStatus(hasUnsaved);
 });
 
+window.electronAPI.onCharactersUpdated(() => {
+    // Re-check syntax and spelling when characters are updated
+    // This handles updates from the Character Editor modal
+    debouncedCheck();
+    debouncedCheckSpelling();
+});
+
 // Initial check
 checkSyntax();
 
@@ -1660,10 +1667,10 @@ function updateNavigationDropdown() {
     }
 
     const structure = parseNavigationStructure();
-    
+
     // Use DocumentFragment to batch DOM insertions (more efficient than appending one at a time)
     const fragment = document.createDocumentFragment();
-    
+
     structure.forEach(item => {
         const option = document.createElement('option');
         option.value = `${item.type}:${item.filePath}:${item.line}`;
@@ -1671,17 +1678,17 @@ function updateNavigationDropdown() {
         // Create indentation using spaces (Unicode non-breaking spaces work better in options)
         const indent = '\u00A0\u00A0'.repeat(item.indent);
         let displayName = item.name;
-        
+
         // Add visual marker for files to distinguish them from knots/stitches
         if (item.type === 'file') {
             displayName = `📄 ${item.name}`;
         }
-        
+
         option.textContent = `${indent}${displayName}`;
 
         fragment.appendChild(option);
     });
-    
+
     // Single DOM update with all options at once
     navDropdown.innerHTML = '';
     navDropdown.appendChild(fragment);
@@ -1816,9 +1823,9 @@ function navigateBack() {
     if (navigationHistoryIndex > 0) {
         navigationHistoryIndex--;
         const entry = navigationHistory[navigationHistoryIndex];
-        
+
         isNavigatingHistory = true;
-        
+
         if (entry.filePath !== currentFilePath) {
             const file = loadedInkFiles.get(entry.filePath);
             if (file && file.listItem) {
@@ -1831,7 +1838,7 @@ function navigateBack() {
                 return;
             }
         }
-        
+
         navigateToLine(entry.line);
         isNavigatingHistory = false;
         updateNavigationButtons();
@@ -1845,9 +1852,9 @@ function navigateForward() {
     if (navigationHistoryIndex < navigationHistory.length - 1) {
         navigationHistoryIndex++;
         const entry = navigationHistory[navigationHistoryIndex];
-        
+
         isNavigatingHistory = true;
-        
+
         if (entry.filePath !== currentFilePath) {
             const file = loadedInkFiles.get(entry.filePath);
             if (file && file.listItem) {
@@ -1860,7 +1867,7 @@ function navigateForward() {
                 return;
             }
         }
-        
+
         navigateToLine(entry.line);
         isNavigatingHistory = false;
         updateNavigationButtons();
@@ -1873,7 +1880,7 @@ function navigateForward() {
 function updateNavigationButtons() {
     const backBtn = document.getElementById('btn-back');
     const forwardBtn = document.getElementById('btn-forward');
-    
+
     if (navigationHistoryIndex > 0) {
         backBtn.style.opacity = '1';
         backBtn.style.pointerEvents = 'auto';
@@ -1881,7 +1888,7 @@ function updateNavigationButtons() {
         backBtn.style.opacity = '0.5';
         backBtn.style.pointerEvents = 'none';
     }
-    
+
     if (navigationHistoryIndex < navigationHistory.length - 1) {
         forwardBtn.style.opacity = '1';
         forwardBtn.style.pointerEvents = 'auto';
@@ -1896,19 +1903,19 @@ function updateNavigationButtons() {
  */
 editor.onDidChangeCursorPosition(() => {
     updateDropdownSelection();
-    
+
     // Don't track history if we're navigating via back/forward
     if (isNavigatingHistory) return;
-    
+
     // Track navigation when jumping to a different knot/stitch
     if (currentFilePath) {
         const position = editor.getPosition();
         if (position) {
             const currentLocation = findCurrentLocation(position.lineNumber);
             const currentKnotName = currentLocation ? currentLocation.name : null;
-            
+
             // Only track if the knot/stitch changed (not just line within same knot/stitch)
-            if (lastNavigationLocation.filePath !== currentFilePath || 
+            if (lastNavigationLocation.filePath !== currentFilePath ||
                 lastNavigationLocation.knotName !== currentKnotName) {
                 lastNavigationLocation = { filePath: currentFilePath, knotName: currentKnotName };
                 addToNavigationHistory(currentFilePath, position.lineNumber);
