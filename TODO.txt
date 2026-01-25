@@ -1,9 +1,5 @@
 TODO:
 -----
-Add character list
-Move spelling to project
-Update Readme
-
 Add debug/watching
 Dinky icons for Unreal 
 Play connected audio?
@@ -58,6 +54,8 @@ Add error check bars and navigation
 BUG: settings menu wrong theme
 Add run Dink Compiler
 Add WS error-checking
+Add character list
+Move spelling to project
 
 NOTES:
 ------
