@@ -25,8 +25,20 @@ async function updateProjectConfig(key, value) {
         throw new Error('No project loaded or project is adhoc');
     }
 
-    // Update the in-memory config
-    currentDinkProject.content[key] = value;
+    // Update the in-memory config (supports dot notation for nested keys e.g. "dinky.spellCheckerLocale")
+    const keys = key.split('.');
+    if (keys.length === 1) {
+        currentDinkProject.content[key] = value;
+    } else {
+        let obj = currentDinkProject.content;
+        for (let i = 0; i < keys.length - 1; i++) {
+            if (!obj[keys[i]]) {
+                obj[keys[i]] = {};
+            }
+            obj = obj[keys[i]];
+        }
+        obj[keys[keys.length - 1]] = value;
+    }
 
     // Write to disk
     await fs.writeFile(currentDinkProject.path, JSON.stringify(currentDinkProject.content, null, 2), 'utf-8');

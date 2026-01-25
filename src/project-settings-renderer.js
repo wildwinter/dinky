@@ -118,20 +118,21 @@ async function init() {
     // Set up Spelling Language dropdown
     const languageSelect = document.getElementById('language-select');
     if (languageSelect) {
-        const currentLocale = projectConfig.spellCheckerLocale || 'en-GB';
+        const currentLocale = projectConfig.dinky?.spellCheckerLocale || 'en-GB';
         languageSelect.value = currentLocale;
 
         languageSelect.addEventListener('change', async (e) => {
             const newLocale = e.target.value;
-            projectConfig.spellCheckerLocale = newLocale;
+            if (!projectConfig.dinky) projectConfig.dinky = {};
+            projectConfig.dinky.spellCheckerLocale = newLocale;
 
-            const success = await window.electronAPI.setProjectConfig('spellCheckerLocale', newLocale);
+            const success = await window.electronAPI.setProjectConfig('dinky.spellCheckerLocale', newLocale);
 
             if (success) {
                 // Broadcast to all windows including main which handles the actual spellchecker switch
                 window.electronAPI.setSetting('spellCheckerLocale', newLocale);
             } else {
-                console.error('Failed to update spellCheckerLocale');
+                console.error('Failed to update dinky.spellCheckerLocale');
             }
         });
     }
@@ -467,12 +468,13 @@ async function init() {
             }
         }
 
-        // Update spell checker locale if changed
-        if ('spellCheckerLocale' in updatedConfig) {
-            projectConfig.spellCheckerLocale = updatedConfig.spellCheckerLocale;
+        // Update spell checker locale if changed (nested under dinky)
+        if ('dinky.spellCheckerLocale' in updatedConfig) {
+            if (!projectConfig.dinky) projectConfig.dinky = {};
+            projectConfig.dinky.spellCheckerLocale = updatedConfig['dinky.spellCheckerLocale'];
             const languageSelect = document.getElementById('language-select');
             if (languageSelect) {
-                languageSelect.value = updatedConfig.spellCheckerLocale || 'en-GB';
+                languageSelect.value = updatedConfig['dinky.spellCheckerLocale'] || 'en-GB';
             }
         }
 

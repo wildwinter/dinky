@@ -136,6 +136,8 @@
         {"tag":"type:cutscene", "lines":10}        
     ],
 
-    // What language should the spell checker use?
-    "spellCheckerLocale":"en-GB",
+    // Dinky editor settings
+    "dinky": {
+        "spellCheckerLocale":"en-GB"
+    }
 }
