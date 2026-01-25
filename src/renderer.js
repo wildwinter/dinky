@@ -2183,6 +2183,18 @@ window.electronAPI.onSelectCompiler(async () => {
     await window.electronAPI.selectCompiler();
 });
 
+// Global keyboard shortcut handler for Project Settings (Cmd/Ctrl+Shift+,)
+// This captures the shortcut before Monaco can intercept it
+window.addEventListener('keydown', (e) => {
+    const isMac = window.electronAPI.platform === 'darwin';
+    const modifierKey = isMac ? e.metaKey : e.ctrlKey;
+    if (modifierKey && e.shiftKey && e.key === ',') {
+        e.preventDefault();
+        e.stopPropagation();
+        window.electronAPI.openProjectSettings();
+    }
+}, true); // Use capture phase to intercept before Monaco
+
 function openFileAndSelectLine(filePath, line, query) {
     const file = loadedInkFiles.get(filePath);
     if (!file) return;

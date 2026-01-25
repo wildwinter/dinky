@@ -86,7 +86,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Project Settings API
     getProjectConfig: () => ipcRenderer.invoke('get-project-config'),
     setProjectConfig: (key, value) => ipcRenderer.invoke('set-project-config', key, value),
-    onProjectConfigUpdated: (callback) => ipcRenderer.on('project-config-updated', (_event, value) => callback(value))
+    onProjectConfigUpdated: (callback) => ipcRenderer.on('project-config-updated', (_event, value) => callback(value)),
+    openProjectSettings: () => ipcRenderer.send('open-project-settings')
 });
 
 window.addEventListener('DOMContentLoaded', () => {

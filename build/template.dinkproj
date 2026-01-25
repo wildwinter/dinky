@@ -5,9 +5,6 @@
     // Where's the folder to output everything?
     "destFolder":"./output",
 
-    // What language should the spell checker use?
-    "spellCheckerLocale":"en-GB",
-
     // What code should be used for the strings file name?
     "defaultLocaleCode":"en-GB",
     
@@ -137,5 +134,8 @@
         {"tag":"type:barks", "lines":20},   
         {"tag":"type:ambients", "lines":2},   
         {"tag":"type:cutscene", "lines":10}        
-    ]
+    ],
+
+    // What language should the spell checker use?
+    "spellCheckerLocale":"en-GB",
 }

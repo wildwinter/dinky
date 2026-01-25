@@ -119,3 +119,10 @@ ipcMain.handle('set-project-config', async (event, key, value) => {
         return false;
     }
 });
+
+ipcMain.on('open-project-settings', (event) => {
+    const parentWindow = BrowserWindow.getFocusedWindow();
+    if (parentWindow) {
+        openProjectSettingsWindow(parentWindow);
+    }
+});

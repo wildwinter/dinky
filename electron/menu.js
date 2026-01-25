@@ -232,7 +232,7 @@ async function buildMenu(win) {
                 { type: 'separator' },
                 {
                     label: 'Project Settings...',
-                    accelerator: 'Shift+CmdOrCtrl+,',
+                    accelerator: 'CmdOrCtrl+Shift+,',
                     enabled: hasNonAdhocProject,
                     click: () => {
                         openProjectSettingsWindow(win);
