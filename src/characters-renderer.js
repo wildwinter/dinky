@@ -46,22 +46,32 @@ async function init() {
 
             const value = e.target.value;
             // Validate: only uppercase letters, numbers, and underscore
-            if (!/^[A-Z0-9_]*$/.test(value)) {
+            const isDuplicate = characters.some((c, i) => i !== index && c.ID === value);
+            if (!/^[A-Z0-9_]*$/.test(value) || isDuplicate) {
                 e.target.classList.add('invalid');
+                // Optional: Tooltip or visual hint for duplicate?
+                if (isDuplicate) e.target.title = 'Character name must be unique';
+                else e.target.title = 'Only uppercase letters, numbers, and underscores allowed';
             } else {
                 e.target.classList.remove('invalid');
+                e.target.title = '';
             }
         });
         idInput.addEventListener('change', async (e) => {
             const value = e.target.value.trim();
-            // Only save if valid and non-empty
-            if (/^[A-Z0-9_]+$/.test(value)) {
+            const isDuplicate = characters.some((c, i) => i !== index && c.ID === value);
+            // Only save if valid and non-empty and not duplicate
+            if (/^[A-Z0-9_]+$/.test(value) && !isDuplicate) {
                 await updateCharacterField(index, 'ID', value);
                 e.target.classList.remove('invalid');
+                e.target.title = '';
             } else {
                 // Revert to previous value if invalid or empty
                 e.target.value = character.ID || '';
                 e.target.classList.remove('invalid');
+                e.target.title = '';
+                // If it was a duplicate, maybe we should show the invalid state again?
+                // But generally reverting is safer for data integrity.
             }
         });
 
@@ -147,7 +157,7 @@ async function init() {
 
         // Swap with previous item
         [characters[index - 1], characters[index]] =
-        [characters[index], characters[index - 1]];
+            [characters[index], characters[index - 1]];
 
         const success = await window.electronAPI.saveCharacters(characters);
 
@@ -163,7 +173,7 @@ async function init() {
 
         // Swap with next item
         [characters[index], characters[index + 1]] =
-        [characters[index + 1], characters[index]];
+            [characters[index + 1], characters[index]];
 
         const success = await window.electronAPI.saveCharacters(characters);
 
@@ -180,12 +190,32 @@ async function init() {
             Actor: ''
         };
 
+        // Ensure NEW_CHARACTER is unique, append number if needed
+        let uniqueId = newCharacter.ID;
+        let counter = 1;
+        while (characters.some(c => c.ID === uniqueId)) {
+            uniqueId = `${newCharacter.ID}_${counter}`;
+            counter++;
+        }
+        newCharacter.ID = uniqueId;
+
         characters.push(newCharacter);
 
         const success = await window.electronAPI.saveCharacters(characters);
 
         if (success) {
             renderCharacterList();
+
+            // Auto-focus the new character input
+            // The new character is at the end of the list
+            setTimeout(() => {
+                const inputs = characterList.querySelectorAll('input[type="text"][placeholder="SCRIPT_NAME"]');
+                const lastInput = inputs[inputs.length - 1];
+                if (lastInput) {
+                    lastInput.focus();
+                    lastInput.select();
+                }
+            }, 0);
         } else {
             console.error('Failed to add character');
         }

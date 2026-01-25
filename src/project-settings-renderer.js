@@ -515,12 +515,12 @@ async function init() {
         // Update Google TTS if changed
         if ('googleTTS' in updatedConfig) {
             projectConfig.googleTTS = updatedConfig.googleTTS;
-            
+
             const generateCheckbox = document.getElementById('googleTTSGenerate');
             if (generateCheckbox) {
                 generateCheckbox.checked = !!updatedConfig.googleTTS?.generate;
             }
-            
+
             updateGoogleTTSKeyFileDisplay();
             updateGoogleTTSOutputFolderDisplay();
         }
@@ -558,8 +558,33 @@ async function init() {
         statusInput.type = 'text';
         statusInput.value = status.status || '';
         statusInput.placeholder = 'Status Name';
+
+        const validateStatusName = (value) => {
+            const isDuplicate = projectConfig.writingStatus.some((s, i) => i !== index && s.status === value);
+            if (isDuplicate) {
+                statusInput.classList.add('invalid');
+                statusInput.title = 'Status name must be unique';
+            } else {
+                statusInput.classList.remove('invalid');
+                statusInput.title = '';
+            }
+            return !isDuplicate;
+        };
+
+        statusInput.addEventListener('input', (e) => {
+            validateStatusName(e.target.value);
+        });
+
         statusInput.addEventListener('change', (e) => {
-            updateStatusField(index, 'status', e.target.value);
+            const value = e.target.value;
+            if (validateStatusName(value)) {
+                updateStatusField(index, 'status', value);
+            } else {
+                // Revert or keep invalid? Reverting is safer.
+                e.target.value = status.status || '';
+                statusInput.classList.remove('invalid');
+                statusInput.title = '';
+            }
         });
 
         // Tag input (must be lowercase alphanumeric)
@@ -710,8 +735,8 @@ async function init() {
         if (!projectConfig.writingStatus || index <= 0) return;
 
         // Swap with previous item
-        [projectConfig.writingStatus[index - 1], projectConfig.writingStatus[index]] = 
-        [projectConfig.writingStatus[index], projectConfig.writingStatus[index - 1]];
+        [projectConfig.writingStatus[index - 1], projectConfig.writingStatus[index]] =
+            [projectConfig.writingStatus[index], projectConfig.writingStatus[index - 1]];
 
         const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
 
@@ -726,8 +751,8 @@ async function init() {
         if (!projectConfig.writingStatus || index >= projectConfig.writingStatus.length - 1) return;
 
         // Swap with next item
-        [projectConfig.writingStatus[index], projectConfig.writingStatus[index + 1]] = 
-        [projectConfig.writingStatus[index + 1], projectConfig.writingStatus[index]];
+        [projectConfig.writingStatus[index], projectConfig.writingStatus[index + 1]] =
+            [projectConfig.writingStatus[index + 1], projectConfig.writingStatus[index]];
 
         const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
 
@@ -751,12 +776,31 @@ async function init() {
             color: 'CCCCCC'
         };
 
+        // Ensure unique status name
+        let uniqueName = newStatus.status;
+        let counter = 1;
+        while (projectConfig.writingStatus.some(s => s.status === uniqueName)) {
+            uniqueName = `${newStatus.status} ${counter}`;
+            counter++;
+        }
+        newStatus.status = uniqueName;
+
         projectConfig.writingStatus.push(newStatus);
 
         const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
 
         if (success) {
             renderWritingStatusList();
+
+            // Auto-focus the new status input
+            setTimeout(() => {
+                const inputs = writingStatusList.querySelectorAll('input[type="text"][placeholder="Status Name"]');
+                const lastInput = inputs[inputs.length - 1];
+                if (lastInput) {
+                    lastInput.focus();
+                    lastInput.select();
+                }
+            }, 0);
         } else {
             console.error('Failed to add status');
         }
@@ -795,8 +839,32 @@ async function init() {
         statusInput.type = 'text';
         statusInput.value = status.status || '';
         statusInput.placeholder = 'Status Name';
+
+        const validateAudioStatusName = (value) => {
+            const isDuplicate = projectConfig.audioStatus.some((s, i) => i !== index && s.status === value);
+            if (isDuplicate) {
+                statusInput.classList.add('invalid');
+                statusInput.title = 'Status name must be unique';
+            } else {
+                statusInput.classList.remove('invalid');
+                statusInput.title = '';
+            }
+            return !isDuplicate;
+        };
+
+        statusInput.addEventListener('input', (e) => {
+            validateAudioStatusName(e.target.value);
+        });
+
         statusInput.addEventListener('change', (e) => {
-            updateAudioStatusField(index, 'status', e.target.value);
+            const value = e.target.value;
+            if (validateAudioStatusName(value)) {
+                updateAudioStatusField(index, 'status', value);
+            } else {
+                e.target.value = status.status || '';
+                statusInput.classList.remove('invalid');
+                statusInput.title = '';
+            }
         });
 
         // Folder display and browse button
@@ -938,8 +1006,8 @@ async function init() {
         if (!projectConfig.audioStatus || index <= 0) return;
 
         // Swap with previous item
-        [projectConfig.audioStatus[index - 1], projectConfig.audioStatus[index]] = 
-        [projectConfig.audioStatus[index], projectConfig.audioStatus[index - 1]];
+        [projectConfig.audioStatus[index - 1], projectConfig.audioStatus[index]] =
+            [projectConfig.audioStatus[index], projectConfig.audioStatus[index - 1]];
 
         const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
 
@@ -954,8 +1022,8 @@ async function init() {
         if (!projectConfig.audioStatus || index >= projectConfig.audioStatus.length - 1) return;
 
         // Swap with next item
-        [projectConfig.audioStatus[index], projectConfig.audioStatus[index + 1]] = 
-        [projectConfig.audioStatus[index + 1], projectConfig.audioStatus[index]];
+        [projectConfig.audioStatus[index], projectConfig.audioStatus[index + 1]] =
+            [projectConfig.audioStatus[index + 1], projectConfig.audioStatus[index]];
 
         const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
 
@@ -978,12 +1046,31 @@ async function init() {
             recorded: false
         };
 
+        // Ensure unique status name
+        let uniqueName = newStatus.status;
+        let counter = 1;
+        while (projectConfig.audioStatus.some(s => s.status === uniqueName)) {
+            uniqueName = `${newStatus.status} ${counter}`;
+            counter++;
+        }
+        newStatus.status = uniqueName;
+
         projectConfig.audioStatus.push(newStatus);
 
         const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
 
         if (success) {
             renderAudioStatusList();
+
+            // Auto-focus the new status input
+            setTimeout(() => {
+                const inputs = audioStatusList.querySelectorAll('input[type="text"][placeholder="Status Name"]');
+                const lastInput = inputs[inputs.length - 1];
+                if (lastInput) {
+                    lastInput.focus();
+                    lastInput.select();
+                }
+            }, 0);
         } else {
             console.error('Failed to add audio status');
         }
@@ -1022,25 +1109,42 @@ async function init() {
         tagInput.type = 'text';
         tagInput.value = estimate.tag || '';
         tagInput.placeholder = 'e.g. type:conversation';
-        tagInput.addEventListener('input', (e) => {
-            const value = e.target.value;
+
+        const validateEstimateTag = (value) => {
             // Validate: only lowercase, underscore, and colon
             if (!/^[a-z_:]*$/.test(value)) {
-                e.target.classList.add('invalid');
-            } else {
-                e.target.classList.remove('invalid');
+                tagInput.classList.add('invalid');
+                tagInput.title = 'Only lowercase letters, underscores, and colons allowed';
+                return false;
             }
+
+            // Validate unique
+            const isDuplicate = projectConfig.estimates.some((e, i) => i !== index && e.tag === value);
+            if (isDuplicate) {
+                tagInput.classList.add('invalid');
+                tagInput.title = 'Estimate tag must be unique';
+                return false;
+            }
+
+            tagInput.classList.remove('invalid');
+            tagInput.title = '';
+            return true;
+        };
+
+        tagInput.addEventListener('input', (e) => {
+            validateEstimateTag(e.target.value);
         });
+
         tagInput.addEventListener('change', (e) => {
             const value = e.target.value;
-            // Only save if valid
-            if (/^[a-z_:]*$/.test(value)) {
+            if (validateEstimateTag(value)) {
                 updateEstimateField(index, 'tag', value);
                 e.target.classList.remove('invalid');
             } else {
                 // Revert to previous value
                 e.target.value = estimate.tag || '';
                 e.target.classList.remove('invalid');
+                tagInput.title = '';
             }
         });
 
@@ -1137,8 +1241,8 @@ async function init() {
         if (!projectConfig.estimates || index <= 0) return;
 
         // Swap with previous item
-        [projectConfig.estimates[index - 1], projectConfig.estimates[index]] = 
-        [projectConfig.estimates[index], projectConfig.estimates[index - 1]];
+        [projectConfig.estimates[index - 1], projectConfig.estimates[index]] =
+            [projectConfig.estimates[index], projectConfig.estimates[index - 1]];
 
         const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
 
@@ -1153,8 +1257,8 @@ async function init() {
         if (!projectConfig.estimates || index >= projectConfig.estimates.length - 1) return;
 
         // Swap with next item
-        [projectConfig.estimates[index], projectConfig.estimates[index + 1]] = 
-        [projectConfig.estimates[index + 1], projectConfig.estimates[index]];
+        [projectConfig.estimates[index], projectConfig.estimates[index + 1]] =
+            [projectConfig.estimates[index + 1], projectConfig.estimates[index]];
 
         const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
 
@@ -1175,12 +1279,31 @@ async function init() {
             lines: 10
         };
 
+        // Ensure unique tag
+        let uniqueTag = newEstimate.tag;
+        let counter = 1;
+        while (projectConfig.estimates.some(e => e.tag === uniqueTag)) {
+            uniqueTag = `${newEstimate.tag}_${counter}`;
+            counter++;
+        }
+        newEstimate.tag = uniqueTag;
+
         projectConfig.estimates.push(newEstimate);
 
         const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
 
         if (success) {
             renderEstimatesList();
+
+            // Auto-focus the new estimate tag input
+            setTimeout(() => {
+                const inputs = estimatesList.querySelectorAll('input[type="text"][placeholder="e.g. type:conversation"]');
+                const lastInput = inputs[inputs.length - 1];
+                if (lastInput) {
+                    lastInput.focus();
+                    lastInput.select();
+                }
+            }, 0);
         } else {
             console.error('Failed to add estimate');
         }
