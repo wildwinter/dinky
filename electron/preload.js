@@ -73,9 +73,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onSettingsUpdated: (callback) => ipcRenderer.on('settings-updated', (_event, value) => callback(value)),
 
     // Compiler path API
-    selectCompiler: () => ipcRenderer.invoke('select-compiler'),
     getCompilerPath: () => ipcRenderer.invoke('get-compiler-path'),
-    onSelectCompiler: (callback) => ipcRenderer.on('select-compiler', (_event) => callback()),
 
     // Compilation API
     runCompile: () => ipcRenderer.invoke('run-compile'),

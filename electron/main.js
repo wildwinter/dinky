@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs/promises'
 import { spawn } from 'child_process'
 
-import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowState, saveWindowState, flushSettings, getCompilerPath, setCompilerPath } from './config'
+import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowState, saveWindowState, flushSettings, getCompilerPath } from './config'
 import { buildMenu } from './menu'
 import { compileInk, parseInk } from './compiler'
 import { openTestWindow } from './test-runner'
@@ -13,12 +13,13 @@ import { initSearch, openSearchWindow } from './search'
 import './project-settings' // Import to register IPC handlers
 import './characters-editor' // Import to register IPC handlers
 import { safeSend, setupThemeListener } from './utils'
+import pkg from '../package.json'
 
 app.setName('Dinky')
 app.commandLine.appendSwitch('disable-features', 'Autofill')
 app.setAboutPanelOptions({
     copyright: 'Copyright © 2026 Ian Thomas',
-    credits: `Powered by inkjs v2.3.2`
+    credits: `Powered by inkjs v${pkg.inkjsVersion} and Dink v${pkg.dinkVersion}`
 })
 
 // Wire up the menu rebuild callback
@@ -105,7 +106,7 @@ if (!gotTheLock) {
 
         // Initial menu build
         await buildMenu(win);
-        ipcMain.emit('rebuild-menu');
+
 
         // Theme handling
         const { update: updateTheme } = setupThemeListener(win);
@@ -370,56 +371,7 @@ if (!gotTheLock) {
         return await createNewProject(win, name, parentPath);
     });
 
-    ipcMain.handle('select-compiler', async (event) => {
-        const win = BrowserWindow.fromWebContents(event.sender);
-        const currentPath = await getCompilerPath();
 
-        const isWindows = process.platform === 'win32';
-        const expectedFilename = isWindows ? 'DinkCompiler.exe' : 'DinkCompiler';
-
-        const dialogOptions = {
-            defaultPath: currentPath || undefined,
-            properties: ['openFile', 'showHiddenFiles'],
-            title: 'Select Dink Compiler',
-            message: isWindows ? 'Select DinkCompiler.exe' : 'Select the DinkCompiler executable',
-            buttonLabel: 'Select Compiler'
-        };
-
-        // Only add filters on Windows where they're effective
-        if (isWindows) {
-            dialogOptions.filters = [{ name: 'Dink Compiler (DinkCompiler.exe)', extensions: ['exe'] }];
-        }
-
-        const { canceled, filePaths } = await dialog.showOpenDialog(win, dialogOptions);
-
-        if (!canceled && filePaths.length > 0) {
-            const selectedPath = filePaths[0];
-            const selectedFilename = path.basename(selectedPath);
-
-            // Validate the filename
-            const isValidFilename = isWindows
-                ? selectedFilename.toLowerCase() === 'dinkcompiler.exe'
-                : selectedFilename === 'DinkCompiler';
-
-            if (!isValidFilename) {
-                dialog.showErrorBox(
-                    'Invalid Compiler Selection',
-                    `Please select the Dink Compiler executable named "${expectedFilename}".`
-                );
-                return null;
-            }
-
-            await setCompilerPath(selectedPath);
-
-            // Rebuild menu to update the disabled state
-            if (mainWindow) {
-                await buildMenu(mainWindow);
-            }
-
-            return selectedPath;
-        }
-        return null;
-    });
 
     ipcMain.handle('get-compiler-path', async () => {
         return await getCompilerPath();

@@ -112,13 +112,13 @@ export async function openSearchWindow() {
         searchWindow = null
         safeSend(mainWindow, 'clear-search-highlights');
         await saveSettings({ searchWindowOpen: false });
-        if (mainWindow) await safeSend(mainWindow, 'rebuild-menu');
+        if (mainWindow) ipcMain.emit('rebuild-menu');
     })
 
     searchWindow.once('ready-to-show', async () => {
         searchWindow.show();
         await saveSettings({ searchWindowOpen: true });
-        if (mainWindow) await safeSend(mainWindow, 'rebuild-menu');
+        if (mainWindow) ipcMain.emit('rebuild-menu');
     });
 
     searchWindow.webContents.on('did-finish-load', () => {

@@ -11,7 +11,7 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            padding: 30px 20px 20px 20px;
+            padding: 30px 20px 20px 20px !important;
             box-sizing: border-box;
             background-color: var(--sidebar-bg);
             color: var(--text-color);
@@ -133,14 +133,7 @@
             </select>
         </div>
     </div>
-    <div class="setting-group">
-        <h2>Compiler</h2>
-        <div class="path-setting-item">
-            <label>Dink Compiler Path</label>
-            <div id="compiler-path-display" class="path-display empty">No compiler selected</div>
-            <button id="btn-select-compiler" class="secondary">Select...</button>
-        </div>
-    </div>
+
 
     <script type="module" src="/src/settings-renderer.js"></script>
 </body>

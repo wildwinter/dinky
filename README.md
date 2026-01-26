@@ -75,7 +75,7 @@ Dinky generates an ID for every line of text or choice. It's hidden in the edito
 ![Errors](doc/Errors.png)
 - **Knot/Stitch Navigation:** Go straight to a particular knot or stitch.
 ![Navigations](doc/Navigations.png)
-- **Dink Compiler Integration:** Dinky can run [the Dink Compiler](#the-dink-compiler) and show you the results. It also has an editor for all the Dink Compiler settings.
+- **Dink Compiler Integration:** Dinky bundles the [the Dink Compiler](#the-dink-compiler); you can compile your project and see the results. It also has an editor for all the Dink Compiler settings.
 
 ## The ID format
 
@@ -95,11 +95,7 @@ Dinky generates IDs that are stable and descriptive:
 
 ## The Dink Compiler
 
-[The Dink Compiler](https://github.com/wildwinter/dink) is a separate command-line tool that compiles Dink projects into JSON for game engines.
-
-At the moment you'll need to install the Dink Compiler separately. You can get it [here](https://github.com/wildwinter/dink/releases).
-
-Set the path to the compiler in the Settings menu.
+[The Dink Compiler](https://github.com/wildwinter/dink) is a command-line tool that compiles Dink projects into JSON for game engines. It is bundled with Dinky,
 
 ![Dink Compile](doc/DinkCompile.png)
 

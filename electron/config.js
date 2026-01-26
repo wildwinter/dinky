@@ -22,7 +22,7 @@ async function loadSettings() {
 
             return settingsCache;
         } catch (e) {
-            settingsCache = { theme: 'system', recentProjects: [], projectSettings: {}, windowStates: {}, compilerPath: '' };
+            settingsCache = { theme: 'system', recentProjects: [], projectSettings: {}, windowStates: {} };
             return settingsCache;
         } finally {
             loadPromise = null;
@@ -139,12 +139,19 @@ async function removeFromRecentProjects(filePath) {
 
 // Compiler Path Helpers
 async function getCompilerPath() {
-    const settings = await loadSettings();
-    return settings.compilerPath || '';
-}
+    const isWindows = process.platform === 'win32';
+    const executableName = isWindows ? 'DinkCompiler.exe' : 'DinkCompiler';
 
-async function setCompilerPath(filePath) {
-    await saveSettings({ compilerPath: filePath }, true);
+    // In production (bundled), resources are in process.resourcesPath
+    // In development, we can look in the project root's resources folder
+    let basePath;
+    if (app.isPackaged) {
+        basePath = path.join(process.resourcesPath, 'resources', 'compiler');
+    } else {
+        basePath = path.join(process.cwd(), 'resources', 'compiler');
+    }
+
+    return path.join(basePath, executableName);
 }
 
 export {
@@ -158,6 +165,5 @@ export {
     getWindowState,
     saveWindowState,
     flushSettings,
-    getCompilerPath,
-    setCompilerPath
+    getCompilerPath
 }

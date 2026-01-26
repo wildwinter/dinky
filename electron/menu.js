@@ -1,6 +1,6 @@
 import { app, Menu, dialog, nativeTheme, BrowserWindow, shell } from 'electron'
 import path from 'path'
-import { getRecentProjects, saveSettings, loadSettings, getCompilerPath } from './config'
+import { getRecentProjects, saveSettings, loadSettings } from './config'
 import { loadProject, openNewIncludeUI, openNewInkRootUI, openInkRootUI, getCurrentProject, getCurrentInkRoot } from './project-manager'
 import { openSearchWindow } from './search'
 import { openSettingsWindow } from './settings'
@@ -40,7 +40,6 @@ async function buildMenu(win) {
     const recentProjects = await getRecentProjects();
     const settings = await loadSettings();
     const currentLocale = settings.spellCheckerLocale || 'en-GB';
-    const compilerPath = await getCompilerPath();
     const currentProject = getCurrentProject();
     const hasNonAdhocProject = currentProject && !currentProject.isAdhoc;
 
@@ -216,16 +215,8 @@ async function buildMenu(win) {
             label: 'Project',
             submenu: [
                 {
-                    label: 'Select Dink Compiler...',
-                    enabled: !compilerPath,
-                    click: () => {
-                        safeSend(win, 'select-compiler');
-                    }
-                },
-                {
                     label: 'Compile...',
                     accelerator: 'F5',
-                    enabled: !!compilerPath,
                     click: () => {
                         safeSend(win, 'show-compile-modal');
                     }
@@ -249,21 +240,21 @@ async function buildMenu(win) {
                 { type: 'separator' },
                 {
                     label: 'Open Recording Script...',
-                    enabled: !!compilerPath && hasNonAdhocProject && !!currentProject?.content?.outputRecordingScript,
+                    enabled: hasNonAdhocProject && !!currentProject?.content?.outputRecordingScript,
                     click: () => {
                         openOutputFile(currentProject, '-recording.xlsx');
                     }
                 },
                 {
                     label: 'Open Localization Spreadsheet...',
-                    enabled: !!compilerPath && hasNonAdhocProject && !!currentProject?.content?.outputLocalization,
+                    enabled: hasNonAdhocProject && !!currentProject?.content?.outputLocalization,
                     click: () => {
                         openOutputFile(currentProject, '-loc.xlsx');
                     }
                 },
                 {
                     label: 'Open Statistics...',
-                    enabled: !!compilerPath && hasNonAdhocProject && !!currentProject?.content?.outputStats,
+                    enabled: hasNonAdhocProject && !!currentProject?.content?.outputStats,
                     click: () => {
                         openOutputFile(currentProject, '-stats.xlsx');
                     }

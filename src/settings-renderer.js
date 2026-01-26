@@ -22,31 +22,7 @@ async function init() {
         window.electronAPI.setTheme(newTheme);
     });
 
-    // Compiler path setup
-    const compilerPathDisplay = document.getElementById('compiler-path-display');
-    const selectCompilerBtn = document.getElementById('btn-select-compiler');
 
-    async function updateCompilerPathDisplay() {
-        const compilerPath = await window.electronAPI.getCompilerPath();
-        if (compilerPath) {
-            compilerPathDisplay.textContent = compilerPath;
-            compilerPathDisplay.classList.remove('empty');
-        } else {
-            compilerPathDisplay.textContent = 'No compiler selected';
-            compilerPathDisplay.classList.add('empty');
-        }
-    }
-
-    await updateCompilerPathDisplay();
-
-    if (selectCompilerBtn) {
-        selectCompilerBtn.addEventListener('click', async () => {
-            const newPath = await window.electronAPI.selectCompiler();
-            if (newPath) {
-                await updateCompilerPathDisplay();
-            }
-        });
-    }
 
     // Listen for setting updates from main process
     window.electronAPI.onSettingsUpdated((newSettings) => {

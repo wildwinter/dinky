@@ -1,7 +1,9 @@
 {
     "name": "dinky",
     "productName": "Dinky",
-    "version": "0.0.10",
+    "version": "0.0.11",
+    "dinkVersion": "0.0.10",
+    "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
         "dev": "vite",
@@ -40,6 +42,9 @@
             "icon": "build/DinkyApp.ico",
             "signAndEditExecutable": false
         },
+        "extraResources": [
+            "resources/compiler/**/*"
+        ],
         "fileAssociations": [
             {
                 "ext": "dinkproj",
