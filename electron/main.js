@@ -15,6 +15,9 @@ import './characters-editor' // Import to register IPC handlers
 import { safeSend, setupThemeListener } from './utils'
 import pkg from '../package.json'
 
+if (process.platform === 'win32') {
+    app.setAppUserModelId('net.wildwinter.dinky')
+}
 app.setName('Dinky')
 app.commandLine.appendSwitch('disable-features', 'Autofill')
 app.setAboutPanelOptions({

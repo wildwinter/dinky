@@ -1,6 +1,5 @@
 TODO:
 -----
-BUG: Seems to still show Electron icon in taskbar on Windows?
 Add debug/watching
 Dinky icons for Unreal 
 Play connected audio?
@@ -57,6 +56,7 @@ Add run Dink Compiler
 Add WS error-checking
 Add character list
 Move spelling to project
+BUG: Seems to still show Electron icon in taskbar on Windows?
 
 NOTES:
 ------
