@@ -146,7 +146,7 @@ async function getCompilerPath() {
     // In development, we can look in the project root's resources folder
     let basePath;
     if (app.isPackaged) {
-        basePath = path.join(process.resourcesPath, 'resources', 'compiler');
+        basePath = path.join(process.resourcesPath, 'compiler');
     } else {
         basePath = path.join(process.cwd(), 'resources', 'compiler');
     }
