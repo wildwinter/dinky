@@ -21,7 +21,13 @@
         "mac": {
             "category": "public.app-category.productivity",
             "icon": "build/DinkyApp.icns",
-            "identity": null
+            "identity": null,
+            "extraResources": [
+                {
+                    "from": "resources/compiler/DinkCompiler",
+                    "to": "compiler/DinkCompiler"
+                }
+            ]
         },
         "files": [
             "dist-electron/**/*",
@@ -40,10 +46,18 @@
         "win": {
             "target": "nsis",
             "icon": "build/DinkyApp.ico",
-            "signAndEditExecutable": false
+            "extraResources": [
+                {
+                    "from": "resources/compiler/DinkCompiler.exe",
+                    "to": "compiler/DinkCompiler.exe"
+                }
+            ]
         },
         "extraResources": [
-            "resources/compiler/**/*"
+            {
+                "from": "build/DinkyApp.ico",
+                "to": "DinkyApp.ico"
+            }
         ],
         "fileAssociations": [
             {

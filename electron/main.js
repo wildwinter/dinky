@@ -101,7 +101,11 @@ if (!gotTheLock) {
                 nodeIntegration: false,
                 contextIsolation: true,
             },
-            icon: path.join(__dirname, '../build/DinkyApp.' + (process.platform === 'win32' ? 'ico' : 'icns'))
+            icon: process.platform === 'win32'
+                ? (app.isPackaged
+                    ? path.join(process.resourcesPath, 'DinkyApp.ico')
+                    : path.join(__dirname, '../build/DinkyApp.ico'))
+                : path.join(__dirname, '../build/DinkyApp.icns')
         })
 
         mainWindow = win;
