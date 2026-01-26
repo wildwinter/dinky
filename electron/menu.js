@@ -303,7 +303,16 @@ async function buildMenu(win) {
                     }
                 }))
             ]
-        }
+        },
+        ...(isMac ? [] : [{
+            label: 'Help',
+            submenu: [
+                {
+                    label: 'About Dinky',
+                    click: () => app.showAboutPanel()
+                }
+            ]
+        }])
     ]
 
     const menu = Menu.buildFromTemplate(template)
