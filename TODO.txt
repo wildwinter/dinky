@@ -57,6 +57,7 @@ Add WS error-checking
 Add character list
 Move spelling to project
 BUG: Seems to still show Electron icon in taskbar on Windows?
+BUG: On Windows, the About menu is missing.
 
 NOTES:
 ------
