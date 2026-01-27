@@ -235,7 +235,8 @@ async function createNewProject(win, name, parentPath) {
         let projectContent;
         try {
             const templateData = await fs.readFile(templatePath, 'utf-8');
-            projectContent = JSON.parse(templateData);
+            const jsonContent = templateData.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+            projectContent = JSON.parse(jsonContent);
         } catch (templateError) {
             console.warn('Failed to load template, using default:', templateError);
             // Fallback to default structure if template is missing

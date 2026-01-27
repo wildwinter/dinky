@@ -60,6 +60,7 @@ Move spelling to project
 BUG: Seems to still show Electron icon in taskbar on Windows?
 BUG: On Windows, the About menu is missing.
 BUG: IDs being created for a line with a literal string passed to a function
+BUG: New project template was broken.
 
 NOTES:
 ------

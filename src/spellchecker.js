@@ -96,6 +96,7 @@ export class DinkySpellChecker {
 
         for (let i = 1; i <= lineCount; i++) {
             const lineContent = model.getLineContent(i);
+            if (/^\s*~/.test(lineContent)) continue; // Skip lines starting with ~
             const lineTokens = tokenizedLines[i - 1]; // tokenize returns array matching lines, 0-indexed
 
             wordRegex.lastIndex = 0;
