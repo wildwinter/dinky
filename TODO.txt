@@ -1,5 +1,6 @@
 TODO:
 -----
+BUG: Possible spellchecking happening on code lines - needs investigation.
 Add debug/watching
 Dinky icons for Unreal 
 Play connected audio?
@@ -58,6 +59,7 @@ Add character list
 Move spelling to project
 BUG: Seems to still show Electron icon in taskbar on Windows?
 BUG: On Windows, the About menu is missing.
+BUG: IDs being created for a line with a literal string passed to a function
 
 NOTES:
 ------

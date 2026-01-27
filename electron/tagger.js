@@ -42,9 +42,20 @@ function generateIdsForUntagged(parsedStory, filePrefix = "") {
 
     // Recursively find all candidate Text nodes and track their ancestry
     const visited = new Set();
+    const LOGIC_NODES = new Set([
+        "FunctionCall",
+        "VariableAssignment",
+        "StringExpression", "String",
+        "Divert",
+        "temp",
+        "NativeFunctionCall"
+    ]);
+
     function traverse(obj, parent, ancestry, choiceNode = null) {
         if (!obj) return;
         if (visited.has(obj)) return;
+        if (LOGIC_NODES.has(obj.typeName)) return;
+
         visited.add(obj);
 
         // Update ancestry if we are entering a named container
