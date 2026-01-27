@@ -1,6 +1,5 @@
 TODO:
 -----
-BUG: Possible spellchecking happening on code lines - needs investigation.
 Add debug/watching
 Dinky icons for Unreal 
 Play connected audio?
@@ -61,6 +60,8 @@ BUG: Seems to still show Electron icon in taskbar on Windows?
 BUG: On Windows, the About menu is missing.
 BUG: IDs being created for a line with a literal string passed to a function
 BUG: New project template was broken.
+Improvements to tokeniser and coloring for Ink conditionals.
+BUG: Possible spellchecking happening on code lines - needs investigation.
 
 NOTES:
 ------

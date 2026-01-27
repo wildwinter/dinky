@@ -63,10 +63,10 @@ export const standardInkRules = [
 
     // Code Lines - Solitary
     [/^\s*~$/, 'code'],
-    [/^\s*(?:INCLUDE|VAR|CONST|LIST)$/, 'code'],
+    [/^\s*(?:INCLUDE|VAR|CONST|LIST|EXTERNAL)$/, 'code'],
 
     // Code Lines - Start
-    [/^\s*(?:INCLUDE|VAR|CONST|LIST)\b/, 'code', '@codeMode'],
+    [/^\s*(?:INCLUDE|VAR|CONST|LIST|EXTERNAL)\b/, 'code', '@codeMode'],
     [/^\s*~/, 'code', '@codeMode'],
 
     // Code Blocks
