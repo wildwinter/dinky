@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createInkRoot: () => ipcRenderer.invoke('create-ink-root'),
     newProject: () => ipcRenderer.invoke('new-project'),
     selectFolder: (defaultPath) => ipcRenderer.invoke('select-folder', defaultPath),
+    selectFile: (defaultPath, filters) => ipcRenderer.invoke('select-file', defaultPath, filters),
     createNewProject: (name, parentPath) => ipcRenderer.invoke('create-new-project', name, parentPath),
     onShowNewProjectModal: (callback) => ipcRenderer.on('show-new-project-modal', (_event, value) => callback(value)),
     createNewInclude: (name, folderPath) => ipcRenderer.invoke('create-new-include', name, folderPath),

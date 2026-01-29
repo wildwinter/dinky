@@ -373,6 +373,19 @@ if (!gotTheLock) {
         return null;
     });
 
+    ipcMain.handle('select-file', async (event, defaultPath, filters) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+            defaultPath: defaultPath,
+            filters: filters || [],
+            properties: ['openFile']
+        });
+        if (!canceled && filePaths.length > 0) {
+            return filePaths[0];
+        }
+        return null;
+    });
+
     ipcMain.handle('create-new-project', async (event, name, parentPath) => {
         const win = BrowserWindow.fromWebContents(event.sender);
         return await createNewProject(win, name, parentPath);

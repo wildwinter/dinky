@@ -396,7 +396,7 @@
             margin-bottom: 4px;
         }
 
-        .status-header > div {
+        .status-header>div {
             text-align: left;
         }
 
@@ -516,7 +516,7 @@
             margin-bottom: 4px;
         }
 
-        .audio-status-header > div {
+        .audio-status-header>div {
             text-align: left;
         }
 
@@ -660,7 +660,7 @@
             margin-bottom: 4px;
         }
 
-        .estimate-header > div {
+        .estimate-header>div {
             text-align: left;
         }
 
@@ -684,6 +684,10 @@
         select:hover {
             border-color: var(--text-color);
         }
+
+        #poLangs {
+            width: 360px;
+        }
     </style>
 </head>
 
@@ -697,6 +701,7 @@
     <div class="tabs">
         <div class="tab active" data-tab="general">General</div>
         <div class="tab" data-tab="outputs">Outputs</div>
+        <div class="tab" data-tab="localisation">Localization</div>
         <div class="tab" data-tab="spelling">Spelling</div>
         <div class="tab" data-tab="writing-status">Writing Status</div>
         <div class="tab" data-tab="audio-status">Audio Status</div>
@@ -712,30 +717,6 @@
                     <label>Output Folder</label>
                     <div id="output-folder-display" class="path-display empty">No folder selected</div>
                     <button id="btn-select-output-folder" class="secondary">Browse...</button>
-                </div>
-            </div>
-
-            <div class="section">
-                <div class="text-setting-item">
-                    <label for="defaultLocaleCode">Default Locale Code</label>
-                    <input type="text" id="defaultLocaleCode" name="defaultLocaleCode" maxlength="7" placeholder="en-GB">
-                </div>
-                <div class="section-description" style="margin-left: 160px; margin-top: -5px;">
-                    This is used for naming the output strings JSON file.
-                </div>
-            </div>
-
-            <div class="section">
-                <div class="checkbox-group">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="locActions" name="locActions">
-                        <div class="checkbox-content">
-                            <label for="locActions">Localize Actions</label>
-                            <div class="checkbox-description">
-                                If true, then the text of the action beats will be stored in the localization files.
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -757,40 +738,95 @@
         <div class="tab-content" data-tab-content="outputs">
             <div class="section">
                 <div class="section-description">
-                    The Dink Compiler always generates the compiled Ink file, the compiled Dink data, and the compiled strings file.
+                    The Dink Compiler always generates the compiled Ink file, the compiled Dink data, and the compiled
+                    strings file.
                 </div>
 
                 <div class="checkbox-group">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="outputLocalization" name="outputLocalization">
-                        <label for="outputLocalization">Localization Spreadsheet</label>
-                    </div>
+
                     <div class="checkbox-item">
                         <input type="checkbox" id="outputRecordingScript" name="outputRecordingScript">
-                        <label for="outputRecordingScript">Recording Script</label>
+                        <label for="outputRecordingScript">Output Recording Script</label>
                     </div>
                     <div class="checkbox-item">
                         <input type="checkbox" id="outputDinkStructure" name="outputDinkStructure">
-                        <label for="outputDinkStructure">Dink Structure</label>
+                        <label for="outputDinkStructure">Output Dink Structure</label>
                     </div>
                     <div class="checkbox-item">
                         <input type="checkbox" id="outputStats" name="outputStats">
-                        <label for="outputStats">Stats Spreadsheet</label>
+                        <label for="outputStats">Output Stats Spreadsheet</label>
                     </div>
+                </div>
+            </div>
+
+
+        </div>
+
+        <div class="tab-content" data-tab-content="localisation">
+            <div class="section">
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="outputLocalization" name="outputLocalization">
+                        <label for="outputLocalization">Output Localization Spreadsheet</label>
+                    </div>
+                </div>
+            </div>
+            <div class="section">
+                <div class="text-setting-item">
+                    <label for="defaultLocaleCode">Default Locale Code</label>
+                    <input type="text" id="defaultLocaleCode" name="defaultLocaleCode" maxlength="7"
+                        placeholder="en-GB">
+                </div>
+                <div class="section-description" style="margin-left: 160px; margin-top: -5px;">
+                    This is used for naming the output strings JSON file.
                 </div>
             </div>
 
             <div class="section">
                 <div class="checkbox-group">
                     <div class="checkbox-item">
-                        <input type="checkbox" id="ignoreWritingStatus" name="ignoreWritingStatus">
+                        <input type="checkbox" id="locActions" name="locActions">
                         <div class="checkbox-content">
-                            <label for="ignoreWritingStatus">Ignore Writing Status</label>
+                            <label for="locActions">Localize Actions</label>
                             <div class="checkbox-description">
-                                If true, then both the localization and recording scripts will include all lines, no matter the writing status.
+                                If true, then the text of the action beats will be stored in the localization files.
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2 style="font-size: 1.1em; margin: 0 0 15px 0;">PO/POT Export</h2>
+                <div class="section-description">
+                    Export strings in PO/POT format for use with translation tools and services.
+                </div>
+
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="outputPot" name="outputPot">
+                        <label for="outputPot">Output Pot File</label>
+                    </div>
+                </div>
+                <div class="section-description" style="margin-left: 28px; margin-top: -5px; margin-bottom: 15px;">
+                    Generate a POT translation template file.
+                </div>
+
+                <div class="path-setting-item">
+                    <label>PO Folder</label>
+                    <div id="po-dir-display" class="path-display empty">No folder selected</div>
+                    <button id="btn-select-po-dir" class="secondary">Browse...</button>
+                </div>
+                <div class="section-description" style="margin-left: 160px; margin-top: -5px; margin-bottom: 15px;">
+                    Folder for PO translation files, one per target language.
+                </div>
+
+                <div class="text-setting-item">
+                    <label for="poLangs">PO Languages</label>
+                    <input type="text" id="poLangs" name="poLangs" placeholder="e.g. fr,de,ja">
+                </div>
+                <div class="section-description" style="margin-left: 160px; margin-top: -5px;">
+                    Comma-separated list of target language codes for PO file export.
                 </div>
             </div>
         </div>
@@ -812,15 +848,31 @@
                     <button id="btn-edit-dictionary" class="secondary">Edit File...</button>
                 </div>
                 <div class="section-description" style="margin-left: 160px; margin-top: -5px;">
-                    The project dictionary contains words that should not be flagged as spelling errors. One word per line.
+                    The project dictionary contains words that should not be flagged as spelling errors. One word per
+                    line.
                 </div>
             </div>
         </div>
 
         <div class="tab-content" data-tab-content="writing-status">
             <div class="section">
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="ignoreWritingStatus" name="ignoreWritingStatus">
+                        <div class="checkbox-content">
+                            <label for="ignoreWritingStatus">Ignore Writing Status Filter</label>
+                            <div class="checkbox-description">
+                                If true, then both the localization and recording scripts will include all lines, no
+                                matter the writing status.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="section">
                 <div class="section-description">
-                    Writing status tags can be used to track the state of your dialogue. Only lines with specific statuses will be included in recording scripts and localization files based on these settings.
+                    Writing status tags can be used to track the state of your dialogue. Only lines with specific
+                    statuses will be included in recording scripts and localization files based on these settings.
                 </div>
 
                 <div class="status-header">
@@ -844,7 +896,9 @@
         <div class="tab-content" data-tab-content="audio-status">
             <div class="section">
                 <div class="section-description">
-                    Define audio status locations and settings. The compiler will check each folder in order to determine the status of audio files based on their ID names. If Recorded is checked, the stats report will treat these lines as no longer needing recording.
+                    Define audio status locations and settings. The compiler will check each folder in order to
+                    determine the status of audio files based on their ID names. If Recorded is checked, the stats
+                    report will treat these lines as no longer needing recording.
                 </div>
 
                 <div class="audio-status-header">
@@ -872,15 +926,18 @@
                     <input type="text" id="commentFiltersLoc" name="commentFiltersLoc" placeholder="e.g. LOC,TRANS,?">
                 </div>
                 <div class="section-description" style="margin-left: 150px; margin-top: -5px;">
-                    Any comments starting with one of these prefixes followed by a colon (e.g. //MYPREFIX:) will be output to the localization spreadsheet. A ? means any comment with no prefix.
+                    Any comments starting with one of these prefixes followed by a colon (e.g. //MYPREFIX:) will be
+                    output to the localization spreadsheet. A ? means any comment with no prefix.
                 </div>
 
                 <div class="text-setting-item" style="margin-top: 10px;">
                     <label for="commentFiltersRecord">Recording Comments</label>
-                    <input type="text" id="commentFiltersRecord" name="commentFiltersRecord" placeholder="e.g. RECORD,VO,?">
+                    <input type="text" id="commentFiltersRecord" name="commentFiltersRecord"
+                        placeholder="e.g. RECORD,VO,?">
                 </div>
                 <div class="section-description" style="margin-left: 150px; margin-top: -5px;">
-                    Any comments starting with one of these prefixes followed by a colon (e.g. //MYPREFIX:) will be output to the recording script. A ? means any comment with no prefix.
+                    Any comments starting with one of these prefixes followed by a colon (e.g. //MYPREFIX:) will be
+                    output to the recording script. A ? means any comment with no prefix.
                 </div>
             </div>
 
@@ -892,7 +949,8 @@
                     <input type="text" id="tagFiltersRecord" name="tagFiltersRecord" placeholder="e.g. vo,music,sfx">
                 </div>
                 <div class="section-description" style="margin-left: 150px; margin-top: -5px;">
-                    Any tags starting with one of these prefixes followed by a colon (e.g. #mytag:) will be output to the recording script.
+                    Any tags starting with one of these prefixes followed by a colon (e.g. #mytag:) will be output to
+                    the recording script.
                 </div>
             </div>
         </div>
@@ -927,7 +985,9 @@
         <div class="tab-content" data-tab-content="estimating">
             <div class="section">
                 <div class="section-description">
-                    If a scene has a tag that matches this set, and the writing status ticked Est for Estimate, then the number of lines will be taken from this label, rather than from what's actually written in the script.
+                    If a scene has a tag that matches this set, and the writing status ticked Est for Estimate, then the
+                    number of lines will be taken from this label, rather than from what's actually written in the
+                    script.
                 </div>
 
                 <div class="estimate-header">

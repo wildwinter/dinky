@@ -390,6 +390,98 @@ async function init() {
         });
     }
 
+
+
+    // Set up PO Directory display and button
+    const poDirDisplay = document.getElementById('po-dir-display');
+    const selectPoDirBtn = document.getElementById('btn-select-po-dir');
+
+    const updatePoDirDisplay = () => {
+        const poDir = projectConfig.poDir || '';
+        if (poDir) {
+            const displayPath = poDir.startsWith('../') ? poDir : `./${poDir}`;
+            poDirDisplay.textContent = displayPath;
+            poDirDisplay.classList.remove('empty');
+        } else {
+            poDirDisplay.textContent = 'No folder selected';
+            poDirDisplay.classList.add('empty');
+        }
+    };
+
+    updatePoDirDisplay();
+
+    if (selectPoDirBtn) {
+        selectPoDirBtn.addEventListener('click', async () => {
+            const currentPoDir = projectConfig.poDir || '';
+            const defaultPath = currentPoDir ? resolveRelativePath(currentPoDir) : projectDir;
+
+            const selectedPath = await window.electronAPI.selectFolder(defaultPath);
+
+            if (selectedPath) {
+                const relativePath = makeRelativePath(selectedPath);
+                projectConfig.poDir = relativePath;
+
+                const success = await window.electronAPI.setProjectConfig('poDir', relativePath);
+
+                if (success) {
+                    updatePoDirDisplay();
+                } else {
+                    console.error('Failed to update poDir');
+                }
+            }
+        });
+    }
+
+    // Set up PO Languages text field
+    const poLangsInput = document.getElementById('poLangs');
+    if (poLangsInput) {
+        const currentPoLangs = projectConfig.poLangs || [];
+        poLangsInput.value = arrayToCSV(currentPoLangs);
+
+        const validatePoLangs = (value) => {
+            if (value === '') return true;
+            const parts = csvToArray(value);
+            // Language codes: lowercase letters and hyphens (e.g. fr, de, pt-BR)
+            return parts.every(part => /^[a-zA-Z-]+$/.test(part));
+        };
+
+        poLangsInput.addEventListener('input', (e) => {
+            const value = e.target.value;
+            if (!validatePoLangs(value)) {
+                e.target.classList.add('invalid');
+            } else {
+                e.target.classList.remove('invalid');
+            }
+        });
+
+        poLangsInput.addEventListener('blur', async (e) => {
+            const value = e.target.value.trim();
+
+            if (!validatePoLangs(value)) {
+                e.target.value = arrayToCSV(projectConfig.poLangs || []);
+                e.target.classList.remove('invalid');
+                return;
+            }
+
+            const arrayValue = csvToArray(value);
+            const currentValue = projectConfig.poLangs || [];
+            const changed = JSON.stringify(arrayValue) !== JSON.stringify(currentValue);
+
+            if (changed) {
+                projectConfig.poLangs = arrayValue;
+
+                const success = await window.electronAPI.setProjectConfig('poLangs', arrayValue);
+
+                if (success) {
+                    e.target.value = arrayToCSV(arrayValue);
+                } else {
+                    console.error('Failed to update poLangs');
+                    e.target.value = arrayToCSV(currentValue);
+                }
+            }
+        });
+    }
+
     // Set up checkboxes
     const checkboxes = [
         'locActions',
@@ -398,7 +490,8 @@ async function init() {
         'outputRecordingScript',
         'outputDinkStructure',
         'outputStats',
-        'ignoreWritingStatus'
+        'ignoreWritingStatus',
+        'outputPot'
     ];
 
     // Initialize checkbox values from project config
@@ -523,6 +616,23 @@ async function init() {
 
             updateGoogleTTSKeyFileDisplay();
             updateGoogleTTSOutputFolderDisplay();
+        }
+
+
+
+        // Update PO dir if changed
+        if ('poDir' in updatedConfig) {
+            projectConfig.poDir = updatedConfig.poDir;
+            updatePoDirDisplay();
+        }
+
+        // Update PO languages if changed
+        if ('poLangs' in updatedConfig) {
+            projectConfig.poLangs = updatedConfig.poLangs;
+            const poLangsInput = document.getElementById('poLangs');
+            if (poLangsInput) {
+                poLangsInput.value = arrayToCSV(updatedConfig.poLangs || []);
+            }
         }
 
         // Update estimates list if changed

@@ -139,5 +139,10 @@
     // Dinky editor settings
     "dinky": {
         "spellCheckerLocale":"en-GB"
-    }
+    },
+
+    // PO/POT
+    "outputPot": true,
+    "poDir": "loc",
+    "poLangs": ["en-US","fr-FR","it-IT","de-DE","es-ES"]
 }
