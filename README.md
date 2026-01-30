@@ -9,7 +9,6 @@
 - [Key Features](#key-features)
 - [The ID format](#the-id-format)
 - [Getting Started](#getting-started)
-- [The Dink Compiler](#the-dink-compiler)
 - [Releases](#releases)
 - [Acknowledgements](#acknowledgements)
 - [License and Attribution](#license-and-attribution)
@@ -61,6 +60,12 @@ Dinky generates an ID for every line of text or choice. It's hidden in the edito
 - **One-Click Copy:** Click an ID Chip to copy the ID to your clipboard for use in spreadsheets or game engines.
 ![ID Chip](doc/IDChip.png)
 
+### Dink Compiler Integration
+
+Dinky bundles the the [Dink Compiler](https://github.com/wildwinter/dink); you can compile your project and see the results. It also has an editor for all Dink settings. This means you get features like localisation exports, script stats, recording scripts, audio status, TTS generation, and lots more.
+
+![Dink Compile](doc/DinkCompile.png)
+
 ### Additional Features
 
 - **Integrated Test Runner:** Run your story in a dedicated window. Use "Test from Knot" to skip the intro and jump straight to the scene you're working on.
@@ -75,7 +80,6 @@ Dinky generates an ID for every line of text or choice. It's hidden in the edito
 ![Errors](doc/Errors.png)
 - **Knot/Stitch Navigation:** Go straight to a particular knot or stitch.
 ![Navigations](doc/Navigations.png)
-- **Dink Compiler Integration:** Dinky bundles the [the Dink Compiler](#the-dink-compiler); you can compile your project and see the results. It also has an editor for all the Dink Compiler settings.
 
 ## The ID format
 
@@ -90,18 +94,8 @@ Dinky generates IDs that are stable and descriptive:
 
 1. **Create a New Project**: Open Dinky and create a `.dinkproj` file.
 2. **Define Your Root**: Point Dinky to your main `.ink` file.
-3. **Configure Settings**: Set up your compiler path and project preferences.
+3. **Configure Settings**: Set up your project preferences.
 4. **Write**: Focus on the story.
-
-## The Dink Compiler
-
-[The Dink Compiler](https://github.com/wildwinter/dink) is a command-line tool that compiles Dink projects into JSON for game engines. It is bundled with Dinky,
-
-![Dink Compile](doc/DinkCompile.png)
-
-There is a menu option in the Project menu, `Project Settings`, which gives all the settings for the Dink Compiler. The Project menu also has the `Compile` option, which will run the compiler and show you the results.
-
-![Dink Project Settings](doc/DinkProjectSettings.png)
 
 ## Releases
 
@@ -109,7 +103,7 @@ You can find releases for various platforms [here](https://github.com/wildwinter
 
 ## Acknowledgements
 
-Dinky is built with **Electron**, **Monaco Editor**, and **Inkjs**.
+Dinky is built with **Electron**, **Monaco Editor**, **Inkjs**, and **dink**.
 
 Obviously, huge thanks to [Inkle](https://www.inklestudios.com/) (and **Joseph Humfrey** in particular) for [Ink](https://www.inklestudios.com/ink/) and the ecosystem around it, it's made my life way easier.
 
