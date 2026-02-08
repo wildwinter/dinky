@@ -846,7 +846,7 @@ window.electronAPI.onCompileOutput(({ type, data }) => {
     container.scrollTop = container.scrollHeight;
 });
 
-window.electronAPI.onCompileComplete(({ code, destFolder }) => {
+window.electronAPI.onCompileComplete(({ code, destFolder, destFile, exportType }) => {
     const outputEl = document.getElementById('compile-output');
     const container = document.getElementById('compile-output-container');
 
@@ -863,13 +863,19 @@ window.electronAPI.onCompileComplete(({ code, destFolder }) => {
     statusSpan.style.marginBottom = '5px';
     statusSpan.style.borderRadius = '3px';
 
+    // Determine the operation name
+    let operationName = 'COMPILE';
+    if (exportType === 'html') operationName = 'HTML EXPORT';
+    else if (exportType === 'pdf') operationName = 'PDF EXPORT';
+    else if (exportType === 'word') operationName = 'WORD EXPORT';
+
     if (code === 0) {
-        statusSpan.textContent = '✓ COMPILE SUCCESSFUL';
+        statusSpan.textContent = `✓ ${operationName} SUCCESSFUL`;
         statusSpan.style.color = '#4CAF50';
         statusSpan.style.backgroundColor = 'rgba(76, 175, 80, 0.1)';
         statusSpan.style.border = '1px solid #4CAF50';
     } else {
-        statusSpan.textContent = `✗ COMPILE FAILED (Exit Code: ${code})`;
+        statusSpan.textContent = `✗ ${operationName} FAILED (Exit Code: ${code})`;
         statusSpan.style.color = '#f44336';
         statusSpan.style.backgroundColor = 'rgba(244, 67, 54, 0.1)';
         statusSpan.style.border = '1px solid #f44336';
@@ -879,9 +885,11 @@ window.electronAPI.onCompileComplete(({ code, destFolder }) => {
     outputEl.appendChild(statusSpan);
     outputEl.appendChild(document.createTextNode('\n'));
 
-    // Add output folder location if compilation was successful
+    // Add output location if successful
     if (code === 0 && destFolder) {
         outputEl.appendChild(document.createTextNode(`Files are available in ${destFolder}`));
+    } else if (code === 0 && destFile) {
+        outputEl.appendChild(document.createTextNode(`File saved to ${destFile}`));
     }
 
     // Enable close button
@@ -889,6 +897,64 @@ window.electronAPI.onCompileComplete(({ code, destFolder }) => {
 
     // Auto-scroll to bottom
     container.scrollTop = container.scrollHeight;
+});
+
+// Export modal handlers
+async function openExportModal(exportType, exportFunction, fileFilters) {
+    // First, select the export file with appropriate filters
+    const destFile = await window.electronAPI.saveFile(undefined, fileFilters);
+
+    if (!destFile) {
+        // User cancelled file selection
+        return;
+    }
+
+    // Open the compile modal to show progress
+    compileModalOverlay.style.display = 'flex';
+    compileOutput.textContent = '';
+    btnCloseCompile.disabled = true;
+
+    // Reset scroll to top
+    compileOutputContainer.scrollTop = 0;
+
+    // Save all files before exporting
+    compileOutput.textContent = 'Saving files...\n';
+    try {
+        await saveAllFiles();
+        compileOutput.textContent += 'Files saved.\n\n';
+    } catch (error) {
+        compileOutput.textContent = `Error saving files: ${error.message}\n`;
+        btnCloseCompile.disabled = false;
+        return;
+    }
+
+    // Start export
+    const result = await exportFunction(destFile);
+
+    // If export failed to start, show error and enable close button
+    if (result && !result.success) {
+        compileOutput.textContent += `Error: ${result.error}\n`;
+        btnCloseCompile.disabled = false;
+        compileOutputContainer.scrollTop = compileOutputContainer.scrollHeight;
+    }
+}
+
+window.electronAPI.onShowExportHTMLModal(() => {
+    openExportModal('html', window.electronAPI.exportHTML, [
+        { name: 'HTML Files', extensions: ['html'] }
+    ]);
+});
+
+window.electronAPI.onShowExportPDFModal(() => {
+    openExportModal('pdf', window.electronAPI.exportPDF, [
+        { name: 'PDF Files', extensions: ['pdf'] }
+    ]);
+});
+
+window.electronAPI.onShowExportWordModal(() => {
+    openExportModal('word', window.electronAPI.exportWord, [
+        { name: 'Word Documents', extensions: ['docx', 'doc'] }
+    ]);
 });
 
 // Update loadFileToEditor to handle rename button state

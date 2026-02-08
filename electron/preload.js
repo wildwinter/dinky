@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     newProject: () => ipcRenderer.invoke('new-project'),
     selectFolder: (defaultPath) => ipcRenderer.invoke('select-folder', defaultPath),
     selectFile: (defaultPath, filters) => ipcRenderer.invoke('select-file', defaultPath, filters),
+    saveFile: (defaultPath, filters) => ipcRenderer.invoke('save-file', defaultPath, filters),
     createNewProject: (name, parentPath) => ipcRenderer.invoke('create-new-project', name, parentPath),
     onShowNewProjectModal: (callback) => ipcRenderer.on('show-new-project-modal', (_event, value) => callback(value)),
     createNewInclude: (name, folderPath) => ipcRenderer.invoke('create-new-include', name, folderPath),
@@ -75,12 +76,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Compiler path API
     getCompilerPath: () => ipcRenderer.invoke('get-compiler-path'),
+    getViewerPath: () => ipcRenderer.invoke('get-viewer-path'),
 
     // Compilation API
     runCompile: () => ipcRenderer.invoke('run-compile'),
     onCompileOutput: (callback) => ipcRenderer.on('compile-output', (_event, value) => callback(value)),
     onCompileComplete: (callback) => ipcRenderer.on('compile-complete', (_event, value) => callback(value)),
     onShowCompileModal: (callback) => ipcRenderer.on('show-compile-modal', (_event) => callback()),
+
+    // Export API
+    exportHTML: (destFolder) => ipcRenderer.invoke('export-html', destFolder),
+    exportPDF: (destFolder) => ipcRenderer.invoke('export-pdf', destFolder),
+    exportWord: (destFolder) => ipcRenderer.invoke('export-word', destFolder),
+    onShowExportHTMLModal: (callback) => ipcRenderer.on('show-export-html-modal', (_event) => callback()),
+    onShowExportPDFModal: (callback) => ipcRenderer.on('show-export-pdf-modal', (_event) => callback()),
+    onShowExportWordModal: (callback) => ipcRenderer.on('show-export-word-modal', (_event) => callback()),
 
     // Project Settings API
     getProjectConfig: () => ipcRenderer.invoke('get-project-config'),

@@ -80,6 +80,7 @@ Dinky bundles the the [Dink Compiler](https://github.com/wildwinter/dink); you c
 ![Errors](doc/Errors.png)
 - **Knot/Stitch Navigation:** Go straight to a particular knot or stitch.
 ![Navigations](doc/Navigations.png)
+- **Export Readable Versions:** Export to PDF, Word, and also interactive HTML, where a reader can explore different sections of the script.
 
 ## The ID format
 

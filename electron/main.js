@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs/promises'
 import { spawn } from 'child_process'
 
-import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowState, saveWindowState, flushSettings, getCompilerPath } from './config'
+import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowState, saveWindowState, flushSettings, getCompilerPath, getViewerPath } from './config'
 import { buildMenu } from './menu'
 import { compileInk, parseInk } from './compiler'
 import { openTestWindow } from './test-runner'
@@ -386,12 +386,22 @@ if (!gotTheLock) {
         return null;
     });
 
+    ipcMain.handle('save-file', async (event, defaultPath, filters) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const { canceled, filePath } = await dialog.showSaveDialog(win, {
+            defaultPath: defaultPath,
+            filters: filters || []
+        });
+        if (!canceled && filePath) {
+            return filePath;
+        }
+        return null;
+    });
+
     ipcMain.handle('create-new-project', async (event, name, parentPath) => {
         const win = BrowserWindow.fromWebContents(event.sender);
         return await createNewProject(win, name, parentPath);
     });
-
-
 
     ipcMain.handle('get-compiler-path', async () => {
         return await getCompilerPath();
@@ -455,6 +465,249 @@ if (!gotTheLock) {
         });
     });
 
+    ipcMain.handle('export-html', async (event, destFile) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const compilerPath = await getCompilerPath();
+        const viewerPath = await getViewerPath();
+        const project = getCurrentProject();
+
+        if (!compilerPath) {
+            return { success: false, error: 'No compiler path set' };
+        }
+
+        if (!viewerPath) {
+            return { success: false, error: 'No viewer path set' };
+        }
+
+        if (!project || !project.path) {
+            return { success: false, error: 'No project loaded' };
+        }
+
+        const projectPath = path.resolve(project.path);
+
+        // Step 1: Run DinkCompiler with --dinkStructure
+        safeSend(win, 'compile-output', { type: 'command', data: 'Step 1: Preparing Dink structure...\n' });
+        const compilerArgs = ['--project', projectPath, '--dinkStructure'];
+        const compilerCmd = `${compilerPath} ${compilerArgs.join(' ')}\n\n`;
+        safeSend(win, 'compile-output', { type: 'command', data: compilerCmd });
+
+        return new Promise((resolve) => {
+            const compiler = spawn(compilerPath, compilerArgs);
+
+            compiler.stdout.on('data', (data) => {
+                safeSend(win, 'compile-output', { type: 'stdout', data: data.toString() });
+            });
+
+            compiler.stderr.on('data', (data) => {
+                safeSend(win, 'compile-output', { type: 'stderr', data: data.toString() });
+            });
+
+            compiler.on('error', (error) => {
+                safeSend(win, 'compile-output', { type: 'error', data: `Failed to start compiler: ${error.message}\n` });
+                safeSend(win, 'compile-complete', { code: -1, destFile: null, exportType: 'html' });
+                resolve({ success: false, error: error.message });
+            });
+
+            compiler.on('close', (compilerCode) => {
+                if (compilerCode !== 0) {
+                    safeSend(win, 'compile-output', { type: 'error', data: `\nCompiler failed with exit code ${compilerCode}\n` });
+                    safeSend(win, 'compile-complete', { code: compilerCode, destFile: null, exportType: 'html' });
+                    resolve({ success: false, error: `Compiler failed with exit code ${compilerCode}` });
+                    return;
+                }
+
+                // Step 2: Run DinkViewer
+                safeSend(win, 'compile-output', { type: 'command', data: '\n\nStep 2: Exporting Interactive HTML...\n' });
+                const viewerArgs = ['--project', projectPath, '--destFile', destFile, '--silent'];
+                const viewerCmd = `${viewerPath} ${viewerArgs.join(' ')}\n\n`;
+                safeSend(win, 'compile-output', { type: 'command', data: viewerCmd });
+
+                const viewer = spawn(viewerPath, viewerArgs);
+
+                viewer.stdout.on('data', (data) => {
+                    safeSend(win, 'compile-output', { type: 'stdout', data: data.toString() });
+                });
+
+                viewer.stderr.on('data', (data) => {
+                    safeSend(win, 'compile-output', { type: 'stderr', data: data.toString() });
+                });
+
+                viewer.on('error', (error) => {
+                    safeSend(win, 'compile-output', { type: 'error', data: `Failed to start viewer: ${error.message}\n` });
+                    safeSend(win, 'compile-complete', { code: -1, destFile: null, exportType: 'html' });
+                    resolve({ success: false, error: error.message });
+                });
+
+                viewer.on('close', (viewerCode) => {
+                    safeSend(win, 'compile-complete', { code: viewerCode, destFile: viewerCode === 0 ? destFile : null, exportType: 'html' });
+                    resolve({ success: viewerCode === 0, exitCode: viewerCode });
+                });
+            });
+        });
+    });
+
+    ipcMain.handle('export-pdf', async (event, destFile) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const compilerPath = await getCompilerPath();
+        const viewerPath = await getViewerPath();
+        const project = getCurrentProject();
+
+        if (!compilerPath) {
+            return { success: false, error: 'No compiler path set' };
+        }
+
+        if (!viewerPath) {
+            return { success: false, error: 'No viewer path set' };
+        }
+
+        if (!project || !project.path) {
+            return { success: false, error: 'No project loaded' };
+        }
+
+        const projectPath = path.resolve(project.path);
+
+        // Step 1: Run DinkCompiler with --dinkStructure
+        safeSend(win, 'compile-output', { type: 'command', data: 'Step 1: Preparing Dink structure...\n' });
+        const compilerArgs = ['--project', projectPath, '--dinkStructure'];
+        const compilerCmd = `${compilerPath} ${compilerArgs.join(' ')}\n\n`;
+        safeSend(win, 'compile-output', { type: 'command', data: compilerCmd });
+
+        return new Promise((resolve) => {
+            const compiler = spawn(compilerPath, compilerArgs);
+
+            compiler.stdout.on('data', (data) => {
+                safeSend(win, 'compile-output', { type: 'stdout', data: data.toString() });
+            });
+
+            compiler.stderr.on('data', (data) => {
+                safeSend(win, 'compile-output', { type: 'stderr', data: data.toString() });
+            });
+
+            compiler.on('error', (error) => {
+                safeSend(win, 'compile-output', { type: 'error', data: `Failed to start compiler: ${error.message}\n` });
+                safeSend(win, 'compile-complete', { code: -1, destFile: null, exportType: 'pdf' });
+                resolve({ success: false, error: error.message });
+            });
+
+            compiler.on('close', (compilerCode) => {
+                if (compilerCode !== 0) {
+                    safeSend(win, 'compile-output', { type: 'error', data: `\nCompiler failed with exit code ${compilerCode}\n` });
+                    safeSend(win, 'compile-complete', { code: compilerCode, destFile: null, exportType: 'pdf' });
+                    resolve({ success: false, error: `Compiler failed with exit code ${compilerCode}` });
+                    return;
+                }
+
+                // Step 2: Run DinkViewer with --pdf
+                safeSend(win, 'compile-output', { type: 'command', data: '\n\nStep 2: Exporting PDF...\n' });
+                const viewerArgs = ['--project', projectPath, '--destFile', destFile, '--silent', '--pdf'];
+                const viewerCmd = `${viewerPath} ${viewerArgs.join(' ')}\n\n`;
+                safeSend(win, 'compile-output', { type: 'command', data: viewerCmd });
+
+                const viewer = spawn(viewerPath, viewerArgs);
+
+                viewer.stdout.on('data', (data) => {
+                    safeSend(win, 'compile-output', { type: 'stdout', data: data.toString() });
+                });
+
+                viewer.stderr.on('data', (data) => {
+                    safeSend(win, 'compile-output', { type: 'stderr', data: data.toString() });
+                });
+
+                viewer.on('error', (error) => {
+                    safeSend(win, 'compile-output', { type: 'error', data: `Failed to start viewer: ${error.message}\n` });
+                    safeSend(win, 'compile-complete', { code: -1, destFile: null, exportType: 'pdf' });
+                    resolve({ success: false, error: error.message });
+                });
+
+                viewer.on('close', (viewerCode) => {
+                    safeSend(win, 'compile-complete', { code: viewerCode, destFile: viewerCode === 0 ? destFile : null, exportType: 'pdf' });
+                    resolve({ success: viewerCode === 0, exitCode: viewerCode });
+                });
+            });
+        });
+    });
+
+    ipcMain.handle('export-word', async (event, destFile) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const compilerPath = await getCompilerPath();
+        const viewerPath = await getViewerPath();
+        const project = getCurrentProject();
+
+        if (!compilerPath) {
+            return { success: false, error: 'No compiler path set' };
+        }
+
+        if (!viewerPath) {
+            return { success: false, error: 'No viewer path set' };
+        }
+
+        if (!project || !project.path) {
+            return { success: false, error: 'No project loaded' };
+        }
+
+        const projectPath = path.resolve(project.path);
+
+        // Step 1: Run DinkCompiler with --dinkStructure
+        safeSend(win, 'compile-output', { type: 'command', data: 'Step 1: Preparing Dink structure...\n' });
+        const compilerArgs = ['--project', projectPath, '--dinkStructure'];
+        const compilerCmd = `${compilerPath} ${compilerArgs.join(' ')}\n\n`;
+        safeSend(win, 'compile-output', { type: 'command', data: compilerCmd });
+
+        return new Promise((resolve) => {
+            const compiler = spawn(compilerPath, compilerArgs);
+
+            compiler.stdout.on('data', (data) => {
+                safeSend(win, 'compile-output', { type: 'stdout', data: data.toString() });
+            });
+
+            compiler.stderr.on('data', (data) => {
+                safeSend(win, 'compile-output', { type: 'stderr', data: data.toString() });
+            });
+
+            compiler.on('error', (error) => {
+                safeSend(win, 'compile-output', { type: 'error', data: `Failed to start compiler: ${error.message}\n` });
+                safeSend(win, 'compile-complete', { code: -1, destFile: null, exportType: 'word' });
+                resolve({ success: false, error: error.message });
+            });
+
+            compiler.on('close', (compilerCode) => {
+                if (compilerCode !== 0) {
+                    safeSend(win, 'compile-output', { type: 'error', data: `\nCompiler failed with exit code ${compilerCode}\n` });
+                    safeSend(win, 'compile-complete', { code: compilerCode, destFile: null, exportType: 'word' });
+                    resolve({ success: false, error: `Compiler failed with exit code ${compilerCode}` });
+                    return;
+                }
+
+                // Step 2: Run DinkViewer with --word
+                safeSend(win, 'compile-output', { type: 'command', data: '\n\nStep 2: Exporting Word...\n' });
+                const viewerArgs = ['--project', projectPath, '--destFile', destFile, '--silent', '--word'];
+                const viewerCmd = `${viewerPath} ${viewerArgs.join(' ')}\n\n`;
+                safeSend(win, 'compile-output', { type: 'command', data: viewerCmd });
+
+                const viewer = spawn(viewerPath, viewerArgs);
+
+                viewer.stdout.on('data', (data) => {
+                    safeSend(win, 'compile-output', { type: 'stdout', data: data.toString() });
+                });
+
+                viewer.stderr.on('data', (data) => {
+                    safeSend(win, 'compile-output', { type: 'stderr', data: data.toString() });
+                });
+
+                viewer.on('error', (error) => {
+                    safeSend(win, 'compile-output', { type: 'error', data: `Failed to start viewer: ${error.message}\n` });
+                    safeSend(win, 'compile-complete', { code: -1, destFile: null, exportType: 'word' });
+                    resolve({ success: false, error: error.message });
+                });
+
+                viewer.on('close', (viewerCode) => {
+                    safeSend(win, 'compile-complete', { code: viewerCode, destFile: viewerCode === 0 ? destFile : null, exportType: 'word' });
+                    resolve({ success: viewerCode === 0, exitCode: viewerCode });
+                });
+            });
+        });
+    });
+
     app.whenReady().then(() => {
         createWindow()
 
@@ -463,8 +716,11 @@ if (!gotTheLock) {
                 createWindow()
             }
         })
-    })
+    });
 
+    ipcMain.handle('get-viewer-path', async () => {
+        return await getViewerPath();
+    });
 
     ipcMain.handle('create-new-include', async (event, name, folderPath) => {
         const win = BrowserWindow.fromWebContents(event.sender);

@@ -129,6 +129,34 @@ async function buildMenu(win) {
                         openNewIncludeUI(win);
                     }
                 },
+                { type: 'separator' },
+                {
+                    label: 'Export',
+                    submenu: [
+                        {
+                            label: 'Export Interactive HTML',
+                            enabled: hasNonAdhocProject,
+                            click: () => {
+                                safeSend(win, 'show-export-html-modal');
+                            }
+                        },
+                        {
+                            label: 'Export Word',
+                            enabled: hasNonAdhocProject,
+                            click: () => {
+                                safeSend(win, 'show-export-word-modal');
+                            }
+                        },
+                        {
+                            label: 'Export PDF',
+                            enabled: hasNonAdhocProject,
+                            click: () => {
+                                safeSend(win, 'show-export-pdf-modal');
+                            }
+                        }
+                    ]
+                },
+                {type: 'separator'},
                 { label: 'Save', accelerator: isMac ? 'Cmd+S' : 'Ctrl+S', click: async () => { safeSend(win, 'save-all'); } },
                 ...(isMac ? [] : [{ role: 'quit' }])
             ]

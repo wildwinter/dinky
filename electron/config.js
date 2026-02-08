@@ -154,6 +154,23 @@ async function getCompilerPath() {
     return path.join(basePath, executableName);
 }
 
+// Viewer Path Helpers
+async function getViewerPath() {
+    const isWindows = process.platform === 'win32';
+    const executableName = isWindows ? 'DinkViewer.exe' : 'DinkViewer';
+
+    // In production (bundled), resources are in process.resourcesPath
+    // In development, we can look in the project root's resources folder
+    let basePath;
+    if (app.isPackaged) {
+        basePath = path.join(process.resourcesPath, 'compiler');
+    } else {
+        basePath = path.join(process.cwd(), 'resources', 'compiler');
+    }
+
+    return path.join(basePath, executableName);
+}
+
 export {
     loadSettings,
     saveSettings,
@@ -165,5 +182,6 @@ export {
     getWindowState,
     saveWindowState,
     flushSettings,
-    getCompilerPath
+    getCompilerPath,
+    getViewerPath
 }

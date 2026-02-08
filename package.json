@@ -1,8 +1,8 @@
 {
     "name": "dinky",
     "productName": "Dinky",
-    "version": "0.0.15",
-    "dinkVersion": "0.0.13",
+    "version": "0.0.16",
+    "dinkVersion": "0.0.14",
     "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
@@ -26,6 +26,10 @@
                 {
                     "from": "resources/compiler/DinkCompiler",
                     "to": "compiler/DinkCompiler"
+                },
+                {
+                    "from": "resources/compiler/DinkViewer",
+                    "to": "compiler/DinkViewer"
                 }
             ]
         },
@@ -50,6 +54,10 @@
                 {
                     "from": "resources/compiler/DinkCompiler.exe",
                     "to": "compiler/DinkCompiler.exe"
+                },
+                {
+                    "from": "resources/compiler/DinkViewer.exe",
+                    "to": "compiler/DinkViewer.exe"
                 }
             ]
         },
