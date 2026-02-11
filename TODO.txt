@@ -3,6 +3,7 @@ TODO:
 Add debug/watching
 Dinky icons for Unreal 
 Play connected audio?
+Scratch audio
 Set up Github auto building/blockmaps/update checker
 Code signing (costs money!)
 
