@@ -1049,6 +1049,7 @@ function loadFileToEditor(file, element, forceRefresh = false) {
             checkSpelling();
             autoTag();
             refreshNavigationDropdown();
+            updateTestAudioButton();
         });
     } else {
         // Fallback for browsers without requestIdleCallback
@@ -1057,6 +1058,7 @@ function loadFileToEditor(file, element, forceRefresh = false) {
             checkSpelling();
             autoTag();
             refreshNavigationDropdown();
+            updateTestAudioButton();
         }, 0);
     }
 
@@ -1971,10 +1973,108 @@ function updateNavigationButtons() {
 }
 
 /**
+ * Test Audio button
+ */
+const testAudioBtn = document.getElementById('btn-test-audio');
+const audioStatusLabel = document.getElementById('audio-status-label');
+let currentAudioFilePath = null;
+let currentAudioElement = null;
+
+function setTestAudioEnabled(enabled) {
+    if (!testAudioBtn) return;
+    if (enabled) {
+        testAudioBtn.style.opacity = '1';
+        testAudioBtn.style.pointerEvents = 'auto';
+    } else {
+        testAudioBtn.style.opacity = '0.5';
+        testAudioBtn.style.pointerEvents = 'none';
+    }
+}
+
+function updateAudioStatusLabel(statusText, colorHex) {
+    if (!audioStatusLabel) return;
+    if (!statusText) {
+        audioStatusLabel.classList.remove('visible');
+        audioStatusLabel.textContent = '';
+        return;
+    }
+    const r = parseInt(colorHex.substring(0, 2), 16);
+    const g = parseInt(colorHex.substring(2, 4), 16);
+    const b = parseInt(colorHex.substring(4, 6), 16);
+    audioStatusLabel.textContent = statusText;
+    audioStatusLabel.style.color = `rgb(${r}, ${g}, ${b})`;
+    audioStatusLabel.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.15)`;
+    audioStatusLabel.classList.add('visible');
+}
+
+async function updateTestAudioButton() {
+    const position = editor.getPosition();
+    if (!position) {
+        currentAudioFilePath = null;
+        setTestAudioEnabled(false);
+        updateAudioStatusLabel(null);
+        return;
+    }
+
+    const lineId = idManager.getIdForLine(position.lineNumber);
+    if (!lineId) {
+        currentAudioFilePath = null;
+        setTestAudioEnabled(false);
+        updateAudioStatusLabel(null);
+        return;
+    }
+
+    const result = await window.electronAPI.findAudioFile(lineId);
+    if (result) {
+        currentAudioFilePath = result.path;
+        setTestAudioEnabled(true);
+        updateAudioStatusLabel(result.status, result.color);
+    } else {
+        currentAudioFilePath = null;
+        setTestAudioEnabled(false);
+        updateAudioStatusLabel(null);
+    }
+}
+
+async function playTestAudio() {
+    if (!currentAudioFilePath) return;
+
+    // Stop any currently playing audio
+    if (currentAudioElement) {
+        currentAudioElement.pause();
+        currentAudioElement = null;
+    }
+
+    const dataUrl = await window.electronAPI.readAudioFile(currentAudioFilePath);
+    if (!dataUrl) return;
+
+    currentAudioElement = new Audio(dataUrl);
+    currentAudioElement.play().catch(err => {
+        console.error('Failed to play audio:', err);
+    });
+    currentAudioElement.addEventListener('ended', () => {
+        currentAudioElement = null;
+    });
+}
+
+if (testAudioBtn) {
+    testAudioBtn.addEventListener('click', playTestAudio);
+}
+
+// Shift+Space shortcut to play test audio (overrides triggerSuggest, but Ctrl+Space still works for autocomplete)
+editor.addAction({
+    id: 'dinky.playTestAudio',
+    label: 'Play Test Audio',
+    keybindings: [monaco.KeyMod.Shift | monaco.KeyCode.Space],
+    run: () => { playTestAudio(); }
+});
+
+/**
  * Listen to cursor position changes
  */
 editor.onDidChangeCursorPosition(() => {
     updateDropdownSelection();
+    updateTestAudioButton();
 
     // Don't track history if we're navigating via back/forward
     if (isNavigatingHistory) return;

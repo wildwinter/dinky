@@ -166,6 +166,19 @@
                     style="background-color: var(--sidebar-bg); color: var(--text-color); border: 1px solid var(--sidebar-border); padding: 2px 4px; font-size: 12px; cursor: pointer;">
                     <option value="">No location</option>
                 </select>
+                <!-- Separator -->
+                <div style="width: 1px; height: 16px; background-color: var(--sidebar-border); margin: 0 4px;"></div>
+                <div id="btn-test-audio" data-tooltip="Test Audio"
+                    style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: 0.5; pointer-events: none;">
+                    <!-- Lucide Volume2 (loudspeaker) -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    </svg>
+                </div>
+                <span id="audio-status-label"></span>
             </div>
             <!-- Error Banner -->
             <div id="error-banner" style="display: none;">

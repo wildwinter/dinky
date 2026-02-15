@@ -12,6 +12,7 @@ import { loadProject, loadAdhocInkProject, switchToInkRoot, createNewProject, cr
 import { initSearch, openSearchWindow } from './search'
 import './project-settings' // Import to register IPC handlers
 import './characters-editor' // Import to register IPC handlers
+import './audio-lookup' // Import to register IPC handlers
 import { safeSend, setupThemeListener } from './utils'
 import pkg from '../package.json'
 

@@ -242,6 +242,23 @@ export class IdPreservationManager {
     }
 
     /**
+     * Get the ink ID associated with a given line number (1-based).
+     * Returns the ID string or null if no ID is tracked on that line.
+     */
+    getIdForLine(lineNumber) {
+        const model = this.editor.getModel();
+        if (!model) return null;
+
+        const decorations = model.getLineDecorations(lineNumber);
+        for (const dec of decorations) {
+            if (this.decorationToId.has(dec.id)) {
+                return this.decorationToId.get(dec.id);
+            }
+        }
+        return null;
+    }
+
+    /**
      * Add a tracker for a new ID (e.g. from Auto-Tagging)
      */
     registerNewId(lineNumber, idStr) {

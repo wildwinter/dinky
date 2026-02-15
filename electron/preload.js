@@ -102,7 +102,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getCharacters: () => ipcRenderer.invoke('get-characters'),
     saveCharacters: (characters) => ipcRenderer.invoke('save-characters', characters),
     openCharacters: () => ipcRenderer.send('open-characters'),
-    onCharactersUpdated: (callback) => ipcRenderer.on('characters-updated', (_event) => callback())
+    onCharactersUpdated: (callback) => ipcRenderer.on('characters-updated', (_event) => callback()),
+
+    // Audio lookup API
+    findAudioFile: (lineId) => ipcRenderer.invoke('find-audio-file', lineId),
+    readAudioFile: (filePath) => ipcRenderer.invoke('read-audio-file', filePath),
 });
 
 window.addEventListener('DOMContentLoaded', () => {
