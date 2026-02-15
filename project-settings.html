@@ -692,6 +692,16 @@
             border-color: var(--text-color);
         }
 
+        .info-message {
+            font-size: 12px;
+            color: var(--muted-text);
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--sidebar-border);
+            border-radius: 4px;
+            padding: 10px 12px;
+            line-height: 1.5;
+        }
+
         #poLangs {
             width: 360px;
         }
@@ -1156,11 +1166,14 @@
             </div>
 
             <div class="section">
-                <div class="path-setting-item">
-                    <label>Output Folder</label>
-                    <div id="google-tts-output-folder-display" class="path-display empty">No folder selected</div>
-                    <button id="btn-select-google-tts-output-folder" class="secondary">Browse...</button>
+                <div class="setting-item">
+                    <label for="googleTTSOutputStatus">Output to Audio Status</label>
+                    <select id="googleTTSOutputStatus"></select>
                 </div>
+            </div>
+
+            <div id="google-tts-no-audio-statuses" class="section" style="display: none;">
+                <div class="info-message">Google TTS requires at least one Audio Status to be configured. Add audio statuses in the Audio Status tab first.</div>
             </div>
 
             <div class="section">

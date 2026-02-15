@@ -306,8 +306,8 @@ async function init() {
     // Set up Google TTS
     const googleTTSKeyFileDisplay = document.getElementById('google-tts-key-file-display');
     const selectGoogleTTSKeyFileBtn = document.getElementById('btn-select-google-tts-key-file');
-    const googleTTSOutputFolderDisplay = document.getElementById('google-tts-output-folder-display');
-    const selectGoogleTTSOutputFolderBtn = document.getElementById('btn-select-google-tts-output-folder');
+    const googleTTSOutputStatusSelect = document.getElementById('googleTTSOutputStatus');
+    const googleTTSNoAudioMsg = document.getElementById('google-tts-no-audio-statuses');
 
     const updateGoogleTTSKeyFileDisplay = () => {
         const authentication = projectConfig.googleTTS?.authentication || '';
@@ -322,21 +322,55 @@ async function init() {
         }
     };
 
-    const updateGoogleTTSOutputFolderDisplay = () => {
-        const outputFolder = projectConfig.googleTTS?.outputFolder || '';
-        if (outputFolder) {
-            // Prepend ./ if it doesn't already start with ../ to make it clear it's relative
-            const displayPath = outputFolder.startsWith('../') ? outputFolder : `./${outputFolder}`;
-            googleTTSOutputFolderDisplay.textContent = displayPath;
-            googleTTSOutputFolderDisplay.classList.remove('empty');
-        } else {
-            googleTTSOutputFolderDisplay.textContent = 'No folder selected';
-            googleTTSOutputFolderDisplay.classList.add('empty');
+    const updateGoogleTTSOutputStatusDropdown = () => {
+        if (!googleTTSOutputStatusSelect) return;
+        const audioStatuses = projectConfig.audioStatus || [];
+        const currentFolder = projectConfig.googleTTS?.outputFolder || '';
+
+        googleTTSOutputStatusSelect.innerHTML = '';
+
+        if (audioStatuses.length === 0) {
+            // No audio statuses: disable TTS
+            googleTTSOutputStatusSelect.style.display = 'none';
+            if (googleTTSNoAudioMsg) googleTTSNoAudioMsg.style.display = '';
+            const generateCheckbox = document.getElementById('googleTTSGenerate');
+            if (generateCheckbox) {
+                generateCheckbox.checked = false;
+                generateCheckbox.disabled = true;
+            }
+            return;
+        }
+
+        googleTTSOutputStatusSelect.style.display = '';
+        if (googleTTSNoAudioMsg) googleTTSNoAudioMsg.style.display = 'none';
+        const generateCheckbox = document.getElementById('googleTTSGenerate');
+        if (generateCheckbox) {
+            generateCheckbox.disabled = false;
+        }
+
+        let hasMatch = false;
+        for (const status of audioStatuses) {
+            const option = document.createElement('option');
+            option.value = status.folder || '';
+            option.textContent = status.status || '(unnamed)';
+            if (status.folder === currentFolder) {
+                option.selected = true;
+                hasMatch = true;
+            }
+            googleTTSOutputStatusSelect.appendChild(option);
+        }
+
+        // If current folder doesn't match any status, select the first one and save it
+        if (!hasMatch && audioStatuses.length > 0) {
+            googleTTSOutputStatusSelect.selectedIndex = 0;
+            if (!projectConfig.googleTTS) projectConfig.googleTTS = {};
+            projectConfig.googleTTS.outputFolder = audioStatuses[0].folder || '';
+            window.electronAPI.setProjectConfig('googleTTS', projectConfig.googleTTS);
         }
     };
 
     updateGoogleTTSKeyFileDisplay();
-    updateGoogleTTSOutputFolderDisplay();
+    updateGoogleTTSOutputStatusDropdown();
 
     if (selectGoogleTTSKeyFileBtn) {
         selectGoogleTTSKeyFileBtn.addEventListener('click', async () => {
@@ -365,27 +399,17 @@ async function init() {
         });
     }
 
-    if (selectGoogleTTSOutputFolderBtn) {
-        selectGoogleTTSOutputFolderBtn.addEventListener('click', async () => {
-            const currentOutputFolder = projectConfig.googleTTS?.outputFolder || '';
-            const defaultPath = currentOutputFolder ? resolveRelativePath(currentOutputFolder) : projectDir;
+    if (googleTTSOutputStatusSelect) {
+        googleTTSOutputStatusSelect.addEventListener('change', async () => {
+            const selectedFolder = googleTTSOutputStatusSelect.value;
+            if (!projectConfig.googleTTS) {
+                projectConfig.googleTTS = {};
+            }
+            projectConfig.googleTTS.outputFolder = selectedFolder;
 
-            const selectedPath = await window.electronAPI.selectFolder(defaultPath);
-
-            if (selectedPath) {
-                const relativePath = makeRelativePath(selectedPath);
-                if (!projectConfig.googleTTS) {
-                    projectConfig.googleTTS = {};
-                }
-                projectConfig.googleTTS.outputFolder = relativePath;
-
-                const success = await window.electronAPI.setProjectConfig('googleTTS', projectConfig.googleTTS);
-
-                if (success) {
-                    updateGoogleTTSOutputFolderDisplay();
-                } else {
-                    console.error('Failed to update Google TTS output folder');
-                }
+            const success = await window.electronAPI.setProjectConfig('googleTTS', projectConfig.googleTTS);
+            if (!success) {
+                console.error('Failed to update Google TTS output folder');
             }
         });
     }
@@ -581,6 +605,7 @@ async function init() {
         if ('audioStatus' in updatedConfig) {
             projectConfig.audioStatus = updatedConfig.audioStatus;
             renderAudioStatusList();
+            updateGoogleTTSOutputStatusDropdown();
         }
 
         // Update filter fields if changed
@@ -615,7 +640,7 @@ async function init() {
             }
 
             updateGoogleTTSKeyFileDisplay();
-            updateGoogleTTSOutputFolderDisplay();
+            updateGoogleTTSOutputStatusDropdown();
         }
 
 

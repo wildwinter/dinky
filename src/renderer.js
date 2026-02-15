@@ -1989,6 +1989,10 @@ function setTestAudioEnabled(enabled) {
         testAudioBtn.style.opacity = '0.5';
         testAudioBtn.style.pointerEvents = 'none';
     }
+    if (audioStatusLabel) {
+        audioStatusLabel.style.cursor = enabled ? 'pointer' : 'default';
+        audioStatusLabel.style.pointerEvents = enabled ? 'auto' : 'none';
+    }
 }
 
 function updateAudioStatusLabel(statusText, colorHex) {
@@ -2059,6 +2063,10 @@ async function playTestAudio() {
 
 if (testAudioBtn) {
     testAudioBtn.addEventListener('click', playTestAudio);
+}
+
+if (audioStatusLabel) {
+    audioStatusLabel.addEventListener('click', playTestAudio);
 }
 
 // Shift+Space shortcut to play test audio (overrides triggerSuggest, but Ctrl+Space still works for autocomplete)
