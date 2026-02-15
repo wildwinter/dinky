@@ -695,6 +695,182 @@
         #poLangs {
             width: 360px;
         }
+
+        .character-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            border: 1px solid var(--sidebar-border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .character-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr 30px 30px 40px;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 10px;
+            background-color: var(--bg-color);
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+
+        .character-item:last-child {
+            border-bottom: none;
+        }
+
+        .character-item:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .character-item input[type="text"] {
+            background-color: var(--sidebar-bg);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .character-item input[type="text"]:focus {
+            border-color: var(--text-color);
+        }
+
+        .character-item input[type="text"].invalid {
+            border-color: #ff3333;
+        }
+
+        .character-item .delete-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+            font-size: 16px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .character-item .delete-btn:hover {
+            opacity: 1;
+            color: #ff3333;
+        }
+
+        .character-item .move-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+            font-size: 14px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .character-item .move-btn:hover:not(:disabled) {
+            opacity: 1;
+        }
+
+        .character-item .move-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
+        .character-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 30px 30px 40px;
+            gap: 8px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .character-header > div {
+            text-align: left;
+        }
+
+        .tts-voice-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            border: 1px solid var(--sidebar-border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .tts-voice-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 10px;
+            background-color: var(--bg-color);
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+
+        .tts-voice-item:last-child {
+            border-bottom: none;
+        }
+
+        .tts-voice-item:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .tts-voice-item .character-label {
+            font-size: 12px;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        .tts-voice-item input[type="text"] {
+            background-color: var(--sidebar-bg);
+            color: var(--text-color);
+            border: 1px solid var(--sidebar-border);
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .tts-voice-item input[type="text"]:focus {
+            border-color: var(--text-color);
+        }
+
+        .tts-voice-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .tts-voice-header > div {
+            text-align: left;
+        }
+
+        .tts-voice-empty {
+            padding: 12px 10px;
+            font-size: 12px;
+            opacity: 0.5;
+            font-style: italic;
+            background-color: var(--bg-color);
+        }
     </style>
 </head>
 
@@ -706,6 +882,7 @@
             <div class="sidebar-header">Settings</div>
             <div class="tab active" data-tab="general">General</div>
             <div class="tab" data-tab="outputs">Outputs</div>
+            <div class="tab" data-tab="characters">Characters</div>
             <div class="tab" data-tab="localisation">Localization</div>
             <div class="tab" data-tab="spelling">Spelling</div>
             <div class="tab" data-tab="writing-status">Writing Status</div>
@@ -985,6 +1162,22 @@
                     <button id="btn-select-google-tts-output-folder" class="secondary">Browse...</button>
                 </div>
             </div>
+
+            <div class="section">
+                <h2 style="font-size: 1.1em; margin: 0 0 15px 0;">Character Voices</h2>
+                <div class="section-description">
+                    Assign a Google TTS voice to each character. These are used when generating text-to-speech audio.
+                </div>
+
+                <div class="tts-voice-header">
+                    <div>Character</div>
+                    <div>TTS Voice</div>
+                </div>
+
+                <div id="tts-voice-list" class="tts-voice-list">
+                    <!-- TTS voice items will be dynamically added here -->
+                </div>
+            </div>
         </div>
 
         <div class="tab-content" data-tab-content="estimating">
@@ -1008,6 +1201,28 @@
                 </div>
 
                 <button id="add-estimate" class="add-status-btn" title="Add Estimate">+</button>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab-content="characters">
+            <div class="section">
+                <div class="section-description">
+                    Define characters used in your dialogue. The Script Name is used in Ink files to identify the speaker, and the Actor is the real name used in recording statistics.
+                </div>
+
+                <div class="character-header">
+                    <div>Script Name</div>
+                    <div>Actor</div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                </div>
+
+                <div id="character-list" class="character-list">
+                    <!-- Character items will be dynamically added here -->
+                </div>
+
+                <button id="add-character" class="add-status-btn" title="Add Character">+</button>
             </div>
         </div>
         </div>

@@ -1426,6 +1426,227 @@ async function init() {
     // Initial render
     renderEstimatesList();
 
+    // === Characters Section ===
+    let characters = await window.electronAPI.getCharacters() || [];
+    const characterList = document.getElementById('character-list');
+    const addCharacterBtn = document.getElementById('add-character');
+
+    function renderCharacterList() {
+        if (!characterList) return;
+        characterList.innerHTML = '';
+        characters.forEach((character, index) => {
+            const characterItem = createCharacterItem(character, index);
+            characterList.appendChild(characterItem);
+        });
+    }
+
+    function createCharacterItem(character, index) {
+        const div = document.createElement('div');
+        div.className = 'character-item';
+        div.dataset.index = index;
+
+        // Script Name input
+        const idInput = document.createElement('input');
+        idInput.type = 'text';
+        idInput.value = character.ID || '';
+        idInput.placeholder = 'SCRIPT_NAME';
+        idInput.addEventListener('input', (e) => {
+            const cursorPos = e.target.selectionStart;
+            e.target.value = e.target.value.toUpperCase();
+            e.target.setSelectionRange(cursorPos, cursorPos);
+
+            const value = e.target.value;
+            const isDuplicate = characters.some((c, i) => i !== index && c.ID === value);
+            if (!/^[A-Z0-9_]*$/.test(value) || isDuplicate) {
+                e.target.classList.add('invalid');
+                if (isDuplicate) e.target.title = 'Character name must be unique';
+                else e.target.title = 'Only uppercase letters, numbers, and underscores allowed';
+            } else {
+                e.target.classList.remove('invalid');
+                e.target.title = '';
+            }
+        });
+        idInput.addEventListener('change', async (e) => {
+            const value = e.target.value.trim();
+            const isDuplicate = characters.some((c, i) => i !== index && c.ID === value);
+            if (/^[A-Z0-9_]+$/.test(value) && !isDuplicate) {
+                await updateCharacterField(index, 'ID', value);
+                e.target.classList.remove('invalid');
+                e.target.title = '';
+            } else {
+                e.target.value = character.ID || '';
+                e.target.classList.remove('invalid');
+                e.target.title = '';
+            }
+        });
+
+        // Actor input
+        const actorInput = document.createElement('input');
+        actorInput.type = 'text';
+        actorInput.value = character.Actor || '';
+        actorInput.placeholder = 'Actor Name';
+        actorInput.addEventListener('change', async (e) => {
+            await updateCharacterField(index, 'Actor', e.target.value);
+        });
+
+        // Move up button
+        const moveUpBtn = document.createElement('button');
+        moveUpBtn.className = 'move-btn';
+        moveUpBtn.innerHTML = '&#8593;';
+        moveUpBtn.title = 'Move Up';
+        moveUpBtn.disabled = index === 0;
+        moveUpBtn.addEventListener('click', () => moveCharacterUp(index));
+
+        // Move down button
+        const moveDownBtn = document.createElement('button');
+        moveDownBtn.className = 'move-btn';
+        moveDownBtn.innerHTML = '&#8595;';
+        moveDownBtn.title = 'Move Down';
+        moveDownBtn.disabled = index === characters.length - 1;
+        moveDownBtn.addEventListener('click', () => moveCharacterDown(index));
+
+        // Delete button
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '&times;';
+        deleteBtn.title = 'Delete';
+        deleteBtn.addEventListener('click', () => deleteCharacter(index));
+
+        div.appendChild(idInput);
+        div.appendChild(actorInput);
+        div.appendChild(moveUpBtn);
+        div.appendChild(moveDownBtn);
+        div.appendChild(deleteBtn);
+
+        return div;
+    }
+
+    async function updateCharacterField(index, field, value) {
+        if (index >= 0 && index < characters.length) {
+            characters[index][field] = value;
+            const success = await window.electronAPI.saveCharacters(characters);
+            if (success && field === 'ID') {
+                renderTTSVoiceList();
+            }
+            if (!success) {
+                console.error('Failed to update character');
+            }
+        }
+    }
+
+    async function deleteCharacter(index) {
+        const characterName = characters[index]?.ID || 'this character';
+        const confirmed = confirm(`Are you sure you want to delete "${characterName}"?`);
+        if (!confirmed) return;
+
+        characters.splice(index, 1);
+        const success = await window.electronAPI.saveCharacters(characters);
+        if (success) {
+            renderCharacterList();
+            renderTTSVoiceList();
+        } else {
+            console.error('Failed to delete character');
+        }
+    }
+
+    async function moveCharacterUp(index) {
+        if (index <= 0) return;
+        [characters[index - 1], characters[index]] = [characters[index], characters[index - 1]];
+        const success = await window.electronAPI.saveCharacters(characters);
+        if (success) {
+            renderCharacterList();
+            renderTTSVoiceList();
+        } else {
+            console.error('Failed to move character up');
+        }
+    }
+
+    async function moveCharacterDown(index) {
+        if (index >= characters.length - 1) return;
+        [characters[index], characters[index + 1]] = [characters[index + 1], characters[index]];
+        const success = await window.electronAPI.saveCharacters(characters);
+        if (success) {
+            renderCharacterList();
+            renderTTSVoiceList();
+        } else {
+            console.error('Failed to move character down');
+        }
+    }
+
+    async function addCharacter() {
+        const newCharacter = { ID: 'NEW_CHARACTER', Actor: '' };
+        let uniqueId = newCharacter.ID;
+        let counter = 1;
+        while (characters.some(c => c.ID === uniqueId)) {
+            uniqueId = `${newCharacter.ID}_${counter}`;
+            counter++;
+        }
+        newCharacter.ID = uniqueId;
+        characters.push(newCharacter);
+
+        const success = await window.electronAPI.saveCharacters(characters);
+        if (success) {
+            renderCharacterList();
+            renderTTSVoiceList();
+            setTimeout(() => {
+                const inputs = characterList.querySelectorAll('input[type="text"][placeholder="SCRIPT_NAME"]');
+                const lastInput = inputs[inputs.length - 1];
+                if (lastInput) {
+                    lastInput.focus();
+                    lastInput.select();
+                }
+            }, 0);
+        } else {
+            console.error('Failed to add character');
+        }
+    }
+
+    if (addCharacterBtn) {
+        addCharacterBtn.addEventListener('click', addCharacter);
+    }
+
+    renderCharacterList();
+
+    // === TTS Voice List (read-only character list with editable TTSVoice) ===
+    const ttsVoiceList = document.getElementById('tts-voice-list');
+
+    function renderTTSVoiceList() {
+        if (!ttsVoiceList) return;
+        ttsVoiceList.innerHTML = '';
+
+        if (!characters || characters.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'tts-voice-empty';
+            emptyDiv.textContent = 'No characters defined. Add characters in the Characters tab.';
+            ttsVoiceList.appendChild(emptyDiv);
+            return;
+        }
+
+        characters.forEach((character, index) => {
+            const div = document.createElement('div');
+            div.className = 'tts-voice-item';
+
+            const label = document.createElement('div');
+            label.className = 'character-label';
+            label.textContent = character.ID || '';
+
+            const voiceInput = document.createElement('input');
+            voiceInput.type = 'text';
+            voiceInput.value = character.TTSVoice || '';
+            voiceInput.placeholder = 'e.g. en-US-Wavenet-D';
+            voiceInput.addEventListener('change', async (e) => {
+                characters[index].TTSVoice = e.target.value;
+                await window.electronAPI.saveCharacters(characters);
+            });
+
+            div.appendChild(label);
+            div.appendChild(voiceInput);
+            ttsVoiceList.appendChild(div);
+        });
+    }
+
+    renderTTSVoiceList();
+
     // Apply initial theme based on system/settings
     const applyThemeClass = (theme) => {
         if (theme && theme.includes('dark')) {
