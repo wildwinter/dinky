@@ -16,7 +16,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div class="sidebar-header" style="margin-bottom: 0;">INK ROOT</div>
                 <div style="display: flex; gap: 0;">
-                    <div id="btn-add-ink-root" title="Add New Ink Root..."
+                    <div id="btn-add-ink-root" data-tooltip="Add New Ink Root"
                         style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
                         <!-- Lucide File Plus -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -27,7 +27,7 @@
                             <line x1="9" y1="15" x2="15" y2="15" />
                         </svg>
                     </div>
-                    <div id="btn-switch-ink-root" title="Switch Ink Root..."
+                    <div id="btn-switch-ink-root" data-tooltip="Switch Ink Root"
                         style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
                         <!-- Lucide File Up -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -38,7 +38,7 @@
                             <path d="m15 15-3-3-3 3" />
                         </svg>
                     </div>
-                    <div id="btn-rename-root" title="Rename Ink Root..."
+                    <div id="btn-rename-root" data-tooltip="Rename Ink Root"
                         style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: 0.5; pointer-events: none;">
                         <!-- Lucide File Pen -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -62,7 +62,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <div class="sidebar-header" style="margin-bottom: 0;">INCLUDES</div>
                 <div style="display: flex; gap: 0;">
-                    <div id="btn-add-include" title="Add New Include..."
+                    <div id="btn-add-include" data-tooltip="Add New Include"
                         style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
                         <!-- Lucide File Plus -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -73,7 +73,7 @@
                             <line x1="9" y1="15" x2="15" y2="15" />
                         </svg>
                     </div>
-                    <div id="btn-choose-include" title="Choose Existing Include..."
+                    <div id="btn-choose-include" data-tooltip="Choose Existing Include"
                         style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
                         <!-- Lucide File Up -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -84,7 +84,7 @@
                             <path d="m15 15-3-3-3 3" />
                         </svg>
                     </div>
-                    <div id="btn-rename-include" title="Rename Include..."
+                    <div id="btn-rename-include" data-tooltip="Rename Include"
                         style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: 0.5; pointer-events: none;">
                         <!-- Lucide File Pen -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -94,7 +94,7 @@
                             <path d="M10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4Z" />
                         </svg>
                     </div>
-                    <div id="btn-delete-include" title="Remove Include..."
+                    <div id="btn-delete-include" data-tooltip="Remove Include"
                         style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: 0.5; pointer-events: none;">
                         <!-- Lucide File X -->
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -114,7 +114,7 @@
         </div>
         <div id="main-content">
             <div id="toolbar">
-                <div id="btn-start-test" title="Test Root"
+                <div id="btn-start-test" data-tooltip="Test Root"
                     style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
                     <!-- Lucide Play Icon -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
@@ -125,7 +125,7 @@
                 </div>
                 <!-- Separator -->
                 <div style="width: 1px; height: 16px; background-color: var(--sidebar-border); margin: 0 4px;"></div>
-                <div id="btn-test-knot" title="Test Knot"
+                <div id="btn-test-knot" data-tooltip="Test Knot"
                     style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px;">
                     <!-- Lucide Play + Double Equals (==) -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -143,7 +143,7 @@
                 <!-- Separator -->
                 <div style="width: 1px; height: 16px; background-color: var(--sidebar-border); margin: 0 4px;"></div>
                 <!-- Navigation History Buttons -->
-                <div id="btn-back" title="Back"
+                <div id="btn-back" data-tooltip="Back"
                     style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: 0.5; pointer-events: none;">
                     <!-- Lucide Chevron Left -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -151,7 +151,7 @@
                         <polyline points="15 18 9 12 15 6"></polyline>
                     </svg>
                 </div>
-                <div id="btn-forward" title="Forward"
+                <div id="btn-forward" data-tooltip="Forward"
                     style="cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: 0.5; pointer-events: none;">
                     <!-- Lucide Chevron Right -->
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -162,7 +162,7 @@
                 <!-- Separator -->
                 <div style="width: 1px; height: 16px; background-color: var(--sidebar-border); margin: 0 4px;"></div>
                 <!-- Navigation Dropdown -->
-                <select id="nav-dropdown" title="Navigate to Knot/Stitch"
+                <select id="nav-dropdown" data-tooltip="Navigate to Knot/Stitch"
                     style="background-color: var(--sidebar-bg); color: var(--text-color); border: 1px solid var(--sidebar-border); padding: 2px 4px; font-size: 12px; cursor: pointer;">
                     <option value="">No location</option>
                 </select>

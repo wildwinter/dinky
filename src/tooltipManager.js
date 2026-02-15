@@ -61,7 +61,7 @@ function setupEventListeners() {
         const target = e.target.closest('[data-tooltip]');
         if (target) {
             clearTimeout(showTimeout);
-            showTimeout = setTimeout(() => showTooltip(target), 1000);
+            showTimeout = setTimeout(() => showTooltip(target), 750);
         }
     });
 

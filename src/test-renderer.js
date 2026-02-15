@@ -1,4 +1,8 @@
 import { Story } from 'inkjs';
+import { initTooltips } from './tooltipManager';
+
+// Initialize tooltip system
+initTooltips();
 
 // Add platform-specific CSS class
 if (window.electronAPI.platform === 'win32') {
