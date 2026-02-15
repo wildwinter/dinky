@@ -94,11 +94,18 @@ Dinky generates IDs that are stable and descriptive:
 3. **Configure Settings**: Set up your project preferences.
 4. **Write**: Focus on the story.
 
-## Scratch Audio
+### Scratch Audio
+
+Dinky allows you to record and playback temporary "scratch" audio for each line of your script. This is far more useful for testing timing, intent, and emotion than Text-To-Speech (TTS).
+
+- **Setup**: Make sure **Audio Statuses** are set up in Project Settings, and then enable **Scratch Audio** in Project Settings and select an audio status (e.g., "Scratch").
+- **Recording**: When the cursor is on a Dink-style line (`CHARACTER: Dialogue`), click the red **Record Scratch** button on the toolbar. Press **Space** to finish or **Esc** to cancel.
+- **Playback**: Use the Play button or `Shift+Space`. This plays the highest status audio available for that line (TTS, Scratch, or final).
+- **Out of Date Tracking**: If you edit a line's text, an exclamation mark will warn you that the audio is out of date. Dinky uses hashes stored in the audio file's metadata to track this.
 
 ## Releases
 
-You can find releases for various platforms [here](https://github.com/wildwinter/dinky/releases).
+You can find releases for various platforms [on the releases page](https://github.com/wildwinter/dinky/releases).
 
 ## Acknowledgements
 
