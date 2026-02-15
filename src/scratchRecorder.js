@@ -111,6 +111,49 @@ export function updateRecordScratchButton() {
 }
 
 // ---------------------------------------------------------------------------
+// Hash generation (FNV-1a, matching dink compiler)
+// ---------------------------------------------------------------------------
+
+/**
+ * FNV-1a 32-bit hash, returning a 6-character base64 string.
+ * Matches GenerateHashFromText in dink/csharp/DinkCompiler/GoogleTTS.cs
+ */
+export function generateHashFromText(input) {
+    if (!input) return '000000';
+    let hash = 2166136261; // FNV offset basis
+    for (let i = 0; i < input.length; i++) {
+        hash ^= input.charCodeAt(i);
+        hash = Math.imul(hash, 16777619); // FNV prime
+    }
+    // Convert to 4 bytes (little-endian, matching C# BitConverter)
+    const bytes = new Uint8Array(4);
+    bytes[0] = hash & 0xFF;
+    bytes[1] = (hash >>> 8) & 0xFF;
+    bytes[2] = (hash >>> 16) & 0xFF;
+    bytes[3] = (hash >>> 24) & 0xFF;
+    // Base64 encode, take first 6 characters
+    const base64 = btoa(String.fromCharCode(...bytes));
+    return base64.substring(0, Math.min(6, base64.length));
+}
+
+/**
+ * Extract just the text element from a Dink dialogue line.
+ * Excludes character name, qualifier, direction, tags, and comments.
+ */
+export function extractDialogueText(lineContent) {
+    let match = lineContent.match(dialogueRegex);
+    if (match) return (match[10] || '').trim();
+
+    match = lineContent.match(dialogueGatherRegex);
+    if (match) return (match[12] || '').trim();
+
+    match = lineContent.match(dialogueBracketedRegex);
+    if (match) return (match[14] || '').trim();
+
+    return '';
+}
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
@@ -175,7 +218,7 @@ function writeString(view, offset, string) {
     }
 }
 
-function encodeWav(audioBuffer) {
+function encodeWav(audioBuffer, hashCode) {
     const numChannels = audioBuffer.numberOfChannels;
     const sampleRate = audioBuffer.sampleRate;
     const format = 1; // PCM
@@ -215,11 +258,19 @@ function encodeWav(audioBuffer) {
 
     const trimmedLength = endSample - startSample + 1;
     const dataLength = trimmedLength * numChannels * (bitsPerSample / 8);
-    const buffer = new ArrayBuffer(44 + dataLength);
+
+    // Build the LIST/INFO/DINK chunk for the hash (matching dink compiler format)
+    const hashBytes = new TextEncoder().encode(hashCode || '');
+    const needsPadding = hashBytes.length % 2 !== 0;
+    const dinkChunkSize = 4 + 4 + hashBytes.length + (needsPadding ? 1 : 0); // DINK + size + data + pad
+    const listChunkSize = 4 + dinkChunkSize; // INFO + DINK chunk
+    const listTotalSize = 8 + listChunkSize; // LIST + size + content
+
+    const buffer = new ArrayBuffer(44 + dataLength + listTotalSize);
     const view = new DataView(buffer);
 
     writeString(view, 0, 'RIFF');
-    view.setUint32(4, 36 + dataLength, true);
+    view.setUint32(4, 36 + dataLength + listTotalSize, true); // Updated RIFF size
     writeString(view, 8, 'WAVE');
     writeString(view, 12, 'fmt ');
     view.setUint32(16, 16, true);
@@ -242,10 +293,24 @@ function encodeWav(audioBuffer) {
         }
     }
 
+    // Append LIST/INFO/DINK chunk
+    writeString(view, offset, 'LIST'); offset += 4;
+    view.setUint32(offset, listChunkSize, true); offset += 4;
+    writeString(view, offset, 'INFO'); offset += 4;
+    writeString(view, offset, 'DINK'); offset += 4;
+    view.setUint32(offset, hashBytes.length, true); offset += 4;
+    for (let i = 0; i < hashBytes.length; i++) {
+        view.setUint8(offset + i, hashBytes[i]);
+    }
+    offset += hashBytes.length;
+    if (needsPadding) {
+        view.setUint8(offset, 0);
+    }
+
     return buffer;
 }
 
-async function encodeOgg(audioBuffer) {
+async function encodeOgg(audioBuffer, hashCode) {
     const trimmed = trimAudioBuffer(audioBuffer);
     const offline = new OfflineAudioContext(trimmed.numberOfChannels, trimmed.length, trimmed.sampleRate);
     const source = offline.createBufferSource();
@@ -280,7 +345,26 @@ async function encodeOgg(audioBuffer) {
     await ctx.close();
 
     const blob = new Blob(chunks, { type: mimeType });
-    return await blob.arrayBuffer();
+    const oggBuffer = await blob.arrayBuffer();
+
+    // Append DINK hash trailer: "DINK" + uint32LE length + hash bytes
+    const hashBytes = new TextEncoder().encode(hashCode || '');
+    const trailer = new ArrayBuffer(8 + hashBytes.length);
+    const tv = new DataView(trailer);
+    tv.setUint8(0, 0x44); // D
+    tv.setUint8(1, 0x49); // I
+    tv.setUint8(2, 0x4E); // N
+    tv.setUint8(3, 0x4B); // K
+    tv.setUint32(4, hashBytes.length, true);
+    for (let i = 0; i < hashBytes.length; i++) {
+        tv.setUint8(8 + i, hashBytes[i]);
+    }
+
+    // Concatenate OGG data + trailer
+    const combined = new Uint8Array(oggBuffer.byteLength + trailer.byteLength);
+    combined.set(new Uint8Array(oggBuffer), 0);
+    combined.set(new Uint8Array(trailer), oggBuffer.byteLength);
+    return combined.buffer;
 }
 
 function trimAudioBuffer(audioBuffer) {
@@ -332,13 +416,13 @@ function trimAudioBuffer(audioBuffer) {
     return trimmedBuffer;
 }
 
-async function encodeAudio(audioBuffer, format) {
+async function encodeAudio(audioBuffer, format, hashCode) {
     switch (format) {
         case 'ogg':
-            return await encodeOgg(audioBuffer);
+            return await encodeOgg(audioBuffer, hashCode);
         case 'wav':
         default:
-            return encodeWav(audioBuffer);
+            return encodeWav(audioBuffer, hashCode);
     }
 }
 
@@ -391,9 +475,8 @@ async function startRecordingScratch() {
     };
     document.addEventListener('keydown', keyBlocker, true);
 
-    // Save original status bar content
+    // Save original status bar class
     const originalStatusBarClass = statusBar ? statusBar.className : '';
-    const originalStatusBarHTML = statusBar ? statusBar.innerHTML : '';
 
     function cleanup() {
         isRecording = false;
@@ -413,7 +496,17 @@ async function startRecordingScratch() {
 
         if (statusBar) {
             statusBar.className = originalStatusBarClass;
-            statusBar.innerHTML = originalStatusBarHTML;
+            statusBar.textContent = '';
+            // Re-append the audio hint span (it was removed when textContent was set during recording)
+            const hintSpan = document.getElementById('status-bar-audio-hint');
+            if (!hintSpan) {
+                // Recreate the hint span if it was destroyed
+                const span = document.createElement('span');
+                span.id = 'status-bar-audio-hint';
+                statusBar.appendChild(span);
+            } else if (!statusBar.contains(hintSpan)) {
+                statusBar.appendChild(hintSpan);
+            }
         }
 
         updateTestAudioButton();
@@ -527,7 +620,12 @@ async function startRecordingScratch() {
             const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
             audioCtx.close();
 
-            const encodedBuffer = await encodeAudio(audioBuffer, scratchAudioFormat);
+            // Compute hash from the dialogue text of the current line
+            const lineContent = model.getLineContent(lineNumber);
+            const dialogueText = extractDialogueText(lineContent);
+            const hashCode = generateHashFromText(dialogueText);
+
+            const encodedBuffer = await encodeAudio(audioBuffer, scratchAudioFormat, hashCode);
 
             const saveResult = await window.electronAPI.saveScratchAudio(lineId, encodedBuffer, scratchAudioFolder, scratchAudioFormat);
             if (saveResult && saveResult.success) {

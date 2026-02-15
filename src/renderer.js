@@ -6,7 +6,7 @@ import { ModalHelper } from './modal-helper';
 // Module imports - Refactored editor functionality
 import { configureMonacoWorkers, getInitialTheme, applyThemeToDOM, createEditor, setupThemeListener, monaco } from './editor-setup';
 import { defineThemes, registerInkLanguage } from './tokenizer-rules';
-import { initScratchRecorder, loadScratchAudioConfig, updateRecordScratchButton } from './scratchRecorder';
+import { initScratchRecorder, loadScratchAudioConfig, updateRecordScratchButton, generateHashFromText, extractDialogueText } from './scratchRecorder';
 import { ErrorManager } from './error-manager';
 import { NavigationSystem } from './navigation-system';
 import { initTooltips } from './tooltipManager';
@@ -1981,7 +1981,6 @@ function updateNavigationButtons() {
  */
 const testAudioBtn = document.getElementById('btn-test-audio');
 const audioStatusLabel = document.getElementById('audio-status-label');
-const statusBarAudioHint = document.getElementById('status-bar-audio-hint');
 let currentAudioFilePath = null;
 let currentAudioElement = null;
 
@@ -2016,9 +2015,23 @@ function updateAudioStatusLabel(statusText, colorHex) {
     audioStatusLabel.classList.add('visible');
 }
 
-function updateStatusBar(hasAudio) {
-    if (statusBarAudioHint) {
-        statusBarAudioHint.textContent = hasAudio ? 'Shift+Space to play audio' : '';
+function updateStatusBar(hasAudio, isOutOfDate) {
+    // Re-query in case the element was recreated after recording cleanup
+    const hint = document.getElementById('status-bar-audio-hint');
+    if (hint) {
+        if (!hasAudio) {
+            hint.textContent = '';
+            hint.style.color = '';
+            hint.style.backgroundColor = '';
+        } else if (isOutOfDate) {
+            hint.textContent = 'Shift+Space to play audio — Audio is out of date';
+            hint.style.color = '#ff9800';
+            hint.style.backgroundColor = 'rgba(255, 152, 0, 0.15)';
+        } else {
+            hint.textContent = 'Shift+Space to play audio';
+            hint.style.color = '';
+            hint.style.backgroundColor = '';
+        }
     }
 }
 
@@ -2045,8 +2058,26 @@ async function updateTestAudioButton() {
     if (result) {
         currentAudioFilePath = result.path;
         setTestAudioEnabled(true);
-        updateAudioStatusLabel(result.status, result.color);
-        updateStatusBar(true);
+
+        // Check if audio hash matches current dialogue text
+        let statusText = result.status || '';
+        let isOutOfDate = false;
+        const model = editor.getModel();
+        if (model) {
+            const lineContent = model.getLineContent(position.lineNumber);
+            const dialogueText = extractDialogueText(lineContent);
+            if (dialogueText) {
+                const currentHash = generateHashFromText(dialogueText);
+                const fileHash = await window.electronAPI.readAudioHash(result.path);
+                if (fileHash !== null && fileHash !== currentHash) {
+                    isOutOfDate = true;
+                    statusText = statusText ? `!! ${statusText} !!` : '!!';
+                }
+            }
+        }
+
+        updateAudioStatusLabel(statusText, result.color);
+        updateStatusBar(true, isOutOfDate);
     } else {
         currentAudioFilePath = null;
         setTestAudioEnabled(false);

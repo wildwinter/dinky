@@ -79,6 +79,104 @@ ipcMain.handle('read-audio-file', async (event, filePath) => {
 });
 
 /**
+ * Read the DINK hash from a WAV or OGG file without loading audio data.
+ * WAV: scans RIFF chunks for LIST/INFO/DINK.
+ * OGG: checks for trailing DINK marker.
+ */
+ipcMain.handle('read-audio-hash', async (event, filePath) => {
+    if (!filePath) return null;
+    try {
+        const ext = path.extname(filePath).toLowerCase();
+        const fd = await fs.open(filePath, 'r');
+        try {
+            if (ext === '.wav') {
+                return await readHashFromWav(fd);
+            } else if (ext === '.ogg') {
+                return await readHashFromOgg(fd);
+            }
+        } finally {
+            await fd.close();
+        }
+    } catch {
+        // File doesn't exist or can't be read
+    }
+    return null;
+});
+
+async function readHashFromWav(fd) {
+    // Read RIFF header (12 bytes)
+    const header = Buffer.alloc(12);
+    await fd.read(header, 0, 12, 0);
+    if (header.toString('ascii', 0, 4) !== 'RIFF') return null;
+    if (header.toString('ascii', 8, 12) !== 'WAVE') return null;
+
+    let pos = 12;
+    const stat = await fd.stat();
+    const fileSize = stat.size;
+    const chunkHeader = Buffer.alloc(8);
+
+    while (pos < fileSize) {
+        const bytesRead = await fd.read(chunkHeader, 0, 8, pos);
+        if (bytesRead.bytesRead < 8) break;
+
+        const chunkId = chunkHeader.toString('ascii', 0, 4);
+        const chunkSize = chunkHeader.readUInt32LE(4);
+        pos += 8;
+
+        if (chunkId === 'LIST') {
+            // Read list type (4 bytes)
+            const listType = Buffer.alloc(4);
+            await fd.read(listType, 0, 4, pos);
+            if (listType.toString('ascii') === 'INFO') {
+                let subPos = pos + 4;
+                const listEnd = pos + chunkSize;
+                while (subPos < listEnd) {
+                    const subHeader = Buffer.alloc(8);
+                    const sr = await fd.read(subHeader, 0, 8, subPos);
+                    if (sr.bytesRead < 8) break;
+                    const subId = subHeader.toString('ascii', 0, 4);
+                    const subSize = subHeader.readUInt32LE(4);
+                    subPos += 8;
+                    if (subId === 'DINK') {
+                        const data = Buffer.alloc(subSize);
+                        await fd.read(data, 0, subSize, subPos);
+                        return data.toString('utf8').replace(/\0+$/, '');
+                    }
+                    // Skip, respecting word alignment
+                    subPos += subSize + (subSize % 2 !== 0 ? 1 : 0);
+                }
+            }
+        }
+        // Skip chunk, respecting word alignment
+        pos += chunkSize + (chunkSize % 2 !== 0 ? 1 : 0);
+    }
+    return null;
+}
+
+async function readHashFromOgg(fd) {
+    // Check for trailing DINK marker: "DINK" + uint32LE size + hash bytes
+    const stat = await fd.stat();
+    const fileSize = stat.size;
+    if (fileSize < 12) return null;
+
+    // Read the last 64 bytes (hash is short, this is more than enough)
+    const tailSize = Math.min(64, fileSize);
+    const tail = Buffer.alloc(tailSize);
+    await fd.read(tail, 0, tailSize, fileSize - tailSize);
+
+    // Scan backwards for "DINK" marker
+    for (let i = tailSize - 9; i >= 0; i--) {
+        if (tail[i] === 0x44 && tail[i+1] === 0x49 && tail[i+2] === 0x4E && tail[i+3] === 0x4B) {
+            const hashLen = tail.readUInt32LE(i + 4);
+            if (i + 8 + hashLen <= tailSize) {
+                return tail.toString('utf8', i + 8, i + 8 + hashLen);
+            }
+        }
+    }
+    return null;
+}
+
+/**
  * Save scratch audio recording.
  * Receives the lineId, audio data as an ArrayBuffer, the relative folder path, and the format (wav/ogg/flac).
  */

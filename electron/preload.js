@@ -107,6 +107,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Audio lookup API
     findAudioFile: (lineId) => ipcRenderer.invoke('find-audio-file', lineId),
     readAudioFile: (filePath) => ipcRenderer.invoke('read-audio-file', filePath),
+    readAudioHash: (filePath) => ipcRenderer.invoke('read-audio-hash', filePath),
 
     // Scratch audio recording API
     saveScratchAudio: (lineId, audioBuffer, folder, format) => ipcRenderer.invoke('save-scratch-audio', lineId, audioBuffer, folder, format),
