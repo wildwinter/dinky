@@ -37,37 +37,43 @@
             z-index: 100;
         }
 
-        .header {
-            padding: 30px 20px 10px 20px;
-            border-bottom: 1px solid var(--sidebar-border);
-        }
-
-        .header h1 {
-            font-size: 1.5em;
-            margin: 0;
-        }
-
-        .tabs {
+        .main-layout {
             display: flex;
-            padding: 0 20px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 180px;
+            min-width: 180px;
             background-color: var(--sidebar-bg);
-            border-bottom: 1px solid var(--sidebar-border);
+            border-right: 1px solid var(--sidebar-border);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0 20px 0;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 10px 20px 16px 20px;
+            font-size: 1.1em;
+            font-weight: 600;
+            opacity: 0.5;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 11px;
         }
 
         .tab {
-            padding: 10px 16px;
+            padding: 8px 20px;
             cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: border-color 0.2s ease, opacity 0.2s ease;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            border-left: 3px solid transparent;
+            transition: background-color 0.2s ease, opacity 0.2s ease;
+            font-size: 13px;
             font-weight: 500;
             opacity: 0.7;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            text-align: center;
+            display: block;
+            text-align: left;
         }
 
         .tab:hover {
@@ -76,8 +82,9 @@
         }
 
         .tab.active {
-            border-bottom-color: var(--text-color);
+            border-left-color: var(--text-color);
             opacity: 1;
+            background-color: var(--hover-bg);
         }
 
         .content {
@@ -694,24 +701,22 @@
 <body>
     <div class="drag-bar"></div>
 
-    <div class="header">
-        <h1>Project Settings</h1>
-    </div>
+    <div class="main-layout">
+        <div class="sidebar">
+            <div class="sidebar-header">Settings</div>
+            <div class="tab active" data-tab="general">General</div>
+            <div class="tab" data-tab="outputs">Outputs</div>
+            <div class="tab" data-tab="localisation">Localization</div>
+            <div class="tab" data-tab="spelling">Spelling</div>
+            <div class="tab" data-tab="writing-status">Writing Status</div>
+            <div class="tab" data-tab="audio-status">Audio Status</div>
+            <div class="tab" data-tab="filters">Filters</div>
+            <div class="tab" data-tab="google-tts">Google TTS</div>
+            <div class="tab" data-tab="estimating">Estimating</div>
+        </div>
 
-    <div class="tabs">
-        <div class="tab active" data-tab="general">General</div>
-        <div class="tab" data-tab="outputs">Outputs</div>
-        <div class="tab" data-tab="localisation">Localization</div>
-        <div class="tab" data-tab="spelling">Spelling</div>
-        <div class="tab" data-tab="writing-status">Writing Status</div>
-        <div class="tab" data-tab="audio-status">Audio Status</div>
-        <div class="tab" data-tab="filters">Filters</div>
-        <div class="tab" data-tab="google-tts">Google TTS</div>
-        <div class="tab" data-tab="estimating">Estimating</div>
-    </div>
-
-    <div class="content">
-        <div class="tab-content active" data-tab-content="general">
+        <div class="content">
+            <div class="tab-content active" data-tab-content="general">
             <div class="section">
                 <div class="path-setting-item">
                     <label>Output Folder</label>
@@ -1004,6 +1009,7 @@
 
                 <button id="add-estimate" class="add-status-btn" title="Add Estimate">+</button>
             </div>
+        </div>
         </div>
     </div>
 
