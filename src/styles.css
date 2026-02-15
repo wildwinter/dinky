@@ -145,6 +145,52 @@ body {
     white-space: nowrap;
 }
 
+/* Recording overlay - blocks all interaction during recording */
+#recording-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    cursor: not-allowed;
+}
+
+/* Recording countdown status bar (orange) */
+#status-bar.recording-countdown {
+    background-color: #e65100;
+    color: #ffffff;
+    opacity: 1;
+    font-weight: bold;
+    font-size: 13px;
+    border-top-color: #e65100;
+}
+
+/* Recording active status bar (pulsing red) */
+@keyframes recording-pulse {
+    0%, 100% { background-color: #b71c1c; }
+    50% { background-color: #d32f2f; }
+}
+
+#status-bar.recording-active {
+    animation: recording-pulse 1s ease-in-out infinite;
+    color: #ffffff;
+    opacity: 1;
+    font-weight: bold;
+    font-size: 13px;
+    border-top-color: #b71c1c;
+}
+
+/* Record scratch button */
+#btn-record-scratch {
+    color: #d32f2f;
+}
+
+/* Line highlight during recording */
+.recording-line-highlight {
+    background-color: rgba(255, 193, 7, 0.25);
+}
+
 #error-banner {
     background-color: #5d3d3d;
     border-bottom: 1px solid var(--sidebar-border);

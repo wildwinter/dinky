@@ -6,6 +6,7 @@ import { ModalHelper } from './modal-helper';
 // Module imports - Refactored editor functionality
 import { configureMonacoWorkers, getInitialTheme, applyThemeToDOM, createEditor, setupThemeListener, monaco } from './editor-setup';
 import { defineThemes, registerInkLanguage } from './tokenizer-rules';
+import { initScratchRecorder, loadScratchAudioConfig, updateRecordScratchButton } from './scratchRecorder';
 import { ErrorManager } from './error-manager';
 import { NavigationSystem } from './navigation-system';
 import { initTooltips } from './tooltipManager';
@@ -1131,6 +1132,9 @@ async function checkSyntax() {
             projectWritingStatusTags = [];
         }
 
+        // Load scratch audio settings
+        await loadScratchAudioConfig();
+
         const errors = await window.electronAPI.compileInk(contentToCompile, rootInkPath, projectFiles);
 
 
@@ -2093,12 +2097,24 @@ editor.addAction({
     run: () => { playTestAudio(); }
 });
 
+// Initialise the scratch recorder module
+initScratchRecorder({
+    editor,
+    monaco,
+    idManager,
+    projectCharacters: () => projectCharacters,
+    isDinkyAtPosition,
+    updateTestAudioButton,
+    playTestAudio,
+});
+
 /**
  * Listen to cursor position changes
  */
 editor.onDidChangeCursorPosition(() => {
     updateDropdownSelection();
     updateTestAudioButton();
+    updateRecordScratchButton();
 
     // Don't track history if we're navigating via back/forward
     if (isNavigatingHistory) return;

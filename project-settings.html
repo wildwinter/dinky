@@ -898,6 +898,7 @@
             <div class="tab" data-tab="writing-status">Writing Status</div>
             <div class="tab" data-tab="audio-status">Audio Status</div>
             <div class="tab" data-tab="filters">Filters</div>
+            <div class="tab" data-tab="scratch-audio">Scratch Audio</div>
             <div class="tab" data-tab="google-tts">Google TTS</div>
             <div class="tab" data-tab="estimating">Estimating</div>
         </div>
@@ -1144,6 +1145,38 @@
                     Any tags starting with one of these prefixes followed by a colon (e.g. #mytag:) will be output to
                     the recording script.
                 </div>
+            </div>
+        </div>
+
+        <div class="tab-content" data-tab-content="scratch-audio">
+            <div class="section">
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="scratchAudioEnabled" name="scratchAudioEnabled">
+                        <label for="scratchAudioEnabled">Enable Scratch Audio</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="setting-item">
+                    <label for="scratchAudioOutputStatus">Output to Audio Status</label>
+                    <select id="scratchAudioOutputStatus"></select>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="setting-item">
+                    <label for="scratchAudioFormat">Audio Format</label>
+                    <select id="scratchAudioFormat">
+                        <option value="wav">WAV</option>
+                        <option value="ogg">OGG</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="scratch-audio-no-audio-statuses" class="section" style="display: none;">
+                <div class="info-message">Scratch Audio requires at least one Audio Status to be configured. Add audio statuses in the Audio Status tab first.</div>
             </div>
         </div>
 

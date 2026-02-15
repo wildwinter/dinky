@@ -107,6 +107,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Audio lookup API
     findAudioFile: (lineId) => ipcRenderer.invoke('find-audio-file', lineId),
     readAudioFile: (filePath) => ipcRenderer.invoke('read-audio-file', filePath),
+
+    // Scratch audio recording API
+    saveScratchAudio: (lineId, audioBuffer, folder, format) => ipcRenderer.invoke('save-scratch-audio', lineId, audioBuffer, folder, format),
+    setRecordingMode: (enabled) => ipcRenderer.send('set-recording-mode', enabled),
 });
 
 window.addEventListener('DOMContentLoaded', () => {

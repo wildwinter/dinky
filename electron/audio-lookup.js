@@ -77,3 +77,31 @@ ipcMain.handle('read-audio-file', async (event, filePath) => {
         return null;
     }
 });
+
+/**
+ * Save scratch audio recording.
+ * Receives the lineId, audio data as an ArrayBuffer, the relative folder path, and the format (wav/ogg/flac).
+ */
+ipcMain.handle('save-scratch-audio', async (event, lineId, audioArrayBuffer, folder, format) => {
+    const project = getCurrentProject();
+    if (!project || !lineId || !audioArrayBuffer || !folder) return { success: false, error: 'Missing parameters' };
+
+    const ext = format || 'wav';
+
+    try {
+        const projectDir = path.dirname(project.path);
+        const folderPath = path.resolve(projectDir, folder);
+
+        // Ensure folder exists
+        await fs.mkdir(folderPath, { recursive: true });
+
+        const filePath = path.join(folderPath, `${lineId}.${ext}`);
+        const buffer = Buffer.from(audioArrayBuffer);
+        await fs.writeFile(filePath, buffer);
+
+        return { success: true, path: filePath };
+    } catch (error) {
+        console.error('Failed to save scratch audio:', error);
+        return { success: false, error: error.message };
+    }
+});

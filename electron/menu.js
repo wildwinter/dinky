@@ -1,4 +1,4 @@
-import { app, Menu, dialog, nativeTheme, BrowserWindow, shell } from 'electron'
+import { app, Menu, dialog, nativeTheme, BrowserWindow, shell, ipcMain } from 'electron'
 import path from 'path'
 import { getRecentProjects, saveSettings, loadSettings } from './config'
 import { loadProject, openNewIncludeUI, openNewInkRootUI, openInkRootUI, getCurrentProject, getCurrentInkRoot } from './project-manager'
@@ -6,6 +6,8 @@ import { openSearchWindow } from './search'
 import { openSettingsWindow } from './settings'
 import { openProjectSettingsWindow } from './project-settings'
 import { safeSend } from './utils'
+
+let recordingMode = false;
 
 /**
  * Opens an output file (xlsx) from the project's destFolder using the platform's default application
@@ -335,9 +337,39 @@ async function buildMenu(win) {
         }])
     ]
 
+    // In recording mode, disable all menu items except Quit and About
+    if (recordingMode) {
+        disableMenuItems(template);
+    }
+
     const menu = Menu.buildFromTemplate(template)
     Menu.setApplicationMenu(menu)
 }
+
+/**
+ * Recursively disable all menu items except Quit and About roles
+ */
+function disableMenuItems(items) {
+    const allowedRoles = ['quit', 'about'];
+    for (const item of items) {
+        if (item.submenu) {
+            disableMenuItems(item.submenu);
+        } else if (item.type === 'separator') {
+            // Leave separators alone
+        } else if (item.role && allowedRoles.includes(item.role)) {
+            // Leave Quit and About enabled
+        } else {
+            item.enabled = false;
+        }
+    }
+}
+
+// IPC handler for recording mode toggle
+ipcMain.on('set-recording-mode', async (event, enabled) => {
+    recordingMode = !!enabled;
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+    if (win) await buildMenu(win);
+});
 
 export {
     buildMenu

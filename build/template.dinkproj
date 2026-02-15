@@ -138,7 +138,10 @@
 
     // Dinky editor settings
     "dinky": {
-        "spellCheckerLocale":"en-GB"
+        "spellCheckerLocale":"en-GB",
+        "scratchAudioEnabled":true,
+        "scratchAudioFolder":"Audio/Scratch",
+        "scratchAudioFormat":"wav"
     },
 
     // PO/POT

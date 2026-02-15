@@ -414,7 +414,115 @@ async function init() {
         });
     }
 
+    // Set up Scratch Audio
+    const scratchAudioCheckbox = document.getElementById('scratchAudioEnabled');
+    const scratchAudioOutputStatusSelect = document.getElementById('scratchAudioOutputStatus');
+    const scratchAudioFormatSelect = document.getElementById('scratchAudioFormat');
+    const scratchAudioNoAudioMsg = document.getElementById('scratch-audio-no-audio-statuses');
 
+    const updateScratchAudioOutputStatusDropdown = () => {
+        if (!scratchAudioOutputStatusSelect) return;
+        const audioStatuses = projectConfig.audioStatus || [];
+        const currentFolder = projectConfig.dinky?.scratchAudioFolder || '';
+
+        scratchAudioOutputStatusSelect.innerHTML = '';
+
+        if (audioStatuses.length === 0) {
+            scratchAudioOutputStatusSelect.style.display = 'none';
+            if (scratchAudioNoAudioMsg) scratchAudioNoAudioMsg.style.display = '';
+            if (scratchAudioCheckbox) {
+                scratchAudioCheckbox.checked = false;
+                scratchAudioCheckbox.disabled = true;
+            }
+            return;
+        }
+
+        scratchAudioOutputStatusSelect.style.display = '';
+        if (scratchAudioNoAudioMsg) scratchAudioNoAudioMsg.style.display = 'none';
+        if (scratchAudioCheckbox) {
+            scratchAudioCheckbox.disabled = false;
+        }
+
+        let hasMatch = false;
+        for (const status of audioStatuses) {
+            const option = document.createElement('option');
+            option.value = status.folder || '';
+            option.textContent = status.status || '(unnamed)';
+            if (status.folder === currentFolder) {
+                option.selected = true;
+                hasMatch = true;
+            }
+            scratchAudioOutputStatusSelect.appendChild(option);
+        }
+
+        if (!hasMatch && audioStatuses.length > 0) {
+            scratchAudioOutputStatusSelect.selectedIndex = 0;
+            if (!projectConfig.dinky) projectConfig.dinky = {};
+            projectConfig.dinky.scratchAudioFolder = audioStatuses[0].folder || '';
+            window.electronAPI.setProjectConfig('dinky', projectConfig.dinky);
+        }
+    };
+
+    function updateScratchAudioPaneState() {
+        const enabled = scratchAudioCheckbox?.checked || false;
+        const pane = document.querySelector('[data-tab-content="scratch-audio"]');
+        if (!pane) return;
+        pane.querySelectorAll('input, select, button').forEach(el => {
+            if (el === scratchAudioCheckbox) return;
+            el.disabled = !enabled;
+            el.style.opacity = enabled ? '' : '0.5';
+        });
+    }
+
+    if (scratchAudioCheckbox) {
+        scratchAudioCheckbox.checked = !!projectConfig.dinky?.scratchAudioEnabled;
+        updateScratchAudioPaneState();
+        scratchAudioCheckbox.addEventListener('change', async (e) => {
+            const newValue = e.target.checked;
+            if (!projectConfig.dinky) {
+                projectConfig.dinky = {};
+            }
+            projectConfig.dinky.scratchAudioEnabled = newValue;
+            updateScratchAudioPaneState();
+            const success = await window.electronAPI.setProjectConfig('dinky', projectConfig.dinky);
+            if (!success) {
+                console.error('Failed to update dinky.scratchAudioEnabled');
+                e.target.checked = !newValue;
+                updateScratchAudioPaneState();
+            }
+        });
+    }
+
+    updateScratchAudioOutputStatusDropdown();
+
+    if (scratchAudioOutputStatusSelect) {
+        scratchAudioOutputStatusSelect.addEventListener('change', async () => {
+            const selectedFolder = scratchAudioOutputStatusSelect.value;
+            if (!projectConfig.dinky) {
+                projectConfig.dinky = {};
+            }
+            projectConfig.dinky.scratchAudioFolder = selectedFolder;
+            const success = await window.electronAPI.setProjectConfig('dinky', projectConfig.dinky);
+            if (!success) {
+                console.error('Failed to update dinky.scratchAudioFolder');
+            }
+        });
+    }
+
+    if (scratchAudioFormatSelect) {
+        scratchAudioFormatSelect.value = projectConfig.dinky?.scratchAudioFormat || 'wav';
+        scratchAudioFormatSelect.addEventListener('change', async () => {
+            const selectedFormat = scratchAudioFormatSelect.value;
+            if (!projectConfig.dinky) {
+                projectConfig.dinky = {};
+            }
+            projectConfig.dinky.scratchAudioFormat = selectedFormat;
+            const success = await window.electronAPI.setProjectConfig('dinky', projectConfig.dinky);
+            if (!success) {
+                console.error('Failed to update dinky.scratchAudioFormat');
+            }
+        });
+    }
 
     // Set up PO Directory display and button
     const poDirDisplay = document.getElementById('po-dir-display');
@@ -540,8 +648,22 @@ async function init() {
 
     // Set up Google TTS Generate checkbox
     const googleTTSGenerateCheckbox = document.getElementById('googleTTSGenerate');
+
+    function updateGoogleTTSPaneState() {
+        const enabled = googleTTSGenerateCheckbox?.checked || false;
+        const pane = document.querySelector('[data-tab-content="google-tts"]');
+        if (!pane) return;
+        // Disable all inputs/selects/buttons except the main checkbox
+        pane.querySelectorAll('input, select, button').forEach(el => {
+            if (el === googleTTSGenerateCheckbox) return;
+            el.disabled = !enabled;
+            el.style.opacity = enabled ? '' : '0.5';
+        });
+    }
+
     if (googleTTSGenerateCheckbox) {
         googleTTSGenerateCheckbox.checked = !!projectConfig.googleTTS?.generate;
+        updateGoogleTTSPaneState();
 
         googleTTSGenerateCheckbox.addEventListener('change', async (e) => {
             const newValue = e.target.checked;
@@ -549,12 +671,14 @@ async function init() {
                 projectConfig.googleTTS = {};
             }
             projectConfig.googleTTS.generate = newValue;
+            updateGoogleTTSPaneState();
 
             const success = await window.electronAPI.setProjectConfig('googleTTS', projectConfig.googleTTS);
 
             if (!success) {
                 console.error('Failed to update googleTTS.generate');
                 e.target.checked = !newValue;
+                updateGoogleTTSPaneState();
             }
         });
     }
@@ -606,6 +730,7 @@ async function init() {
             projectConfig.audioStatus = updatedConfig.audioStatus;
             renderAudioStatusList();
             updateGoogleTTSOutputStatusDropdown();
+            updateScratchAudioOutputStatusDropdown();
         }
 
         // Update filter fields if changed
@@ -641,9 +766,18 @@ async function init() {
 
             updateGoogleTTSKeyFileDisplay();
             updateGoogleTTSOutputStatusDropdown();
+            updateGoogleTTSPaneState();
         }
 
-
+        // Update Scratch Audio if dinky config changed
+        if ('dinky' in updatedConfig) {
+            projectConfig.dinky = updatedConfig.dinky;
+            if (scratchAudioCheckbox) {
+                scratchAudioCheckbox.checked = !!updatedConfig.dinky?.scratchAudioEnabled;
+            }
+            updateScratchAudioOutputStatusDropdown();
+            updateScratchAudioPaneState();
+        }
 
         // Update PO dir if changed
         if ('poDir' in updatedConfig) {
