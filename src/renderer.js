@@ -1977,6 +1977,7 @@ function updateNavigationButtons() {
  */
 const testAudioBtn = document.getElementById('btn-test-audio');
 const audioStatusLabel = document.getElementById('audio-status-label');
+const statusBarAudioHint = document.getElementById('status-bar-audio-hint');
 let currentAudioFilePath = null;
 let currentAudioElement = null;
 
@@ -2011,12 +2012,19 @@ function updateAudioStatusLabel(statusText, colorHex) {
     audioStatusLabel.classList.add('visible');
 }
 
+function updateStatusBar(hasAudio) {
+    if (statusBarAudioHint) {
+        statusBarAudioHint.textContent = hasAudio ? 'Shift+Space to play audio' : '';
+    }
+}
+
 async function updateTestAudioButton() {
     const position = editor.getPosition();
     if (!position) {
         currentAudioFilePath = null;
         setTestAudioEnabled(false);
         updateAudioStatusLabel(null);
+        updateStatusBar(false);
         return;
     }
 
@@ -2025,6 +2033,7 @@ async function updateTestAudioButton() {
         currentAudioFilePath = null;
         setTestAudioEnabled(false);
         updateAudioStatusLabel(null);
+        updateStatusBar(false);
         return;
     }
 
@@ -2033,10 +2042,12 @@ async function updateTestAudioButton() {
         currentAudioFilePath = result.path;
         setTestAudioEnabled(true);
         updateAudioStatusLabel(result.status, result.color);
+        updateStatusBar(true);
     } else {
         currentAudioFilePath = null;
         setTestAudioEnabled(false);
         updateAudioStatusLabel(null);
+        updateStatusBar(false);
     }
 }
 
