@@ -1,6 +1,7 @@
 TODO:
 -----
 Play connected audio?
+When a new line is added, set record icon red
 Need rerecord / next / prev
 Doc: update settings page
 

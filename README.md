@@ -9,6 +9,7 @@
 - [Key Features](#key-features)
 - [The ID format](#the-id-format)
 - [Getting Started](#getting-started)
+- [Scratch Audio](#scratch-audio)
 - [Releases](#releases)
 - [Acknowledgements](#acknowledgements)
 - [License and Attribution](#license-and-attribution)
@@ -33,7 +34,7 @@ CHARACTER (qualifier): (direction) The spoken line of text. #tag
 
 ### Character Name Handling
 
-Your cast of characters will be real-time checked against the list for your project, which can be edited in Dinky or in the project's `characters.json` file.
+Your cast of characters will be real-time checked against the list for your project, which can be edited in **Project Settings**.
 
 Typed an unrecognised name wrong? Dinky will catch it and offer a quick-fix to add it to the project or correct it.
 
@@ -42,11 +43,6 @@ Typed an unrecognised name wrong? Dinky will catch it and offer a quick-fix to a
 At the beginning of a Dink line, type the `:` key to start an auto-complete - the list of available characters will pop up for you to choose from.
 
 ![AutoComplete](doc/CharComplete.png)
-
-#### Editing Characters
-
-You can manage the characters in the **Characters** option in the **Project** menu.
-![Characters](doc/Characters.png)
 
 ### Line ID Management
 
@@ -97,6 +93,8 @@ Dinky generates IDs that are stable and descriptive:
 2. **Define Your Root**: Point Dinky to your main `.ink` file.
 3. **Configure Settings**: Set up your project preferences.
 4. **Write**: Focus on the story.
+
+## Scratch Audio
 
 ## Releases
 
