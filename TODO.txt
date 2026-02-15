@@ -1,5 +1,7 @@
 TODO:
 -----
+Typescript?
+Doc: update settings page
 Add debug/watching
 Dinky icons for Unreal 
 Play connected audio?
@@ -67,3 +69,4 @@ BUG: Possible spellchecking happening on code lines - needs investigation.
 NOTES:
 ------
 Remember NVM use for the correct version of Node
+Added tooltips

@@ -8,6 +8,7 @@ import { configureMonacoWorkers, getInitialTheme, applyThemeToDOM, createEditor,
 import { defineThemes, registerInkLanguage } from './tokenizer-rules';
 import { ErrorManager } from './error-manager';
 import { NavigationSystem } from './navigation-system';
+import { initTooltips } from './tooltipManager';
 import { ModelPool } from './model-pool';
 import { ValidationEngine } from './validation-engine';
 import { escapeRegExp, levenshtein, debounce } from './utils/string-utilities';
@@ -20,6 +21,9 @@ if (window.electronAPI.platform === 'win32') {
 } else {
     document.body.classList.add('linux');
 }
+
+// Initialize tooltip system
+initTooltips();
 
 // Initialize Monaco worker environment
 configureMonacoWorkers();
@@ -564,6 +568,7 @@ window.electronAPI.onRootInkLoaded(async (files) => {
             // Root File
             file.listItem = rootFileStepInfo;
             rootFileStepInfo.textContent = file.relativePath;
+            rootFileStepInfo.setAttribute('data-tooltip', file.absolutePath);
 
             rootFileStepInfo.onclick = () => {
                 loadFileToEditor(file, rootFileStepInfo, false);
@@ -576,6 +581,7 @@ window.electronAPI.onRootInkLoaded(async (files) => {
             const li = document.createElement('li');
             file.listItem = li;
             li.textContent = file.relativePath;
+            li.setAttribute('data-tooltip', file.absolutePath);
 
             li.onclick = () => {
                 loadFileToEditor(file, li);

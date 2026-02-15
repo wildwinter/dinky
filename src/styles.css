@@ -476,3 +476,24 @@ body.light .dinky-text {
 #nav-dropdown option {
     padding: 2px 4px;
 }
+
+/* Custom Tooltip */
+.dinky-tooltip {
+    position: fixed;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--sidebar-border);
+    color: var(--text-color);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    pointer-events: none;
+    z-index: 9999;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out;
+    white-space: nowrap;
+}
+
+.dinky-tooltip.visible {
+    opacity: 1;
+}

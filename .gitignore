@@ -138,3 +138,5 @@ dist
 .DS_Store
 dist-electron
 release
+
+google-tts-key.json
