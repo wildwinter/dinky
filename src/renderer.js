@@ -1280,6 +1280,7 @@ async function autoTag() {
                 // We don't modify the text, just start tracking it.
                 idManager.addId(edit.line, edit.newId);
             });
+            updateRecordScratchButton();
         }
 
     } catch (e) {
@@ -1591,6 +1592,7 @@ async function saveAllFiles() {
                         // so the decoration appears immediately without reload.
                         if (filePath === currentFilePath) {
                             idManager.addId(edit.line, edit.newId);
+                            updateRecordScratchButton();
                         }
                     }
                 });

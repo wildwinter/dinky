@@ -159,8 +159,8 @@ export function extractDialogueText(lineContent) {
 
 function isDinkDialogueLine(lineContent) {
     const match = lineContent.match(dialogueRegex) ||
-                  lineContent.match(dialogueGatherRegex) ||
-                  lineContent.match(dialogueBracketedRegex);
+        lineContent.match(dialogueGatherRegex) ||
+        lineContent.match(dialogueBracketedRegex);
     if (!match) return false;
 
     let charName = null;
@@ -612,6 +612,10 @@ async function startRecordingScratch() {
     mediaStream.getTracks().forEach(t => t.stop());
 
     if (result === 'complete' && audioChunks.length > 0) {
+        if (statusBar) {
+            statusBar.className = 'recording-processing';
+            statusBar.textContent = 'PROCESSING...';
+        }
         try {
             const blob = new Blob(audioChunks, { type: 'audio/webm' });
             const arrayBuffer = await blob.arrayBuffer();

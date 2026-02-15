@@ -181,6 +181,16 @@ body {
     border-top-color: #b71c1c;
 }
 
+/* Recording processing status bar (green) */
+#status-bar.recording-processing {
+    background-color: #2e7d32;
+    color: #ffffff;
+    opacity: 1;
+    font-weight: bold;
+    font-size: 13px;
+    border-top-color: #2e7d32;
+}
+
 /* Record scratch button */
 #btn-record-scratch {
     color: #d32f2f;

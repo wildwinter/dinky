@@ -1,9 +1,8 @@
 TODO:
 -----
 Play connected audio?
-When a new line is added, set record icon red
+Line icons
 Need rerecord / next / prev
-Doc: update settings page
 
 Typescript?
 Add debug/watching
@@ -69,6 +68,8 @@ Improvements to tokeniser and coloring for Ink conditionals.
 BUG: Possible spellchecking happening on code lines - needs investigation.
 Scratch audio recording
 Added tooltips
+When a new line is added, set record icon red
+Doc: update settings page
 
 NOTES:
 ------

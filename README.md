@@ -9,7 +9,9 @@
 - [Key Features](#key-features)
 - [The ID format](#the-id-format)
 - [Getting Started](#getting-started)
-- [Scratch Audio](#scratch-audio)
+- [Audio](#audio)
+  - [Scratch Audio](#scratch-audio)
+- [Project Settings](#project-settings)
 - [Releases](#releases)
 - [Acknowledgements](#acknowledgements)
 - [License and Attribution](#license-and-attribution)
@@ -70,7 +72,6 @@ Dinky bundles the the [Dink Compiler](https://github.com/wildwinter/dink); you c
 ![SearchReplace](doc/SearchReplace.png)
 - **Built-in Spellchecker:** Real-time spellchecking with support for project-specific dictionaries - you can add your own terms to the spellchecker. Useful for projects with arcane terms! Currently support US English and UK English.
 ![Spelling](doc/Spelling.png)
-![Spelling2](doc/Spelling2.png)
 - **Theme:** Supports light, dark, or current system theme!
 - **Error Navigation:** Step through the list of errors, including any Ink errors and invalid character names.
 ![Errors](doc/Errors.png)
@@ -94,6 +95,14 @@ Dinky generates IDs that are stable and descriptive:
 3. **Configure Settings**: Set up your project preferences.
 4. **Write**: Focus on the story.
 
+## Audio
+
+![Audio Status](doc/AudioStatus.png)
+
+Dinky supports associating a Wav or Ogg file with a dialogue line. These are just files named with the file ID and the relevant file extension, saved in one of the folders defined by the **Audio Status** settings in Project Settings. The files will be automatically read, and then the **Test Audio** button on the toolbar will show you where the file was found and let you play it. You can also use `SHIFT+SPACE` to play the line your cursor is currently on.
+
+![Audio Controls](doc/AudioControls.png)
+
 ### Scratch Audio
 
 Dinky allows you to record and playback temporary "scratch" audio for each line of your script. This is far more useful for testing timing, intent, and emotion than Text-To-Speech (TTS).
@@ -102,6 +111,12 @@ Dinky allows you to record and playback temporary "scratch" audio for each line 
 - **Recording**: When the cursor is on a Dink-style line (`CHARACTER: Dialogue`), click the red **Record Scratch** button on the toolbar. Press **Space** to finish or **Esc** to cancel.
 - **Playback**: Use the Play button or `Shift+Space`. This plays the highest status audio available for that line (TTS, Scratch, or final).
 - **Out of Date Tracking**: If you edit a line's text, an exclamation mark will warn you that the audio is out of date. Dinky uses hashes stored in the audio file's metadata to track this.
+
+## Project Settings
+
+There's a comprehensive list of settings in **Project Settings**, which wraps up the options provided by the [Dink Compiler](https://github.com/wildwinter/dink). Look there for more information.
+
+![Project Settings](doc/ProjectSettings.png)
 
 ## Releases
 
