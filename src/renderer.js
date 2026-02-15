@@ -2064,11 +2064,16 @@ async function playTestAudio() {
     if (!dataUrl) return;
 
     currentAudioElement = new Audio(dataUrl);
+    if (testAudioBtn) testAudioBtn.classList.add('playing');
     currentAudioElement.play().catch(err => {
         console.error('Failed to play audio:', err);
     });
     currentAudioElement.addEventListener('ended', () => {
         currentAudioElement = null;
+        if (testAudioBtn) testAudioBtn.classList.remove('playing');
+    });
+    currentAudioElement.addEventListener('pause', () => {
+        if (testAudioBtn) testAudioBtn.classList.remove('playing');
     });
 }
 

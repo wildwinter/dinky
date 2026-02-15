@@ -118,6 +118,15 @@ body {
     display: inline-block;
 }
 
+@keyframes audio-pulse {
+    0%, 100% { color: #2e7d32; }
+    50% { color: #81c784; }
+}
+
+#btn-test-audio.playing {
+    animation: audio-pulse 1.2s ease-in-out infinite;
+}
+
 #status-bar {
     height: 22px;
     min-height: 22px;
