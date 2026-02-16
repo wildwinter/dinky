@@ -2118,9 +2118,6 @@ if (testAudioBtn) {
     testAudioBtn.addEventListener('click', playTestAudio);
 }
 
-if (audioStatusLabel) {
-    audioStatusLabel.addEventListener('click', playTestAudio);
-}
 
 // Shift+Space shortcut to play test audio (overrides triggerSuggest, but Ctrl+Space still works for autocomplete)
 editor.addAction({

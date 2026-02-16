@@ -1,5 +1,6 @@
 TODO:
 -----
+Mark scratch audio as ok
 Play connected audio?
 Line icons
 Need rerecord / next / prev
@@ -70,6 +71,7 @@ Scratch audio recording
 Added tooltips
 When a new line is added, set record icon red
 Doc: update settings page
+Make button icons more readable
 
 NOTES:
 ------
