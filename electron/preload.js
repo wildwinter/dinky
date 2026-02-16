@@ -110,6 +110,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     readAudioHash: (filePath) => ipcRenderer.invoke('read-audio-hash', filePath),
 
     // Scratch audio recording API
+    findScratchAudioStatus: (lineId, scratchFolder) => ipcRenderer.invoke('find-scratch-audio-status', lineId, scratchFolder),
+    updateAudioHash: (filePath, newHash) => ipcRenderer.invoke('update-audio-hash', filePath, newHash),
     saveScratchAudio: (lineId, audioBuffer, folder, format) => ipcRenderer.invoke('save-scratch-audio', lineId, audioBuffer, folder, format),
     setRecordingMode: (enabled) => ipcRenderer.send('set-recording-mode', enabled),
 });

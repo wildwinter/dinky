@@ -6,7 +6,7 @@ import { ModalHelper } from './modal-helper';
 // Module imports - Refactored editor functionality
 import { configureMonacoWorkers, getInitialTheme, applyThemeToDOM, createEditor, setupThemeListener, monaco } from './editor-setup';
 import { defineThemes, registerInkLanguage } from './tokenizer-rules';
-import { initScratchRecorder, loadScratchAudioConfig, updateRecordScratchButton, generateHashFromText, extractDialogueText } from './scratchRecorder';
+import { initScratchRecorder, loadScratchAudioConfig, updateRecordScratchButton, updateScratchStatusButton, generateHashFromText, extractDialogueText } from './scratchRecorder';
 import { ErrorManager } from './error-manager';
 import { NavigationSystem } from './navigation-system';
 import { initTooltips } from './tooltipManager';
@@ -2145,6 +2145,7 @@ editor.onDidChangeCursorPosition(() => {
     updateDropdownSelection();
     updateTestAudioButton();
     updateRecordScratchButton();
+    updateScratchStatusButton();
 
     // Don't track history if we're navigating via back/forward
     if (isNavigatingHistory) return;

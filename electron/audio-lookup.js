@@ -177,6 +177,133 @@ async function readHashFromOgg(fd) {
 }
 
 /**
+ * Check scratch audio status for a line.
+ * Returns whether better audio exists (in a folder before scratchFolder),
+ * and if not, whether scratch audio exists and its path.
+ */
+ipcMain.handle('find-scratch-audio-status', async (event, lineId, scratchFolder) => {
+    const project = getCurrentProject();
+    if (!project || !lineId || !scratchFolder) return { hasBetterAudio: false, scratchFile: null };
+
+    const projectDir = path.dirname(project.path);
+    const audioStatuses = project.content?.audioStatus || [];
+    const scratchFolderResolved = path.resolve(projectDir, scratchFolder);
+
+    for (const status of audioStatuses) {
+        if (!status.folder) continue;
+        const folderPath = path.resolve(projectDir, status.folder);
+        const result = await findAudioInFolder(folderPath, lineId);
+
+        if (folderPath === scratchFolderResolved) {
+            // This is the scratch folder — return what we found (or null)
+            return { hasBetterAudio: false, scratchFile: result };
+        }
+
+        if (result) {
+            // Found audio in a folder before the scratch folder
+            return { hasBetterAudio: true, scratchFile: null };
+        }
+    }
+
+    return { hasBetterAudio: false, scratchFile: null };
+});
+
+/**
+ * Update the DINK hash embedded in a WAV or OGG audio file.
+ */
+ipcMain.handle('update-audio-hash', async (event, filePath, newHash) => {
+    if (!filePath || !newHash) return { success: false, error: 'Missing parameters' };
+    try {
+        const ext = path.extname(filePath).toLowerCase();
+        const fileData = await fs.readFile(filePath);
+
+        let updatedData;
+        if (ext === '.wav') {
+            updatedData = updateWavHash(fileData, newHash);
+        } else if (ext === '.ogg') {
+            updatedData = updateOggHash(fileData, newHash);
+        } else {
+            return { success: false, error: 'Unsupported format' };
+        }
+
+        if (!updatedData) return { success: false, error: 'Could not find DINK hash in file' };
+
+        await fs.writeFile(filePath, updatedData);
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to update audio hash:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+function updateWavHash(fileData, newHash) {
+    // Scan for LIST/INFO/DINK chunk and replace the hash
+    if (fileData.length < 12) return null;
+    if (fileData.toString('ascii', 0, 4) !== 'RIFF') return null;
+    if (fileData.toString('ascii', 8, 12) !== 'WAVE') return null;
+
+    let pos = 12;
+    while (pos < fileData.length - 8) {
+        const chunkId = fileData.toString('ascii', pos, pos + 4);
+        const chunkSize = fileData.readUInt32LE(pos + 4);
+        const chunkStart = pos;
+        pos += 8;
+
+        if (chunkId === 'LIST' && pos + 4 <= fileData.length) {
+            const listType = fileData.toString('ascii', pos, pos + 4);
+            if (listType === 'INFO') {
+                // Found LIST/INFO — rebuild everything before this chunk + new LIST/INFO/DINK + everything after
+                const beforeList = fileData.subarray(0, chunkStart);
+                const afterList = fileData.subarray(chunkStart + 8 + chunkSize + (chunkSize % 2 !== 0 ? 1 : 0));
+
+                const hashBytes = Buffer.from(newHash, 'utf8');
+                const needsPadding = hashBytes.length % 2 !== 0;
+                const dinkChunkSize = 4 + 4 + hashBytes.length + (needsPadding ? 1 : 0);
+                const listContentSize = 4 + dinkChunkSize; // INFO + DINK chunk
+                const listTotal = 8 + listContentSize; // LIST + size + content
+
+                const newList = Buffer.alloc(listTotal);
+                let off = 0;
+                newList.write('LIST', off); off += 4;
+                newList.writeUInt32LE(listContentSize, off); off += 4;
+                newList.write('INFO', off); off += 4;
+                newList.write('DINK', off); off += 4;
+                newList.writeUInt32LE(hashBytes.length, off); off += 4;
+                hashBytes.copy(newList, off); off += hashBytes.length;
+                if (needsPadding) { newList.writeUInt8(0, off); off += 1; }
+
+                const result = Buffer.concat([beforeList, newList, afterList]);
+                // Update RIFF size
+                result.writeUInt32LE(result.length - 8, 4);
+                return result;
+            }
+        }
+        pos += chunkSize + (chunkSize % 2 !== 0 ? 1 : 0);
+    }
+    return null;
+}
+
+function updateOggHash(fileData, newHash) {
+    // Find trailing DINK marker and replace
+    const tailSize = Math.min(64, fileData.length);
+    const tailStart = fileData.length - tailSize;
+
+    for (let i = fileData.length - 9; i >= tailStart; i--) {
+        if (fileData[i] === 0x44 && fileData[i+1] === 0x49 && fileData[i+2] === 0x4E && fileData[i+3] === 0x4B) {
+            // Found DINK marker — everything before it is the OGG data
+            const oggData = fileData.subarray(0, i);
+            const hashBytes = Buffer.from(newHash, 'utf8');
+            const trailer = Buffer.alloc(8 + hashBytes.length);
+            trailer.write('DINK', 0);
+            trailer.writeUInt32LE(hashBytes.length, 4);
+            hashBytes.copy(trailer, 8);
+            return Buffer.concat([oggData, trailer]);
+        }
+    }
+    return null;
+}
+
+/**
  * Save scratch audio recording.
  * Receives the lineId, audio data as an ArrayBuffer, the relative folder path, and the format (wav/ogg/flac).
  */
