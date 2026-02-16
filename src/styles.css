@@ -111,11 +111,12 @@ body {
     border-radius: 3px;
     white-space: nowrap;
     line-height: 16px;
-    display: none;
-}
-
-#audio-status-label.visible {
     display: inline-block;
+    width: 80px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
 }
 
 @keyframes audio-pulse {

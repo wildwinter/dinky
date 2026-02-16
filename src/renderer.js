@@ -2004,8 +2004,9 @@ function setTestAudioEnabled(enabled) {
 function updateAudioStatusLabel(statusText, colorHex) {
     if (!audioStatusLabel) return;
     if (!statusText) {
-        audioStatusLabel.classList.remove('visible');
         audioStatusLabel.textContent = '';
+        audioStatusLabel.style.color = '';
+        audioStatusLabel.style.backgroundColor = '';
         return;
     }
     const r = parseInt(colorHex.substring(0, 2), 16);
@@ -2014,7 +2015,6 @@ function updateAudioStatusLabel(statusText, colorHex) {
     audioStatusLabel.textContent = statusText;
     audioStatusLabel.style.color = `rgb(${r}, ${g}, ${b})`;
     audioStatusLabel.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.15)`;
-    audioStatusLabel.classList.add('visible');
 }
 
 function updateStatusBar(hasAudio, isOutOfDate) {
@@ -2136,6 +2136,16 @@ initScratchRecorder({
     isDinkyAtPosition,
     updateTestAudioButton,
     playTestAudio,
+    getLoadedInkFiles: () => loadedInkFiles,
+    getCurrentFilePath: () => currentFilePath,
+    openFileAndGoToLine: (filePath, lineNumber) => {
+        const file = loadedInkFiles.get(filePath);
+        if (!file) return;
+        if (file.listItem) file.listItem.click();
+        editor.setPosition({ lineNumber, column: 1 });
+        editor.revealLineInCenter(lineNumber);
+        editor.focus();
+    },
 });
 
 /**

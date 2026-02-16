@@ -177,6 +177,60 @@ async function readHashFromOgg(fd) {
 }
 
 /**
+ * Lightweight helper: list all lineIds (from filenames) in a given audio folder.
+ */
+async function listLineIdsInFolder(folderPath) {
+    const result = {};
+    try {
+        const entries = await fs.readdir(folderPath);
+        for (const entry of entries) {
+            const ext = path.extname(entry).toLowerCase();
+            if (!AUDIO_EXTENSIONS.includes(ext)) continue;
+            const lineId = path.basename(entry, ext);
+            result[lineId] = path.join(folderPath, entry);
+        }
+    } catch {
+        // Folder doesn't exist
+    }
+    return result;
+}
+
+/**
+ * Get navigation context for scratch audio prev/next.
+ * Returns { scratchFiles: { lineId: filePath }, betterAudioLineIds: string[] }
+ * All via lightweight directory listings — no file content reading.
+ */
+ipcMain.handle('get-scratch-nav-context', async (event, scratchFolder) => {
+    const project = getCurrentProject();
+    if (!project || !scratchFolder) return { scratchFiles: {}, betterAudioLineIds: [] };
+
+    const projectDir = path.dirname(project.path);
+    const audioStatuses = project.content?.audioStatus || [];
+    const scratchFolderResolved = path.resolve(projectDir, scratchFolder);
+
+    const betterAudioLineIds = new Set();
+    let scratchFiles = {};
+
+    for (const status of audioStatuses) {
+        if (!status.folder) continue;
+        const folderPath = path.resolve(projectDir, status.folder);
+
+        if (folderPath === scratchFolderResolved) {
+            scratchFiles = await listLineIdsInFolder(folderPath);
+            break; // Don't scan folders after scratch
+        }
+
+        // Folder before scratch — collect lineIds that have better audio
+        const lineIds = await listLineIdsInFolder(folderPath);
+        for (const lineId of Object.keys(lineIds)) {
+            betterAudioLineIds.add(lineId);
+        }
+    }
+
+    return { scratchFiles, betterAudioLineIds: [...betterAudioLineIds] };
+});
+
+/**
  * Check scratch audio status for a line.
  * Returns whether better audio exists (in a folder before scratchFolder),
  * and if not, whether scratch audio exists and its path.
