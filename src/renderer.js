@@ -6,7 +6,7 @@ import { ModalHelper } from './modal-helper';
 // Module imports - Refactored editor functionality
 import { configureMonacoWorkers, getInitialTheme, applyThemeToDOM, createEditor, setupThemeListener, monaco } from './editor-setup';
 import { defineThemes, registerInkLanguage } from './tokenizer-rules';
-import { initScratchRecorder, loadScratchAudioConfig, getScratchAudioEnabled, checkScratchAudioMarkers, markScratchLineOk, triggerRecordScratch, generateHashFromText, extractDialogueText } from './scratchRecorder';
+import { initScratchRecorder, loadScratchAudioConfig, getScratchAudioEnabled, checkScratchAudioMarkers, markScratchLineOk, triggerRecordScratch, isDinkDialogueLine, generateHashFromText, extractDialogueText } from './scratchRecorder';
 import { ErrorManager } from './error-manager';
 import { NavigationSystem } from './navigation-system';
 import { initTooltips } from './tooltipManager';
@@ -75,6 +75,7 @@ let navigationStructureDirty = true; // Mark as dirty when file list changes
 // Initialize core instances
 const spellChecker = new DinkySpellChecker();
 const idManager = new IdPreservationManager(editor, monaco);
+
 const jumpHighlightCollection = editor.createDecorationsCollection();
 const wsTagDecorationCollection = editor.createDecorationsCollection();
 
@@ -1109,6 +1110,9 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     // Apply decorations to track the IDs
     idManager.setupDecorations(extractedIds);
 
+    // Refresh audio glyph colors (async, non-blocking)
+    refreshAudioGlyphs();
+
     // Return old model to pool instead of immediately disposing
     // This preserves its state for quick reuse when switching back
     if (oldModel && oldModel.uri.path !== newModel.uri.path) {
@@ -1349,6 +1353,9 @@ async function checkSyntax() {
             // Update Monaco markers with visible errors + character errors + writing status errors + scratch audio errors for current file
             monaco.editor.setModelMarkers(model, 'ink', [...(visibleErrors || []), ...currentFileCharErrors, ...currentFileWsErrors, ...currentFileScratchErrors]);
         }
+
+        // Refresh audio glyph colors
+        refreshAudioGlyphs();
     } catch (e) {
         window.electronAPI.log('checkSyntax failed:', e.toString())
     }
@@ -2082,6 +2089,27 @@ const audioStatusLabel = document.getElementById('audio-status-label');
 let currentAudioFilePath = null;
 let currentAudioElement = null;
 
+// Wire up glyph click-to-play audio
+idManager.playAudioForLine = async (audioFilePath) => {
+    if (!audioFilePath) return;
+    if (currentAudioElement) {
+        currentAudioElement.pause();
+        currentAudioElement = null;
+    }
+    const dataUrl = await window.electronAPI.readAudioFile(audioFilePath);
+    if (!dataUrl) return;
+    currentAudioElement = new Audio(dataUrl);
+    if (testAudioBtn) testAudioBtn.classList.add('playing');
+    currentAudioElement.play().catch(err => console.error('Failed to play audio:', err));
+    currentAudioElement.addEventListener('ended', () => {
+        currentAudioElement = null;
+        if (testAudioBtn) testAudioBtn.classList.remove('playing');
+    });
+    currentAudioElement.addEventListener('pause', () => {
+        if (testAudioBtn) testAudioBtn.classList.remove('playing');
+    });
+};
+
 function setTestAudioEnabled(enabled) {
     if (!testAudioBtn) return;
     if (enabled) {
@@ -2212,6 +2240,47 @@ async function playTestAudio() {
 
 if (testAudioBtn) {
     testAudioBtn.addEventListener('click', playTestAudio);
+}
+
+/**
+ * Refresh glyph margin icons with audio status colors for the current file.
+ * Fetches bulk audio status for all line IDs and determines dialogue lines.
+ */
+async function refreshAudioGlyphs() {
+    const model = editor.getModel();
+    if (!model) return;
+
+    // Collect all line IDs from the current file's decorations
+    const lineIds = [];
+    const idToLineNumber = {};
+    const decorations = model.getAllDecorations();
+    for (const dec of decorations) {
+        const inkId = idManager.decorationToId.get(dec.id);
+        if (inkId) {
+            lineIds.push(inkId);
+            idToLineNumber[inkId] = dec.range.startLineNumber;
+        }
+    }
+
+    if (lineIds.length === 0) {
+        idManager.updateAudioStatus({}, new Set());
+        return;
+    }
+
+    // Fetch audio status for all IDs in one call
+    const audioStatusMap = await window.electronAPI.getBulkAudioStatus(lineIds);
+
+    // Determine which lines are dialogue lines
+    const dialogueLines = new Set();
+    const lineCount = model.getLineCount();
+    for (let i = 1; i <= lineCount; i++) {
+        const lineContent = model.getLineContent(i);
+        if (isDinkDialogueLine(lineContent)) {
+            dialogueLines.add(i);
+        }
+    }
+
+    idManager.updateAudioStatus(audioStatusMap, dialogueLines);
 }
 
 
@@ -2522,11 +2591,6 @@ window.electronAPI.onReplaceRequested(({ query, replacement, caseSensitive }) =>
     if (totalReplacements > 0) {
         checkSyntax();
     }
-});
-
-// Compiler selection handlers
-window.electronAPI.onSelectCompiler(async () => {
-    await window.electronAPI.selectCompiler();
 });
 
 // Global keyboard shortcut handler for Project Settings (Cmd/Ctrl+Shift+,)

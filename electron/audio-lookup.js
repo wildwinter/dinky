@@ -63,6 +63,40 @@ ipcMain.handle('find-audio-file', async (event, lineId) => {
 });
 
 /**
+ * Bulk lookup audio status for an array of line IDs.
+ * Returns { [lineId]: { status, color, path } } for IDs that have audio.
+ * IDs without audio are omitted from the result.
+ */
+ipcMain.handle('get-bulk-audio-status', async (event, lineIds) => {
+    const project = getCurrentProject();
+    if (!project || !lineIds || !lineIds.length) return {};
+
+    const projectDir = path.dirname(project.path);
+    const audioStatuses = project.content?.audioStatus || [];
+    const result = {};
+
+    // For each audio status folder, list all files once, then match against requested IDs
+    for (const status of audioStatuses) {
+        if (!status.folder) continue;
+        const folderPath = path.resolve(projectDir, status.folder);
+        const filesInFolder = await listLineIdsInFolder(folderPath);
+
+        for (const lineId of lineIds) {
+            if (result[lineId]) continue; // Already found in a higher-priority folder
+            if (filesInFolder[lineId]) {
+                result[lineId] = {
+                    status: status.status || '',
+                    color: status.color || null,
+                    path: filesInFolder[lineId]
+                };
+            }
+        }
+    }
+
+    return result;
+});
+
+/**
  * Read an audio file and return its data as a base64 data URL.
  */
 ipcMain.handle('read-audio-file', async (event, filePath) => {

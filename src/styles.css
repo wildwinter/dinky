@@ -442,6 +442,17 @@ button.secondary:hover {
     opacity: 1;
 }
 
+.ink-id-chip-play {
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236e7681" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="9,6 18,12 9,18" fill="%236e7681" stroke="none"/></svg>') no-repeat center center;
+    background-size: 12px;
+    opacity: 0.5;
+    cursor: pointer;
+}
+
+.ink-id-chip-play:hover {
+    opacity: 1;
+}
+
 /* Modern Tooltip Styling */
 .monaco-hover {
     background-color: var(--sidebar-bg) !important;

@@ -4,6 +4,12 @@ export class IdPreservationManager {
         this.monaco = monaco;
         // Map<DecorationId, InkIdString>
         this.decorationToId = new Map();
+        // Map<InkIdString, { path, status, color }> — audio info per line ID
+        this.audioStatusMap = {};
+        // Set<lineNumber> — lines that are dialogue lines
+        this.dialogueLines = new Set();
+        // Callback for playing audio by line ID
+        this.playAudioForLine = null;
         // We use a specific decoration key to track our IDs
         this.decorationCollection = editor.createDecorationsCollection();
 
@@ -17,52 +23,15 @@ export class IdPreservationManager {
                 // Check for our decorations on this line
                 const decorations = model.getLineDecorations(lineNumber);
                 for (const dec of decorations) {
-                    // We can check if this decoration ID matches one of ours
                     if (this.decorationToId.has(dec.id)) {
                         const inkId = this.decorationToId.get(dec.id);
 
-                        // Copy to clipboard
-                        navigator.clipboard.writeText(inkId).then(() => {
-                            // Visual Feedback
-                            const oldOptions = dec.options;
-                            const copyIconUrl = 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%234caf50%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%2220%206%209%2017%204%2012%22%2F%3E%3C%2Fsvg%3E';
-
-                            const copiedMessage = {
-                                value: `![copied](${copyIconUrl}) **COPIED** \`${inkId}\``,
-                                isTrusted: true,
-                                supportHtml: true
-                            };
-
-                            const newDec = {
-                                range: dec.range,
-                                options: {
-                                    ...oldOptions,
-                                    glyphMarginHoverMessage: copiedMessage
-                                }
-                            };
-
-                            const newIds = this.editor.deltaDecorations([dec.id], [newDec]);
-                            const newId = newIds[0];
-                            this.decorationToId.delete(dec.id);
-                            this.decorationToId.set(newId, inkId);
-
-                            setTimeout(() => {
-                                if (this.decorationToId.has(newId)) {
-                                    const resetDec = {
-                                        range: dec.range,
-                                        options: this._getDecorationOptions(inkId)
-                                    };
-                                    // Refresh range
-                                    const currentRange = model.getDecorationRange(newId);
-                                    if (currentRange) {
-                                        resetDec.range = currentRange;
-                                        const resetIds = this.editor.deltaDecorations([newId], [resetDec]);
-                                        this.decorationToId.delete(newId);
-                                        this.decorationToId.set(resetIds[0], inkId);
-                                    }
-                                }
-                            }, 1500);
-                        });
+                        // If this line has audio, play it and move cursor to this line
+                        if (this.audioStatusMap[inkId] && this.playAudioForLine) {
+                            this.editor.setPosition({ lineNumber, column: 1 });
+                            this.playAudioForLine(this.audioStatusMap[inkId].path);
+                            return;
+                        }
                         return;
                     }
                 }
@@ -179,7 +148,7 @@ export class IdPreservationManager {
 
     /**
      * Apply sticky decorations to the model to track the lines associated with IDs.
-     * @param {monaco.editor.ITextModel} model 
+     * @param {monaco.editor.ITextModel} model
      * @param {Array} extractedIds Array of { lineIndex, id }
      */
     setupDecorations(extractedIds) {
@@ -214,9 +183,54 @@ export class IdPreservationManager {
     }
 
     /**
-     * Helper to Generate Decoration Options
+     * Update glyph decorations based on audio status and dialogue line info.
+     * @param {Object} audioStatusMap { lineId: { status, color, path } }
+     * @param {Set<number>} dialogueLines Set of 1-based line numbers that are dialogue lines
      */
-    _getDecorationOptions(id) {
+    updateAudioStatus(audioStatusMap, dialogueLines) {
+        this.audioStatusMap = audioStatusMap || {};
+        this.dialogueLines = dialogueLines || new Set();
+
+        const model = this.editor.getModel();
+        if (!model) return;
+
+        // Collect current decoration data (ranges may have shifted due to edits)
+        const newDecorations = [];
+        const idList = [];
+
+        const decorations = model.getAllDecorations();
+        for (const dec of decorations) {
+            if (!this.decorationToId.has(dec.id)) continue;
+
+            const inkId = this.decorationToId.get(dec.id);
+            const isDialogue = this.dialogueLines.has(dec.range.startLineNumber);
+            const audioInfo = this.audioStatusMap[inkId];
+            const hasAudio = isDialogue && !!audioInfo;
+
+            const currentRange = model.getDecorationRange(dec.id);
+            if (!currentRange) continue;
+
+            newDecorations.push({
+                range: currentRange,
+                options: this._getDecorationOptions(inkId, hasAudio)
+            });
+            idList.push(inkId);
+        }
+
+        // Rebuild the entire decoration collection to avoid deltaDecorations/collection conflicts
+        this.decorationToId.clear();
+        const decorationIds = this.decorationCollection.set(newDecorations);
+        for (let i = 0; i < decorationIds.length; i++) {
+            this.decorationToId.set(decorationIds[i], idList[i]);
+        }
+    }
+
+    /**
+     * Helper to Generate Decoration Options
+     * @param {string} id - The ink ID
+     * @param {boolean} hasAudio - Whether this line has playable audio
+     */
+    _getDecorationOptions(id, hasAudio) {
         // Lucide Copy Icon SVG (grey)
         const copyIconUrl = 'data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23999%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%229%22%20y%3D%229%22%20width%3D%2213%22%20height%3D%2213%22%20rx%3D%222%22%20ry%3D%222%22%2F%3E%3Cpath%20d%3D%22M5%2015H4a2%202%200%200%201-2-2V4a2%202%200%200%201%202-2h9a2%202%200%200%201%202%202v1%22%2F%3E%3C%2Fsvg%3E';
 
@@ -224,7 +238,7 @@ export class IdPreservationManager {
             description: 'ink-id-tracker',
             isWholeLine: true,
             stickiness: this.monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-            glyphMarginClassName: 'ink-id-chip',
+            glyphMarginClassName: hasAudio ? 'ink-id-chip-play' : 'ink-id-chip',
             glyphMarginHoverMessage: {
                 value: `\`${id}\` ![copy](${copyIconUrl})`,
                 isTrusted: true,

@@ -120,7 +120,7 @@ export function extractDialogueText(lineContent) {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function isDinkDialogueLine(lineContent) {
+export function isDinkDialogueLine(lineContent) {
     const match = lineContent.match(dialogueRegex) ||
         lineContent.match(dialogueGatherRegex) ||
         lineContent.match(dialogueBracketedRegex);

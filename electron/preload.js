@@ -108,6 +108,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     findAudioFile: (lineId) => ipcRenderer.invoke('find-audio-file', lineId),
     readAudioFile: (filePath) => ipcRenderer.invoke('read-audio-file', filePath),
     readAudioHash: (filePath) => ipcRenderer.invoke('read-audio-hash', filePath),
+    getBulkAudioStatus: (lineIds) => ipcRenderer.invoke('get-bulk-audio-status', lineIds),
 
     // Scratch audio recording API
     findScratchAudioStatus: (lineId, scratchFolder) => ipcRenderer.invoke('find-scratch-audio-status', lineId, scratchFolder),
