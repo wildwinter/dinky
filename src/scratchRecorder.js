@@ -6,7 +6,6 @@ const dialogueGatherRegex = dinkyDialogueGatherRule[0];
 const dialogueBracketedRegex = dinkyDialogueBracketedRule[0];
 
 // DOM elements
-let recordScratchBtn;
 let recordingOverlay;
 let statusBar;
 
@@ -21,11 +20,11 @@ let editor;
 let monaco;
 let idManager;
 let projectCharacters;
-let isDinkyAtPosition;
 let updateTestAudioButton;
 let playTestAudio;
 let getLoadedInkFiles;  // () => Map<path, fileObj>
 let getCurrentFilePath; // () => string
+let onRecordingComplete; // () => void — called after a successful scratch recording
 
 /**
  * Initialise the scratch recorder module.
@@ -36,19 +35,14 @@ export function initScratchRecorder(deps) {
     monaco = deps.monaco;
     idManager = deps.idManager;
     projectCharacters = deps.projectCharacters;
-    isDinkyAtPosition = deps.isDinkyAtPosition;
     updateTestAudioButton = deps.updateTestAudioButton;
     playTestAudio = deps.playTestAudio;
     getLoadedInkFiles = deps.getLoadedInkFiles;
     getCurrentFilePath = deps.getCurrentFilePath;
+    onRecordingComplete = deps.onRecordingComplete;
 
-    recordScratchBtn = document.getElementById('btn-record-scratch');
     recordingOverlay = document.getElementById('recording-overlay');
     statusBar = document.getElementById('status-bar');
-
-    if (recordScratchBtn) {
-        recordScratchBtn.addEventListener('click', startRecordingScratch);
-    }
 
     // Reload scratch audio config whenever project settings change
     window.electronAPI.onProjectConfigUpdated(async () => {
@@ -58,7 +52,6 @@ export function initScratchRecorder(deps) {
         if (section) {
             section.style.display = scratchAudioEnabled ? 'flex' : 'none';
         }
-        updateRecordScratchButton();
     });
 }
 
@@ -79,44 +72,6 @@ export async function loadScratchAudioConfig() {
     }
 }
 
-/**
- * Update the record button enabled state based on cursor position.
- * Called from the cursor-position-change handler in renderer.js.
- */
-export function updateRecordScratchButton() {
-    if (!recordScratchBtn || isRecording) return;
-
-    if (!scratchAudioEnabled || !scratchAudioFolder) {
-        setRecordScratchEnabled(false);
-        return;
-    }
-
-    const position = editor.getPosition();
-    const model = editor.getModel();
-    if (!position || !model) {
-        setRecordScratchEnabled(false);
-        return;
-    }
-
-    const lineId = idManager.getIdForLine(position.lineNumber);
-    if (!lineId) {
-        setRecordScratchEnabled(false);
-        return;
-    }
-
-    if (!isDinkyAtPosition(model, position)) {
-        setRecordScratchEnabled(false);
-        return;
-    }
-
-    const lineContent = model.getLineContent(position.lineNumber);
-    if (!isDinkDialogueLine(lineContent)) {
-        setRecordScratchEnabled(false);
-        return;
-    }
-
-    setRecordScratchEnabled(true);
-}
 
 // ---------------------------------------------------------------------------
 // Hash generation (FNV-1a, matching dink compiler)
@@ -189,18 +144,6 @@ function isDinkDialogueLine(lineContent) {
     return true;
 }
 
-function setRecordScratchEnabled(enabled) {
-    if (!recordScratchBtn) return;
-    if (enabled) {
-        recordScratchBtn.style.opacity = '1';
-        recordScratchBtn.style.pointerEvents = 'auto';
-        recordScratchBtn.style.filter = '';
-    } else {
-        recordScratchBtn.style.opacity = '0.5';
-        recordScratchBtn.style.pointerEvents = 'none';
-        recordScratchBtn.style.filter = 'grayscale(1)';
-    }
-}
 
 // Regex to extract lineIds from raw ink file content (matches #id:XXXX_XXXX tags)
 const idTagRegex = /(\s?)#id:([a-zA-Z0-9_]+_[a-zA-Z0-9]{4})\b/;
@@ -343,6 +286,14 @@ export async function markScratchLineOk(filePath, lineNumber) {
 
     const updateResult = await window.electronAPI.updateAudioHash(result.scratchFile, newHash);
     return !!(updateResult && updateResult.success);
+}
+
+/**
+ * Trigger scratch recording for the line at the current cursor position.
+ * Exposed so the error banner can navigate to a line first, then call this.
+ */
+export function triggerRecordScratch() {
+    startRecordingScratch();
 }
 
 function playBeep(frequency, durationMs) {
@@ -613,9 +564,6 @@ async function startRecordingScratch() {
     // Disable menus via IPC
     window.electronAPI.setRecordingMode(true);
 
-    // Disable record button during recording
-    setRecordScratchEnabled(false);
-
     // Block all keys except ESC and SPACE
     const keyBlocker = (e) => {
         if (e.key !== 'Escape' && e.key !== ' ') {
@@ -661,7 +609,6 @@ async function startRecordingScratch() {
         }
 
         updateTestAudioButton();
-        updateRecordScratchButton();
     }
 
     // --- Acquire microphone before countdown so there's no delay after "1" ---
@@ -788,6 +735,7 @@ async function startRecordingScratch() {
                 cleanup();
                 await updateTestAudioButton();
                 playTestAudio();
+                if (onRecordingComplete) onRecordingComplete();
                 return;
             } else {
                 console.error('Failed to save scratch audio:', saveResult?.error);

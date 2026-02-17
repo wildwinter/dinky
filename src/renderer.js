@@ -6,7 +6,7 @@ import { ModalHelper } from './modal-helper';
 // Module imports - Refactored editor functionality
 import { configureMonacoWorkers, getInitialTheme, applyThemeToDOM, createEditor, setupThemeListener, monaco } from './editor-setup';
 import { defineThemes, registerInkLanguage } from './tokenizer-rules';
-import { initScratchRecorder, loadScratchAudioConfig, updateRecordScratchButton, getScratchAudioEnabled, checkScratchAudioMarkers, markScratchLineOk, generateHashFromText, extractDialogueText } from './scratchRecorder';
+import { initScratchRecorder, loadScratchAudioConfig, getScratchAudioEnabled, checkScratchAudioMarkers, markScratchLineOk, triggerRecordScratch, generateHashFromText, extractDialogueText } from './scratchRecorder';
 import { ErrorManager } from './error-manager';
 import { NavigationSystem } from './navigation-system';
 import { initTooltips } from './tooltipManager';
@@ -90,7 +90,11 @@ const navigationSystem = new NavigationSystem(editor, loadedInkFiles);
 // Initialize ValidationEngine for character and tag validation
 const validationEngine = new ValidationEngine(monaco);
 
-// Load spell checker settings
+// Check Scratch preference
+let checkScratchEnabled = false;
+const checkScratchCheckbox = document.getElementById('chk-check-scratch');
+
+// Load spell checker settings and check-scratch preference
 window.electronAPI.loadSettings().then(async settings => {
     const locale = settings.spellCheckerLocale || 'en-GB';
     await spellChecker.init(locale);
@@ -98,6 +102,10 @@ window.electronAPI.loadSettings().then(async settings => {
     if (rootInkPath) {
         checkSpelling();
     }
+
+    // Restore check-scratch preference
+    checkScratchEnabled = !!settings.checkScratch;
+    if (checkScratchCheckbox) checkScratchCheckbox.checked = checkScratchEnabled;
 });
 
 window.electronAPI.onSettingsUpdated(async (newSettings) => {
@@ -109,7 +117,20 @@ window.electronAPI.onSettingsUpdated(async (newSettings) => {
         lastSpellCheckContent = null;
         checkSpelling();
     }
+    if (newSettings.checkScratch !== undefined) {
+        checkScratchEnabled = !!newSettings.checkScratch;
+        if (checkScratchCheckbox) checkScratchCheckbox.checked = checkScratchEnabled;
+    }
 });
+
+// Wire up check-scratch checkbox
+if (checkScratchCheckbox) {
+    checkScratchCheckbox.addEventListener('change', () => {
+        checkScratchEnabled = checkScratchCheckbox.checked;
+        window.electronAPI.setSetting('checkScratch', checkScratchEnabled);
+        checkSyntax();
+    });
+}
 
 // Rerun spellcheck on window focus to catch external dictionary edits
 window.addEventListener('focus', async () => {
@@ -303,6 +324,7 @@ function updateErrorBanner() {
     const prevBtn = document.getElementById('error-banner-prev');
     const nextBtn = document.getElementById('error-banner-next');
     const markOkBtn = document.getElementById('error-banner-mark-ok');
+    const recordBtn = document.getElementById('error-banner-record');
 
     if (!currentErrors || currentErrors.length === 0) {
         banner.style.display = 'none';
@@ -334,9 +356,16 @@ function updateErrorBanner() {
 
     bannerText.textContent = `Error (${errorBannerIndex + 1}/${errorCount}): ${errorMessage}${lineNumber}${fileInfo}`;
 
+    const isScratchAudioError = error.message === 'Out of date scratch audio' || error.message === 'Missing scratch audio';
+
     // Show "Mark OK" button only for out-of-date scratch audio errors
     if (markOkBtn) {
         markOkBtn.style.display = (error.message === 'Out of date scratch audio') ? 'block' : 'none';
+    }
+
+    // Show "Record" button for any scratch audio error
+    if (recordBtn) {
+        recordBtn.style.display = isScratchAudioError ? 'block' : 'none';
     }
 
     // Buttons are always enabled since navigation wraps around
@@ -530,6 +559,42 @@ document.getElementById('error-banner-mark-ok').addEventListener('click', async 
         // Also refresh the audio status chip for the current cursor line
         updateTestAudioButton();
     }
+});
+
+document.getElementById('error-banner-record').addEventListener('click', () => {
+    if (!currentErrors || currentErrors.length === 0) return;
+    const error = currentErrors[errorBannerIndex];
+    if (!error) return;
+    const isScratchAudioError = error.message === 'Out of date scratch audio' || error.message === 'Missing scratch audio';
+    if (!isScratchAudioError) return;
+
+    const line = error.startLineNumber || 1;
+
+    // Navigate to the error's file/line first, then trigger recording
+    if (error.filePath && error.filePath !== currentFilePath) {
+        const file = findFileByPath(error.filePath);
+        if (file && file.listItem) {
+            file.listItem.click();
+            setTimeout(() => {
+                const model = editor.getModel();
+                if (model) {
+                    editor.revealLineInCenter(line);
+                    editor.setPosition({ lineNumber: line, column: 1 });
+                    editor.focus();
+                }
+                triggerRecordScratch();
+            }, 200);
+            return;
+        }
+    }
+
+    // Same file — just move cursor and record
+    if (editor && editor.getModel()) {
+        editor.revealLineInCenter(line);
+        editor.setPosition({ lineNumber: line, column: 1 });
+        editor.focus();
+    }
+    triggerRecordScratch();
 });
 
 window.electronAPI.onProjectLoaded(({ hasRoot }) => {
@@ -1214,8 +1279,8 @@ async function checkSyntax() {
                 allWsErrors = allWsErrors.concat(wsErrorsWithPath);
             }
 
-            // Run scratch audio checks for all files (lazy — checks hashes only when needed)
-            const allScratchErrors = await checkScratchAudioMarkers();
+            // Run scratch audio checks for all files (only when "Check Scratch?" is ticked)
+            const allScratchErrors = checkScratchEnabled ? await checkScratchAudioMarkers() : [];
 
             // Filter scratch audio markers for current file (for Monaco markers)
             const activePath = currentFilePath || rootInkPath;
@@ -1311,7 +1376,7 @@ async function autoTag() {
                 // We don't modify the text, just start tracking it.
                 idManager.addId(edit.line, edit.newId);
             });
-            updateRecordScratchButton();
+
         }
 
     } catch (e) {
@@ -1623,7 +1688,7 @@ async function saveAllFiles() {
                         // so the decoration appears immediately without reload.
                         if (filePath === currentFilePath) {
                             idManager.addId(edit.line, edit.newId);
-                            updateRecordScratchButton();
+                
                         }
                     }
                 });
@@ -2164,11 +2229,11 @@ initScratchRecorder({
     monaco,
     idManager,
     projectCharacters: () => projectCharacters,
-    isDinkyAtPosition,
     updateTestAudioButton,
     playTestAudio,
     getLoadedInkFiles: () => loadedInkFiles,
     getCurrentFilePath: () => currentFilePath,
+    onRecordingComplete: () => checkSyntax(),
 });
 
 /**
@@ -2177,7 +2242,6 @@ initScratchRecorder({
 editor.onDidChangeCursorPosition(() => {
     updateDropdownSelection();
     updateTestAudioButton();
-    updateRecordScratchButton();
 
     // Don't track history if we're navigating via back/forward
     if (isNavigatingHistory) return;

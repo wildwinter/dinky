@@ -179,20 +179,14 @@
                     </svg>
                     <span>Play</span>
                 </div>
-                <!-- Scratch Audio Section (hidden when scratch audio is disabled) -->
+                <!-- Scratch Audio Section (hidden when scratch audio is disabled in project settings) -->
                 <div id="scratch-audio-section" style="display: none; align-items: center;">
                     <!-- Separator -->
                     <div style="width: 1px; height: 16px; background-color: var(--sidebar-border); margin: 0 4px;"></div>
-                    <span style="font-size: 11px; color: var(--text-color); opacity: 0.7; margin-left: 8px;">Scratch Audio:</span>
-                    <div id="btn-record-scratch" data-tooltip="Record Scratch"
-                        style="cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--sidebar-border); opacity: 0.5; pointer-events: none; filter: grayscale(1); font-size: 11px; color: var(--text-color); margin-left: 4px;">
-                        <!-- Lucide Circle (filled record icon) -->
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#d32f2f"
-                            stroke="#d32f2f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10" />
-                        </svg>
-                        <span>Record</span>
-                    </div>
+                    <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-color); opacity: 0.7; margin-left: 8px; cursor: pointer;">
+                        <input type="checkbox" id="chk-check-scratch" style="margin: 0;">
+                        Check Scratch?
+                    </label>
                 </div>
             </div>
             <!-- Error Banner -->
@@ -211,8 +205,9 @@
                             <polyline points="6 9 12 15 18 9"></polyline>
                         </svg>
                     </button>
-                    <!-- Mark OK button (shown only for out-of-date scratch audio errors) -->
+                    <!-- Scratch audio action buttons (shown only for scratch audio errors) -->
                     <button id="error-banner-mark-ok" title="Mark scratch audio as OK" style="display: none; padding: 4px 8px; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: var(--text-color); cursor: pointer; border-radius: 3px; font-size: 11px; white-space: nowrap;">Mark OK</button>
+                    <button id="error-banner-record" title="Record scratch audio for this line" style="display: none; padding: 4px 8px; background-color: var(--sidebar-bg); border: 1px solid var(--sidebar-border); color: #d32f2f; cursor: pointer; border-radius: 3px; font-size: 11px; white-space: nowrap;">Record</button>
                     <!-- Close button -->
                     <button id="error-banner-close" title="Close" style="padding: 4px 8px; background-color: transparent; border: none; color: var(--text-color); cursor: pointer; margin-left: auto; display: flex; align-items: center; justify-content: center; opacity: 0.6;">
                         <!-- Lucide X -->
