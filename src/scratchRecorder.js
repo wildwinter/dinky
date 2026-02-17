@@ -7,7 +7,6 @@ const dialogueBracketedRegex = dinkyDialogueBracketedRule[0];
 
 // DOM elements
 let recordScratchBtn;
-let scratchStatusBtn;
 let recordingOverlay;
 let statusBar;
 
@@ -17,8 +16,6 @@ let scratchAudioFolder = '';
 let scratchAudioFormat = 'wav';
 let isRecording = false;
 let recordingDecorationIds = [];
-let currentScratchFilePath = null; // path of scratch audio for current line (used by click handler)
-
 // Dependencies injected via init()
 let editor;
 let monaco;
@@ -46,16 +43,11 @@ export function initScratchRecorder(deps) {
     getCurrentFilePath = deps.getCurrentFilePath;
 
     recordScratchBtn = document.getElementById('btn-record-scratch');
-    scratchStatusBtn = document.getElementById('btn-scratch-status');
     recordingOverlay = document.getElementById('recording-overlay');
     statusBar = document.getElementById('status-bar');
 
     if (recordScratchBtn) {
         recordScratchBtn.addEventListener('click', startRecordingScratch);
-    }
-
-    if (scratchStatusBtn) {
-        scratchStatusBtn.addEventListener('click', handleScratchStatusClick);
     }
 
     // Reload scratch audio config whenever project settings change
@@ -67,7 +59,6 @@ export function initScratchRecorder(deps) {
             section.style.display = scratchAudioEnabled ? 'flex' : 'none';
         }
         updateRecordScratchButton();
-        updateScratchStatusButton();
     });
 }
 
@@ -211,136 +202,6 @@ function setRecordScratchEnabled(enabled) {
     }
 }
 
-// SVG icons for scratch status button
-const SCRATCH_STATUS_ICON_GREY = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <line x1="8" y1="12" x2="16" y2="12" />
-</svg>`;
-
-const SCRATCH_STATUS_ICON_GREEN = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-    stroke="#4caf50" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <polyline points="20 6 9 17 4 12" />
-</svg>`;
-
-const SCRATCH_STATUS_ICON_RED = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-    stroke="#f44336" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-    <line x1="12" y1="17" x2="12.01" y2="17" />
-</svg>`;
-
-function setScratchStatusState(icon, tooltip, enabled, keepColor = false) {
-    if (!scratchStatusBtn) return;
-    scratchStatusBtn.innerHTML = icon;
-    scratchStatusBtn.setAttribute('data-tooltip', tooltip);
-    if (enabled) {
-        scratchStatusBtn.style.opacity = '1';
-        scratchStatusBtn.style.pointerEvents = 'auto';
-        scratchStatusBtn.style.cursor = 'pointer';
-        scratchStatusBtn.style.filter = '';
-    } else {
-        scratchStatusBtn.style.opacity = keepColor ? '1' : '0.5';
-        scratchStatusBtn.style.pointerEvents = 'none';
-        scratchStatusBtn.style.cursor = 'default';
-        scratchStatusBtn.style.filter = keepColor ? '' : 'grayscale(1)';
-    }
-}
-
-/**
- * Update the scratch status button based on cursor position.
- * Also disables the entire scratch section if better audio exists.
- */
-export async function updateScratchStatusButton() {
-    if (!scratchStatusBtn || isRecording) return;
-
-    if (!scratchAudioFolder) {
-        setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        return;
-    }
-
-    if (!scratchAudioEnabled) {
-        setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        return;
-    }
-
-    const position = editor.getPosition();
-    const model = editor.getModel();
-    if (!position || !model) {
-        setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        currentScratchFilePath = null;
-        return;
-    }
-
-    const lineId = idManager.getIdForLine(position.lineNumber);
-    if (!lineId) {
-        setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        currentScratchFilePath = null;
-        return;
-    }
-
-    if (!isDinkyAtPosition(model, position)) {
-        setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        currentScratchFilePath = null;
-        return;
-    }
-
-    const lineContent = model.getLineContent(position.lineNumber);
-    if (!isDinkDialogueLine(lineContent)) {
-        setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        currentScratchFilePath = null;
-        return;
-    }
-
-    const result = await window.electronAPI.findScratchAudioStatus(lineId, scratchAudioFolder);
-
-    if (result.hasBetterAudio) {
-        // Better audio exists — disable entire scratch section
-        setRecordScratchEnabled(false);
-        setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        currentScratchFilePath = null;
-        return;
-    }
-
-    if (!result.scratchFile) {
-        setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        currentScratchFilePath = null;
-        return;
-    }
-
-    // Scratch audio exists — check if hash matches
-    currentScratchFilePath = result.scratchFile;
-    const dialogueText = extractDialogueText(lineContent);
-    const currentHash = generateHashFromText(dialogueText);
-    const fileHash = await window.electronAPI.readAudioHash(result.scratchFile);
-
-    if (fileHash !== null && fileHash !== currentHash) {
-        // Out of date
-        setScratchStatusState(SCRATCH_STATUS_ICON_RED, 'Mark OK', true);
-    } else {
-        // Valid
-        setScratchStatusState(SCRATCH_STATUS_ICON_GREEN, 'Valid Scratch Audio', false, true);
-    }
-}
-
-async function handleScratchStatusClick() {
-    if (!currentScratchFilePath) return;
-
-    const position = editor.getPosition();
-    const model = editor.getModel();
-    if (!position || !model) return;
-
-    const lineContent = model.getLineContent(position.lineNumber);
-    const dialogueText = extractDialogueText(lineContent);
-    const newHash = generateHashFromText(dialogueText);
-
-    const result = await window.electronAPI.updateAudioHash(currentScratchFilePath, newHash);
-    if (result && result.success) {
-        await updateScratchStatusButton();
-        await updateTestAudioButton();
-    }
-}
-
 // Regex to extract lineIds from raw ink file content (matches #id:XXXX_XXXX tags)
 const idTagRegex = /(\s?)#id:([a-zA-Z0-9_]+_[a-zA-Z0-9]{4})\b/;
 
@@ -442,6 +303,46 @@ export async function checkScratchAudioMarkers() {
     }
 
     return allMarkers;
+}
+
+/**
+ * Mark a specific out-of-date scratch audio line as OK by updating its hash.
+ * Used by the error banner "Mark OK" button.
+ * @param {string} filePath - The ink file containing the line
+ * @param {number} lineNumber - 1-based line number in the raw (with IDs) content
+ */
+export async function markScratchLineOk(filePath, lineNumber) {
+    if (!scratchAudioFolder) return false;
+
+    const loadedFiles = getLoadedInkFiles();
+    const curFilePath = getCurrentFilePath();
+    const fileObj = loadedFiles.get(filePath);
+    if (!fileObj) return false;
+
+    const isCurrentFile = (filePath === curFilePath);
+    const rawContent = isCurrentFile
+        ? idManager.reconstructContent(editor.getValue())
+        : fileObj.content;
+
+    const lines = rawContent.split(/\r?\n/);
+    const line = lines[lineNumber - 1];
+    if (!line) return false;
+
+    const idMatch = line.match(idTagRegex);
+    if (!idMatch) return false;
+    const lineId = idMatch[2];
+
+    // Find the scratch audio file
+    const result = await window.electronAPI.findScratchAudioStatus(lineId, scratchAudioFolder);
+    if (!result || !result.scratchFile) return false;
+
+    // Compute the new hash from the dialogue text
+    const cleanLine = line.replace(idTagRegex, '');
+    const dialogueText = extractDialogueText(cleanLine);
+    const newHash = generateHashFromText(dialogueText);
+
+    const updateResult = await window.electronAPI.updateAudioHash(result.scratchFile, newHash);
+    return !!(updateResult && updateResult.success);
 }
 
 function playBeep(frequency, durationMs) {

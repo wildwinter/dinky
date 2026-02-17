@@ -6,7 +6,7 @@ import { ModalHelper } from './modal-helper';
 // Module imports - Refactored editor functionality
 import { configureMonacoWorkers, getInitialTheme, applyThemeToDOM, createEditor, setupThemeListener, monaco } from './editor-setup';
 import { defineThemes, registerInkLanguage } from './tokenizer-rules';
-import { initScratchRecorder, loadScratchAudioConfig, updateRecordScratchButton, updateScratchStatusButton, getScratchAudioEnabled, checkScratchAudioMarkers, generateHashFromText, extractDialogueText } from './scratchRecorder';
+import { initScratchRecorder, loadScratchAudioConfig, updateRecordScratchButton, getScratchAudioEnabled, checkScratchAudioMarkers, markScratchLineOk, generateHashFromText, extractDialogueText } from './scratchRecorder';
 import { ErrorManager } from './error-manager';
 import { NavigationSystem } from './navigation-system';
 import { initTooltips } from './tooltipManager';
@@ -302,6 +302,7 @@ function updateErrorBanner() {
     const bannerText = document.getElementById('error-banner-text');
     const prevBtn = document.getElementById('error-banner-prev');
     const nextBtn = document.getElementById('error-banner-next');
+    const markOkBtn = document.getElementById('error-banner-mark-ok');
 
     if (!currentErrors || currentErrors.length === 0) {
         banner.style.display = 'none';
@@ -332,6 +333,11 @@ function updateErrorBanner() {
     }
 
     bannerText.textContent = `Error (${errorBannerIndex + 1}/${errorCount}): ${errorMessage}${lineNumber}${fileInfo}`;
+
+    // Show "Mark OK" button only for out-of-date scratch audio errors
+    if (markOkBtn) {
+        markOkBtn.style.display = (error.message === 'Out of date scratch audio') ? 'block' : 'none';
+    }
 
     // Buttons are always enabled since navigation wraps around
     prevBtn.disabled = false;
@@ -513,6 +519,18 @@ document.getElementById('error-banner-prev').addEventListener('click', previousE
 document.getElementById('error-banner-next').addEventListener('click', nextError);
 document.getElementById('error-banner-close').addEventListener('click', closeErrorBanner);
 document.getElementById('error-banner-text').addEventListener('click', navigateToBannerError);
+document.getElementById('error-banner-mark-ok').addEventListener('click', async () => {
+    if (!currentErrors || currentErrors.length === 0) return;
+    const error = currentErrors[errorBannerIndex];
+    if (!error || error.message !== 'Out of date scratch audio') return;
+    const success = await markScratchLineOk(error.filePath, error.startLineNumber);
+    if (success) {
+        // Re-run syntax check to refresh markers and error banner
+        checkSyntax();
+        // Also refresh the audio status chip for the current cursor line
+        updateTestAudioButton();
+    }
+});
 
 window.electronAPI.onProjectLoaded(({ hasRoot }) => {
     if (!hasRoot) {
@@ -2160,7 +2178,6 @@ editor.onDidChangeCursorPosition(() => {
     updateDropdownSelection();
     updateTestAudioButton();
     updateRecordScratchButton();
-    updateScratchStatusButton();
 
     // Don't track history if we're navigating via back/forward
     if (isNavigatingHistory) return;
