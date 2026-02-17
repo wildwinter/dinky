@@ -99,7 +99,7 @@ Dinky generates IDs that are stable and descriptive:
 
 ![Audio Status](doc/AudioStatus.png)
 
-Dinky supports associating a Wav or Ogg file with a dialogue line. These are just files named with the file ID and the relevant file extension, saved in one of the folders defined by the **Audio Status** settings in Project Settings. The files will be automatically read, and then the **Test Audio** button on the toolbar will show you where the file was found and let you play it. You can also use `SHIFT+SPACE` to play the line your cursor is currently on.
+Dinky supports associating a Wav or Ogg file with a dialogue line. These are just files named with the file ID and the relevant file extension, saved in one of the folders defined by the **Audio Status** settings in Project Settings. The files will be automatically read, and then the **Play** button on the toolbar will show you where the file was found and let you play it. You can also use `SHIFT+SPACE` to play the line your cursor is currently on, or click on the little icon on the left.
 
 ![Audio Controls](doc/AudioControls.png)
 
@@ -109,8 +109,8 @@ Dinky allows you to record and playback temporary "scratch" audio for each line 
 
 - **Setup**: Make sure **Audio Statuses** are set up in Project Settings, and then enable **Scratch Audio** in Project Settings and select an audio status (e.g., "Scratch").
 - **Recording**: When the cursor is on a Dink-style line (`CHARACTER: Dialogue`), click the red **Record Scratch** button on the toolbar. Press **Space** to finish or **Esc** to cancel.
+- **Check Scratch**: Tick the **Check Scratch?** option next to the audio controls. Any scratch which is out of date (because text has changed) or missing will be added to the error list. You'll see a Record button there you can use to re-record, or to mark it as OK if the text has been tweaked but the words are the same.
 - **Playback**: Use the Play button or `Shift+Space`. This plays the highest status audio available for that line (TTS, Scratch, or final).
-- **Out of Date Tracking**: If you edit a line's text, an exclamation mark will warn you that the audio is out of date. Dinky uses hashes stored in the audio file's metadata to track this.
 
 ## Project Settings
 

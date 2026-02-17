@@ -292,6 +292,10 @@ export async function markScratchLineOk(filePath, lineNumber) {
  * Trigger scratch recording for the line at the current cursor position.
  * Exposed so the error banner can navigate to a line first, then call this.
  */
+export function getIsRecording() {
+    return isRecording;
+}
+
 export function triggerRecordScratch() {
     startRecordingScratch();
 }

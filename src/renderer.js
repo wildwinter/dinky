@@ -6,7 +6,7 @@ import { ModalHelper } from './modal-helper';
 // Module imports - Refactored editor functionality
 import { configureMonacoWorkers, getInitialTheme, applyThemeToDOM, createEditor, setupThemeListener, monaco } from './editor-setup';
 import { defineThemes, registerInkLanguage } from './tokenizer-rules';
-import { initScratchRecorder, loadScratchAudioConfig, getScratchAudioEnabled, checkScratchAudioMarkers, markScratchLineOk, triggerRecordScratch, isDinkDialogueLine, generateHashFromText, extractDialogueText } from './scratchRecorder';
+import { initScratchRecorder, loadScratchAudioConfig, getScratchAudioEnabled, checkScratchAudioMarkers, markScratchLineOk, triggerRecordScratch, getIsRecording, isDinkDialogueLine, generateHashFromText, extractDialogueText } from './scratchRecorder';
 import { ErrorManager } from './error-manager';
 import { NavigationSystem } from './navigation-system';
 import { initTooltips } from './tooltipManager';
@@ -2085,6 +2085,7 @@ function updateNavigationButtons() {
  * Test Audio button
  */
 const testAudioBtn = document.getElementById('btn-test-audio');
+const recordScratchBtn = document.getElementById('btn-record-scratch');
 const audioStatusLabel = document.getElementById('audio-status-label');
 let currentAudioFilePath = null;
 let currentAudioElement = null;
@@ -2120,9 +2121,43 @@ function setTestAudioEnabled(enabled) {
         testAudioBtn.style.pointerEvents = 'none';
     }
     if (audioStatusLabel) {
-        audioStatusLabel.style.cursor = enabled ? 'pointer' : 'default';
         audioStatusLabel.style.pointerEvents = enabled ? 'auto' : 'none';
     }
+}
+
+function setRecordScratchEnabled(enabled) {
+    if (!recordScratchBtn) return;
+    if (enabled) {
+        recordScratchBtn.style.opacity = '1';
+        recordScratchBtn.style.pointerEvents = 'auto';
+    } else {
+        recordScratchBtn.style.opacity = '0.5';
+        recordScratchBtn.style.pointerEvents = 'none';
+    }
+}
+
+function updateRecordScratchButton() {
+    if (!recordScratchBtn) return;
+    const position = editor.getPosition();
+    if (!position) {
+        setRecordScratchEnabled(false);
+        return;
+    }
+    if (getIsRecording()) {
+        setRecordScratchEnabled(false);
+        return;
+    }
+    const model = editor.getModel();
+    if (!model) {
+        setRecordScratchEnabled(false);
+        return;
+    }
+    const lineContent = model.getLineContent(position.lineNumber);
+    setRecordScratchEnabled(isDinkDialogueLine(lineContent));
+}
+
+if (recordScratchBtn) {
+    recordScratchBtn.addEventListener('click', () => triggerRecordScratch());
 }
 
 function updateAudioStatusLabel(statusText, colorHex) {
@@ -2311,6 +2346,7 @@ initScratchRecorder({
 editor.onDidChangeCursorPosition(() => {
     updateDropdownSelection();
     updateTestAudioButton();
+    updateRecordScratchButton();
 
     // Don't track history if we're navigating via back/forward
     if (isNavigatingHistory) return;

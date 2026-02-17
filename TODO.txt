@@ -1,7 +1,6 @@
 TODO:
 -----
 Play connected audio?
-Line icons
 
 Typescript?
 Add debug/watching
@@ -72,6 +71,7 @@ Doc: update settings page
 Make button icons more readable
 Mark scratch audio as ok
 Rerecord scratch / next / prev
+Line icons
 
 NOTES:
 ------
