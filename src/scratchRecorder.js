@@ -8,8 +8,6 @@ const dialogueBracketedRegex = dinkyDialogueBracketedRule[0];
 // DOM elements
 let recordScratchBtn;
 let scratchStatusBtn;
-let scratchPrevBtn;
-let scratchNextBtn;
 let recordingOverlay;
 let statusBar;
 
@@ -31,7 +29,6 @@ let updateTestAudioButton;
 let playTestAudio;
 let getLoadedInkFiles;  // () => Map<path, fileObj>
 let getCurrentFilePath; // () => string
-let openFileAndGoToLine; // (filePath, lineNumber) => void
 
 /**
  * Initialise the scratch recorder module.
@@ -47,12 +44,9 @@ export function initScratchRecorder(deps) {
     playTestAudio = deps.playTestAudio;
     getLoadedInkFiles = deps.getLoadedInkFiles;
     getCurrentFilePath = deps.getCurrentFilePath;
-    openFileAndGoToLine = deps.openFileAndGoToLine;
 
     recordScratchBtn = document.getElementById('btn-record-scratch');
     scratchStatusBtn = document.getElementById('btn-scratch-status');
-    scratchPrevBtn = document.getElementById('btn-scratch-prev');
-    scratchNextBtn = document.getElementById('btn-scratch-next');
     recordingOverlay = document.getElementById('recording-overlay');
     statusBar = document.getElementById('status-bar');
 
@@ -64,17 +58,14 @@ export function initScratchRecorder(deps) {
         scratchStatusBtn.addEventListener('click', handleScratchStatusClick);
     }
 
-    if (scratchPrevBtn) {
-        scratchPrevBtn.addEventListener('click', () => navigateOutOfDateScratch('prev'));
-    }
-
-    if (scratchNextBtn) {
-        scratchNextBtn.addEventListener('click', () => navigateOutOfDateScratch('next'));
-    }
-
     // Reload scratch audio config whenever project settings change
     window.electronAPI.onProjectConfigUpdated(async () => {
         await loadScratchAudioConfig();
+        // Toggle scratch audio toolbar section visibility
+        const section = document.getElementById('scratch-audio-section');
+        if (section) {
+            section.style.display = scratchAudioEnabled ? 'flex' : 'none';
+        }
         updateRecordScratchButton();
         updateScratchStatusButton();
     });
@@ -265,13 +256,11 @@ export async function updateScratchStatusButton() {
 
     if (!scratchAudioFolder) {
         setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        setScratchNavEnabled(false);
         return;
     }
 
     if (!scratchAudioEnabled) {
         setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        setScratchNavEnabled(true);
         return;
     }
 
@@ -279,7 +268,6 @@ export async function updateScratchStatusButton() {
     const model = editor.getModel();
     if (!position || !model) {
         setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        setScratchNavEnabled(true);
         currentScratchFilePath = null;
         return;
     }
@@ -287,14 +275,12 @@ export async function updateScratchStatusButton() {
     const lineId = idManager.getIdForLine(position.lineNumber);
     if (!lineId) {
         setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        setScratchNavEnabled(true);
         currentScratchFilePath = null;
         return;
     }
 
     if (!isDinkyAtPosition(model, position)) {
         setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        setScratchNavEnabled(true);
         currentScratchFilePath = null;
         return;
     }
@@ -302,7 +288,6 @@ export async function updateScratchStatusButton() {
     const lineContent = model.getLineContent(position.lineNumber);
     if (!isDinkDialogueLine(lineContent)) {
         setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        setScratchNavEnabled(true);
         currentScratchFilePath = null;
         return;
     }
@@ -313,14 +298,12 @@ export async function updateScratchStatusButton() {
         // Better audio exists — disable entire scratch section
         setRecordScratchEnabled(false);
         setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        setScratchNavEnabled(true);
         currentScratchFilePath = null;
         return;
     }
 
     if (!result.scratchFile) {
         setScratchStatusState(SCRATCH_STATUS_ICON_GREY, 'No Scratch Audio', false);
-        setScratchNavEnabled(true);
         currentScratchFilePath = null;
         return;
     }
@@ -338,7 +321,6 @@ export async function updateScratchStatusButton() {
         // Valid
         setScratchStatusState(SCRATCH_STATUS_ICON_GREEN, 'Valid Scratch Audio', false, true);
     }
-    setScratchNavEnabled(true);
 }
 
 async function handleScratchStatusClick() {
@@ -359,21 +341,6 @@ async function handleScratchStatusClick() {
     }
 }
 
-function setScratchNavEnabled(enabled) {
-    for (const btn of [scratchPrevBtn, scratchNextBtn]) {
-        if (!btn) continue;
-        if (enabled) {
-            btn.style.opacity = '1';
-            btn.style.pointerEvents = 'auto';
-            btn.style.filter = '';
-        } else {
-            btn.style.opacity = '0.5';
-            btn.style.pointerEvents = 'none';
-            btn.style.filter = 'grayscale(1)';
-        }
-    }
-}
-
 // Regex to extract lineIds from raw ink file content (matches #id:XXXX_XXXX tags)
 const idTagRegex = /(\s?)#id:([a-zA-Z0-9_]+_[a-zA-Z0-9]{4})\b/;
 
@@ -384,7 +351,7 @@ const idTagRegex = /(\s?)#id:([a-zA-Z0-9_]+_[a-zA-Z0-9]{4})\b/;
  *   - Has scratch audio with an out-of-date hash
  * Lines with better audio (in betterAudioSet) are skipped.
  * Hash checks are lazy — only done for lines that have a scratch audio file.
- * Returns array of { lineNumber } (1-based).
+ * Returns array of { lineNumber, type } (1-based). type is 'missing' or 'outdated'.
  */
 async function findLinesNeedingScratchWork(rawContent, scratchFiles, betterAudioSet) {
     const lines = rawContent.split(/\r?\n/);
@@ -411,7 +378,7 @@ async function findLinesNeedingScratchWork(rawContent, scratchFiles, betterAudio
         const audioFilePath = scratchFiles[lineId];
         if (!audioFilePath) {
             // No scratch audio at all — needs recording
-            results.push({ lineNumber: i + 1 });
+            results.push({ lineNumber: i + 1, type: 'missing' });
             continue;
         }
 
@@ -419,83 +386,62 @@ async function findLinesNeedingScratchWork(rawContent, scratchFiles, betterAudio
         const currentHash = generateHashFromText(dialogueText);
         const fileHash = await window.electronAPI.readAudioHash(audioFilePath);
         if (fileHash !== null && fileHash !== currentHash) {
-            results.push({ lineNumber: i + 1 });
+            results.push({ lineNumber: i + 1, type: 'outdated' });
         }
     }
 
     return results;
 }
 
-async function navigateOutOfDateScratch(direction) {
-    if (!scratchAudioFolder) return;
+/**
+ * Returns whether scratch audio is currently enabled.
+ */
+export function getScratchAudioEnabled() {
+    return scratchAudioEnabled;
+}
 
-    // Lightweight context — directory listings only, no hash reading
+/**
+ * Scan all loaded ink files for lines needing scratch audio work.
+ * Returns an array of Monaco marker-style error objects suitable for the error banner
+ * and setModelMarkers, with filePath, message, and severity.
+ */
+export async function checkScratchAudioMarkers() {
+    if (!scratchAudioEnabled || !scratchAudioFolder) return [];
+
     const ctx = await window.electronAPI.getScratchNavContext(scratchAudioFolder);
-    if (!ctx) return;
+    if (!ctx) return [];
     const { scratchFiles, betterAudioLineIds } = ctx;
     const betterAudioSet = new Set(betterAudioLineIds);
 
     const loadedFiles = getLoadedInkFiles();
     const curFilePath = getCurrentFilePath();
+    const allMarkers = [];
 
-    // Build ordered list of file paths
-    const filePaths = [...loadedFiles.keys()];
-    const curFileIndex = filePaths.indexOf(curFilePath);
-    if (curFileIndex === -1) return;
-
-    const position = editor.getPosition();
-    const currentLine = position ? position.lineNumber : 1;
-
-    // Order files for scanning: start from current file, then wrap around
-    const orderedFiles = direction === 'next'
-        ? [...filePaths.slice(curFileIndex), ...filePaths.slice(0, curFileIndex)]
-        : [...filePaths.slice(0, curFileIndex + 1).reverse(), ...filePaths.slice(curFileIndex + 1).reverse()];
-
-    for (let fi = 0; fi < orderedFiles.length; fi++) {
-        const filePath = orderedFiles[fi];
-        const fileObj = loadedFiles.get(filePath);
-        if (!fileObj) continue;
-
+    for (const [filePath, fileObj] of loadedFiles) {
         const isCurrentFile = (filePath === curFilePath);
-
-        // For the current file, use the live editor content reconstructed with IDs
         const rawContent = isCurrentFile
             ? idManager.reconstructContent(editor.getValue())
             : fileObj.content;
 
         const needsWork = await findLinesNeedingScratchWork(rawContent, scratchFiles, betterAudioSet);
-        if (needsWork.length === 0) continue;
 
-        // For the current file on first pass, filter by direction relative to cursor
-        if (isCurrentFile && fi === 0) {
-            let target;
-            if (direction === 'next') {
-                target = needsWork.find(r => r.lineNumber > currentLine);
-            } else {
-                for (let i = needsWork.length - 1; i >= 0; i--) {
-                    if (needsWork[i].lineNumber < currentLine) {
-                        target = needsWork[i];
-                        break;
-                    }
-                }
-            }
-            if (target) {
-                editor.setPosition({ lineNumber: target.lineNumber, column: 1 });
-                editor.revealLineInCenter(target.lineNumber);
-                return;
-            }
-            // Nothing found in direction on current file — continue to next files
-            continue;
+        for (const item of needsWork) {
+            const message = item.type === 'missing'
+                ? 'Missing scratch audio'
+                : 'Out of date scratch audio';
+            allMarkers.push({
+                filePath,
+                startLineNumber: item.lineNumber,
+                startColumn: 1,
+                endLineNumber: item.lineNumber,
+                endColumn: 1,
+                message,
+                severity: 2, // MarkerSeverity.Info
+            });
         }
-
-        // Different file (or current file on wrap-around)
-        const target = direction === 'next'
-            ? needsWork[0]
-            : needsWork[needsWork.length - 1];
-
-        openFileAndGoToLine(filePath, target.lineNumber);
-        return;
     }
+
+    return allMarkers;
 }
 
 function playBeep(frequency, durationMs) {

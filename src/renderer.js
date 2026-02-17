@@ -6,7 +6,7 @@ import { ModalHelper } from './modal-helper';
 // Module imports - Refactored editor functionality
 import { configureMonacoWorkers, getInitialTheme, applyThemeToDOM, createEditor, setupThemeListener, monaco } from './editor-setup';
 import { defineThemes, registerInkLanguage } from './tokenizer-rules';
-import { initScratchRecorder, loadScratchAudioConfig, updateRecordScratchButton, updateScratchStatusButton, generateHashFromText, extractDialogueText } from './scratchRecorder';
+import { initScratchRecorder, loadScratchAudioConfig, updateRecordScratchButton, updateScratchStatusButton, getScratchAudioEnabled, checkScratchAudioMarkers, generateHashFromText, extractDialogueText } from './scratchRecorder';
 import { ErrorManager } from './error-manager';
 import { NavigationSystem } from './navigation-system';
 import { initTooltips } from './tooltipManager';
@@ -1135,6 +1135,12 @@ async function checkSyntax() {
         // Load scratch audio settings
         await loadScratchAudioConfig();
 
+        // Toggle scratch audio toolbar section visibility
+        const scratchAudioSection = document.getElementById('scratch-audio-section');
+        if (scratchAudioSection) {
+            scratchAudioSection.style.display = getScratchAudioEnabled() ? 'flex' : 'none';
+        }
+
         const errors = await window.electronAPI.compileInk(contentToCompile, rootInkPath, projectFiles);
 
 
@@ -1190,14 +1196,21 @@ async function checkSyntax() {
                 allWsErrors = allWsErrors.concat(wsErrorsWithPath);
             }
 
+            // Run scratch audio checks for all files (lazy — checks hashes only when needed)
+            const allScratchErrors = await checkScratchAudioMarkers();
+
+            // Filter scratch audio markers for current file (for Monaco markers)
+            const activePath = currentFilePath || rootInkPath;
+            const currentFileScratchErrors = allScratchErrors.filter(e => e.filePath === activePath);
+
             // For Monaco markers, only show character errors for the current file
             const currentFileCharErrors = validateCharacterNames(model);
 
             // For Monaco markers, only show writing status errors for the current file
             const currentFileWsErrors = validateWritingStatusTags(model);
 
-            // Update error banner with ALL errors from all files (compilation + character validation + writing status validation)
-            const newErrors = sortErrors([...(errors || []), ...allCharErrors, ...allWsErrors]);
+            // Update error banner with ALL errors from all files (compilation + character validation + writing status validation + scratch audio)
+            const newErrors = sortErrors([...(errors || []), ...allCharErrors, ...allWsErrors, ...allScratchErrors]);
 
             // Update banner index intelligently
             if (newErrors.length !== previousErrorsCount) {
@@ -1250,8 +1263,8 @@ async function checkSyntax() {
             currentErrors = newErrors;
             updateErrorBanner();
 
-            // Update Monaco markers with visible errors + character errors + writing status errors for current file
-            monaco.editor.setModelMarkers(model, 'ink', [...(visibleErrors || []), ...currentFileCharErrors, ...currentFileWsErrors]);
+            // Update Monaco markers with visible errors + character errors + writing status errors + scratch audio errors for current file
+            monaco.editor.setModelMarkers(model, 'ink', [...(visibleErrors || []), ...currentFileCharErrors, ...currentFileWsErrors, ...currentFileScratchErrors]);
         }
     } catch (e) {
         window.electronAPI.log('checkSyntax failed:', e.toString())
@@ -2138,14 +2151,6 @@ initScratchRecorder({
     playTestAudio,
     getLoadedInkFiles: () => loadedInkFiles,
     getCurrentFilePath: () => currentFilePath,
-    openFileAndGoToLine: (filePath, lineNumber) => {
-        const file = loadedInkFiles.get(filePath);
-        if (!file) return;
-        if (file.listItem) file.listItem.click();
-        editor.setPosition({ lineNumber, column: 1 });
-        editor.revealLineInCenter(lineNumber);
-        editor.focus();
-    },
 });
 
 /**

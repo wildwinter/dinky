@@ -179,42 +179,29 @@
                     </svg>
                     <span>Play</span>
                 </div>
-                <!-- Separator -->
-                <div style="width: 1px; height: 16px; background-color: var(--sidebar-border); margin: 0 4px;"></div>
-                <span style="font-size: 11px; color: var(--text-color); opacity: 0.7; margin-left: 8px;">Scratch Audio:</span>
-                <div id="btn-record-scratch" data-tooltip="Record Scratch"
-                    style="cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--sidebar-border); opacity: 0.5; pointer-events: none; filter: grayscale(1); font-size: 11px; color: var(--text-color); margin-left: 4px;">
-                    <!-- Lucide Circle (filled record icon) -->
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#d32f2f"
-                        stroke="#d32f2f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                    </svg>
-                    <span>Record</span>
-                </div>
-                <div id="btn-scratch-status" data-tooltip="No Scratch Audio"
-                    style="cursor: default; display: flex; align-items: center; justify-content: center; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--sidebar-border); opacity: 0.5; pointer-events: none; filter: grayscale(1); font-size: 11px; color: var(--text-color); margin-left: 4px;">
-                    <!-- Default: no scratch audio (grey minus) -->
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="8" y1="12" x2="16" y2="12" />
-                    </svg>
-                </div>
-                <div id="btn-scratch-prev" data-tooltip="Previous Scratch Needed"
-                    style="cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--sidebar-border); font-size: 11px; color: var(--text-color); margin-left: 2px;">
-                    <!-- Lucide ChevronUp -->
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="18 15 12 9 6 15" />
-                    </svg>
-                </div>
-                <div id="btn-scratch-next" data-tooltip="Next Scratch Needed"
-                    style="cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 2px 4px; border-radius: 4px; border: 1px solid var(--sidebar-border); font-size: 11px; color: var(--text-color); margin-left: 2px;">
-                    <!-- Lucide ChevronDown -->
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="6 9 12 15 18 9" />
-                    </svg>
+                <!-- Scratch Audio Section (hidden when scratch audio is disabled) -->
+                <div id="scratch-audio-section" style="display: none; align-items: center;">
+                    <!-- Separator -->
+                    <div style="width: 1px; height: 16px; background-color: var(--sidebar-border); margin: 0 4px;"></div>
+                    <span style="font-size: 11px; color: var(--text-color); opacity: 0.7; margin-left: 8px;">Scratch Audio:</span>
+                    <div id="btn-record-scratch" data-tooltip="Record Scratch"
+                        style="cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--sidebar-border); opacity: 0.5; pointer-events: none; filter: grayscale(1); font-size: 11px; color: var(--text-color); margin-left: 4px;">
+                        <!-- Lucide Circle (filled record icon) -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#d32f2f"
+                            stroke="#d32f2f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                        </svg>
+                        <span>Record</span>
+                    </div>
+                    <div id="btn-scratch-status" data-tooltip="No Scratch Audio"
+                        style="cursor: default; display: flex; align-items: center; justify-content: center; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--sidebar-border); opacity: 0.5; pointer-events: none; filter: grayscale(1); font-size: 11px; color: var(--text-color); margin-left: 4px;">
+                        <!-- Default: no scratch audio (grey minus) -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="8" y1="12" x2="16" y2="12" />
+                        </svg>
+                    </div>
                 </div>
             </div>
             <!-- Error Banner -->
