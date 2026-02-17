@@ -181,20 +181,17 @@ export class IdPreservationManager {
         if (!model) return;
 
         // Collect current decoration data (ranges may have shifted due to edits)
+        // Iterate only over our tracked decorations instead of ALL model decorations
         const newDecorations = [];
         const idList = [];
 
-        const decorations = model.getAllDecorations();
-        for (const dec of decorations) {
-            if (!this.decorationToId.has(dec.id)) continue;
+        for (const [decId, inkId] of this.decorationToId) {
+            const currentRange = model.getDecorationRange(decId);
+            if (!currentRange) continue;
 
-            const inkId = this.decorationToId.get(dec.id);
-            const isDialogue = this.dialogueLines.has(dec.range.startLineNumber);
+            const isDialogue = this.dialogueLines.has(currentRange.startLineNumber);
             const audioInfo = this.audioStatusMap[inkId];
             const hasAudio = isDialogue && !!audioInfo;
-
-            const currentRange = model.getDecorationRange(dec.id);
-            if (!currentRange) continue;
 
             newDecorations.push({
                 range: currentRange,
@@ -290,41 +287,40 @@ export class IdPreservationManager {
      */
     reconstructContent(currentContent) {
         const model = this.editor.getModel();
-        if (!model) return currentContent; // Should match currentContent
+        if (!model) return currentContent;
 
         const lines = currentContent.split(/\r?\n/);
         const resultLines = [...lines];
-
-        // Get all current decorations
-        const ranges = model.getAllDecorations();
         const decorationsToRemove = [];
 
-        // Identify OUR decorations
-        for (const dec of ranges) {
-            if (this.decorationToId.has(dec.id)) {
-                // Fix for ID Deletion Bug:
-                // If a line is deleted, the decoration often remains but collapses to an empty range.
-                // We should detect this and remove the ID.
-                if (dec.range.isEmpty()) {
-                    decorationsToRemove.push(dec.id);
-                    this.decorationToId.delete(dec.id);
-                    continue;
-                }
+        // Iterate only over our tracked decorations instead of ALL model decorations
+        for (const [decId, inkId] of this.decorationToId) {
+            const range = model.getDecorationRange(decId);
 
-                const inkId = this.decorationToId.get(dec.id);
-                // Get current line number of this decoration
-                const range = dec.range;
-                const lineIndex = range.startLineNumber - 1; // 0-based
+            if (!range) {
+                // Decoration no longer exists — mark for cleanup
+                decorationsToRemove.push(decId);
+                continue;
+            }
 
-                if (lineIndex >= 0 && lineIndex < resultLines.length) {
-                    // Logic to insert ID
-                    resultLines[lineIndex] = this.injectIdIntoLine(resultLines[lineIndex], inkId);
-                }
+            // Fix for ID Deletion Bug:
+            // If a line is deleted, the decoration often remains but collapses to an empty range.
+            if (range.isEmpty()) {
+                decorationsToRemove.push(decId);
+                continue;
+            }
+
+            const lineIndex = range.startLineNumber - 1; // 0-based
+            if (lineIndex >= 0 && lineIndex < resultLines.length) {
+                resultLines[lineIndex] = this.injectIdIntoLine(resultLines[lineIndex], inkId);
             }
         }
 
-        // Cleanup removed decorations from editor
+        // Cleanup removed decorations from editor and map
         if (decorationsToRemove.length > 0) {
+            for (const decId of decorationsToRemove) {
+                this.decorationToId.delete(decId);
+            }
             this.editor.deltaDecorations(decorationsToRemove, []);
         }
 

@@ -7,7 +7,6 @@ import { ModalHelper } from './modal-helper';
 import { configureMonacoWorkers, getInitialTheme, applyThemeToDOM, createEditor, setupThemeListener, monaco } from './editor-setup';
 import { defineThemes, registerInkLanguage } from './tokenizer-rules';
 import { initScratchRecorder, loadScratchAudioConfig, getScratchAudioEnabled, checkScratchAudioMarkers, markScratchLineOk, triggerRecordScratch, getIsRecording, isDinkDialogueLine, generateHashFromText, extractDialogueText } from './scratchRecorder';
-import { ErrorManager } from './error-manager';
 import { NavigationSystem } from './navigation-system';
 import { initTooltips } from './tooltipManager';
 import { ModelPool } from './model-pool';
@@ -54,23 +53,13 @@ let lastTestKnot = null;
 
 // Spell check optimization - track changed lines
 let lastSpellCheckedFilePath = null;
-let lastSpellCheckContent = null; // Content hash or full text of last spell check
-let spellCheckMarkersByLine = new Map(); // filePath -> Map of line -> markers
+let spellCheckMarkersByLine = new Map(); // filePath -> markers array
 
 // Error banner state
 let currentErrors = []; // Array of all current errors (compilation errors + spell check)
 let errorBannerIndex = 0; // Current error being displayed in the banner
 let previousErrorsCount = 0; // Track previous error count to detect changes
 
-// Navigation history for back/forward functionality
-let navigationHistory = [];
-let navigationHistoryIndex = -1;
-let lastNavigationLocation = { filePath: null, knotName: null };
-let isNavigatingHistory = false; // Flag to prevent adding history while navigating via back/forward
-
-// Navigation structure caching for performance
-let cachedNavigationStructure = null;
-let navigationStructureDirty = true; // Mark as dirty when file list changes
 
 // Initialize core instances
 const spellChecker = new DinkySpellChecker();
@@ -81,9 +70,6 @@ const wsTagDecorationCollection = editor.createDecorationsCollection();
 
 // Initialize ModelPool for efficient model reuse
 const modelPool = new ModelPool(5);
-
-// Initialize ErrorManager for error display and navigation (with reference to loadedInkFiles)
-const errorManager = new ErrorManager(editor, loadedInkFiles);
 
 // Initialize NavigationSystem for dropdown and history (with reference to loadedInkFiles)
 const navigationSystem = new NavigationSystem(editor, loadedInkFiles);
@@ -115,7 +101,6 @@ window.electronAPI.onSettingsUpdated(async (newSettings) => {
         // Clear spell check cache when locale changes
         spellCheckMarkersByLine.clear();
         lastSpellCheckedFilePath = null;
-        lastSpellCheckContent = null;
         checkSpelling();
     }
     if (newSettings.checkScratch !== undefined) {
@@ -142,7 +127,6 @@ window.addEventListener('focus', async () => {
         // Clear spell check cache when dictionary updates
         spellCheckMarkersByLine.clear();
         lastSpellCheckedFilePath = null;
-        lastSpellCheckContent = null;
         checkSpelling();
     }
 });
@@ -293,26 +277,34 @@ function checkSpelling() {
     const model = editor.getModel();
     if (!model) return;
 
-    const currentContent = model.getValue();
-    const currentFilePath = model.uri.path;
+    const modelFilePath = model.uri.path;
+    const cachedMarkers = spellCheckMarkersByLine.get(modelFilePath);
 
-    // Check if content has actually changed since last spell check
-    if (lastSpellCheckedFilePath === currentFilePath && lastSpellCheckContent === currentContent) {
-        // Content unchanged, restore cached markers instead of rechecking
-        const cachedMarkers = spellCheckMarkersByLine.get(currentFilePath);
-        if (cachedMarkers && cachedMarkers.length > 0) {
-            monaco.editor.setModelMarkers(model, 'spellcheck', cachedMarkers);
-        }
+    // Incremental check: if we have cached markers and only specific lines changed,
+    // recheck just those lines and merge with the cached results
+    if (lastSpellCheckedFilePath === modelFilePath && cachedMarkers && spellCheckDirtyLines.size > 0 && spellCheckDirtyLines.size < 50) {
+        const dirtyLines = spellCheckDirtyLines;
+        spellCheckDirtyLines = new Set();
+
+        // Remove old markers on dirty lines
+        const keptMarkers = cachedMarkers.filter(m => !dirtyLines.has(m.startLineNumber));
+
+        // Recheck only the dirty lines
+        const newMarkers = spellChecker.checkLines(model, monaco, dirtyLines);
+
+        const allMarkers = [...keptMarkers, ...newMarkers];
+        spellCheckMarkersByLine.set(modelFilePath, allMarkers);
+        lastSpellCheckedFilePath = modelFilePath;
+        monaco.editor.setModelMarkers(model, 'spellcheck', allMarkers);
         return;
     }
 
-    // Content changed - perform full spell check
+    // Full spell check (file switch, dictionary change, or too many dirty lines)
+    spellCheckDirtyLines = new Set();
     const markers = spellChecker.checkModel(model, monaco);
 
-    // Cache markers for this file
-    spellCheckMarkersByLine.set(currentFilePath, markers);
-    lastSpellCheckedFilePath = currentFilePath;
-    lastSpellCheckContent = currentContent;
+    spellCheckMarkersByLine.set(modelFilePath, markers);
+    lastSpellCheckedFilePath = modelFilePath;
 
     monaco.editor.setModelMarkers(model, 'spellcheck', markers);
 }
@@ -621,10 +613,8 @@ window.electronAPI.onRootInkLoaded(async (files) => {
     // Clear spell check cache when loading new project
     spellCheckMarkersByLine.clear();
     lastSpellCheckedFilePath = null;
-    lastSpellCheckContent = null;
     // Invalidate navigation structure cache when files change
-    navigationStructureDirty = true;
-    cachedNavigationStructure = null;
+    navigationSystem.invalidateCache();
 
     const fileList = document.getElementById('file-list');
     fileList.innerHTML = '';
@@ -1092,6 +1082,7 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     }
 
     currentFilePath = file.absolutePath;
+    navigationSystem.setCurrentFilePath(currentFilePath);
 
     // ATOMIC MODEL SWAP STRATEGY with pooling
     const oldModel = editor.getModel();
@@ -1122,7 +1113,6 @@ function loadFileToEditor(file, element, forceRefresh = false) {
 
     // Reset spell check cache when switching files
     lastSpellCheckedFilePath = null;
-    lastSpellCheckContent = null;
 
     // Update writing status tag highlighting immediately for visual feedback
     highlightWritingStatusTags(newModel);
@@ -1151,12 +1141,12 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     }
 
     // Track navigation when switching files (but not if we're in the middle of back/forward navigation)
-    if (!isNavigatingHistory) {
+    if (!navigationSystem.getIsNavigatingHistory()) {
         addToNavigationHistory(file.absolutePath, 1);
     }
 
     // Update last navigation location to the file start
-    lastNavigationLocation = { filePath: file.absolutePath, knotName: null };
+    navigationSystem.lastNavigationLocation = { filePath: file.absolutePath, knotName: null };
 }
 
 function updateDeleteButtonState(isRoot) {
@@ -1209,6 +1199,7 @@ async function checkSyntax() {
             console.error('Failed to load project characters', e);
             projectCharacters = [];
         }
+        validationEngine.setProjectCharacters(projectCharacters);
 
         // Load writing status tags from project config
         try {
@@ -1218,6 +1209,7 @@ async function checkSyntax() {
             console.error('Failed to load writing status tags', e);
             projectWritingStatusTags = [];
         }
+        validationEngine.setProjectWritingStatusTags(projectWritingStatusTags);
 
         // Load scratch audio settings
         await loadScratchAudioConfig();
@@ -1236,67 +1228,51 @@ async function checkSyntax() {
             // Update writing status tag highlighting after loading tags
             highlightWritingStatusTags(model);
 
-
             // Filter errors to display only those relevant to the current file (for Monaco markers)
+            const activePath = currentFilePath || rootInkPath;
             const visibleErrors = errors.filter(e => {
                 if (!e.filePath) return true;
-
-                const activePath = currentFilePath || rootInkPath;
-
-                // Exact match
                 if (e.filePath === activePath) return true;
-
-                // Loose match: check if filename matches
-                // currentFilePath is absolute, e.filePath might be relative
-                // Simple heuristic: does one end with the other?
-                // Or just match basenames
                 if (activePath) {
                     const currentFileName = activePath.replace(/^.*[\\\/]/, '');
                     const errorFileName = e.filePath.replace(/^.*[\\\/]/, '');
                     return currentFileName === errorFileName;
                 }
-
                 return false;
             });
 
-            // Run Dinky Character Validation for all files
+            // Run character + writing status validation for all files in a single pass
             let allCharErrors = [];
-            for (const [filePath, fileObj] of loadedInkFiles) {
-                const charErrors = validateCharacterNamesInText(fileObj.content);
-                // Add filePath to each character error
-                const charErrorsWithPath = charErrors.map(err => ({
-                    ...err,
-                    filePath: filePath
-                }));
-                allCharErrors = allCharErrors.concat(charErrorsWithPath);
-            }
-
-            // Run Writing Status Tag Validation for all files
             let allWsErrors = [];
+            let currentFileCharErrors = [];
+            let currentFileWsErrors = [];
+            const currentModelText = model.getValue();
+
             for (const [filePath, fileObj] of loadedInkFiles) {
-                const wsErrors = validateWritingStatusTagsInText(fileObj.content);
-                // Add filePath to each writing status error
-                const wsErrorsWithPath = wsErrors.map(err => ({
-                    ...err,
-                    filePath: filePath
-                }));
+                const isCurrentFile = (filePath === activePath);
+                const text = isCurrentFile ? currentModelText : fileObj.content;
+
+                const charErrors = validateCharacterNamesInText(text);
+                const wsErrors = validateWritingStatusTagsInText(text);
+
+                const charErrorsWithPath = charErrors.map(err => ({ ...err, filePath }));
+                const wsErrorsWithPath = wsErrors.map(err => ({ ...err, filePath }));
+
+                allCharErrors = allCharErrors.concat(charErrorsWithPath);
                 allWsErrors = allWsErrors.concat(wsErrorsWithPath);
+
+                // Collect current file markers for Monaco display (avoids extra getValue calls)
+                if (isCurrentFile) {
+                    currentFileCharErrors = charErrors;
+                    currentFileWsErrors = wsErrors;
+                }
             }
 
             // Run scratch audio checks for all files (only when "Check Scratch?" is ticked)
             const allScratchErrors = checkScratchEnabled ? await checkScratchAudioMarkers() : [];
-
-            // Filter scratch audio markers for current file (for Monaco markers)
-            const activePath = currentFilePath || rootInkPath;
             const currentFileScratchErrors = allScratchErrors.filter(e => e.filePath === activePath);
 
-            // For Monaco markers, only show character errors for the current file
-            const currentFileCharErrors = validateCharacterNames(model);
-
-            // For Monaco markers, only show writing status errors for the current file
-            const currentFileWsErrors = validateWritingStatusTags(model);
-
-            // Update error banner with ALL errors from all files (compilation + character validation + writing status validation + scratch audio)
+            // Update error banner with ALL errors from all files
             const newErrors = sortErrors([...(errors || []), ...allCharErrors, ...allWsErrors, ...allScratchErrors]);
 
             // Update banner index intelligently
@@ -1407,8 +1383,22 @@ const debouncedDinkyModeCheck = debounce(() => {
     }
 }, 500);
 
-editor.onDidChangeModelContent(() => {
+// Track dirty line ranges for incremental spellchecking
+let spellCheckDirtyLines = new Set();
+
+editor.onDidChangeModelContent((e) => {
     if (isUpdatingContent) return;
+
+    // Track which lines changed for incremental spellchecking
+    for (const change of e.changes) {
+        // Mark the changed range of lines as dirty (use post-change line numbers)
+        const startLine = change.range.startLineNumber;
+        const newLineCount = (change.text.match(/\n/g) || []).length;
+        const endLine = startLine + newLineCount;
+        for (let i = startLine; i <= endLine; i++) {
+            spellCheckDirtyLines.add(i);
+        }
+    }
 
     // Clear spellcheck markers immediately to avoid visual desync during editing
     const model = editor.getModel();
@@ -1442,7 +1432,7 @@ editor.onDidChangeModelContent(() => {
     highlightWritingStatusTags(model);
 
     // Invalidate navigation structure cache when content changes (knots/stitches may be added/removed)
-    navigationStructureDirty = true;
+    navigationSystem.invalidateCache();
     // Update navigation dropdown structure when content changes
     updateNavigationDropdown();
 });
@@ -1495,146 +1485,77 @@ function isDinkyAtPosition(model, position) {
     return false;
 }
 
-monaco.languages.registerCompletionItemProvider('ink', {
-    triggerCharacters: [':'],
-    provideCompletionItems: (model, position) => {
-        const isDinky = isDinkyAtPosition(model, position);
+// Character name autocomplete
+['ink', 'ink-dinky'].forEach(lang => {
+    monaco.languages.registerCompletionItemProvider(lang, {
+        triggerCharacters: [':'],
+        provideCompletionItems: (model, position) => {
+            // For plain 'ink' mode, only provide suggestions in Dinky sections
+            if (lang === 'ink' && !isDinkyAtPosition(model, position)) {
+                return { suggestions: [] };
+            }
 
-        if (!isDinky) {
-            return { suggestions: [] };
+            const lineContent = model.getLineContent(position.lineNumber);
+            const textBeforeCursor = lineContent.substring(0, position.column - 1);
+
+            if (!/^\s*:$/.test(textBeforeCursor)) {
+                return { suggestions: [] };
+            }
+
+            const range = new monaco.Range(
+                position.lineNumber,
+                lineContent.indexOf(':') + 1,
+                position.lineNumber,
+                position.column
+            );
+
+            const suggestions = projectCharacters.map(char => ({
+                label: char.ID,
+                kind: monaco.languages.CompletionItemKind.User,
+                insertText: `${char.ID}: `,
+                range: range,
+                detail: char.Name || 'Character',
+                filterText: ':'
+            }));
+
+            return { suggestions };
         }
-
-        const lineContent = model.getLineContent(position.lineNumber);
-        const textBeforeCursor = lineContent.substring(0, position.column - 1);
-
-        console.log('[Autocomplete] Text before cursor:', `'${textBeforeCursor}'`);
-
-        if (!/^\s*:$/.test(textBeforeCursor)) {
-            return { suggestions: [] };
-        }
-
-        console.log('[Autocomplete] Providing suggestions. Count:', projectCharacters.length);
-
-        const range = new monaco.Range(
-            position.lineNumber,
-            lineContent.indexOf(':') + 1,
-            position.lineNumber,
-            position.column
-        );
-
-        const suggestions = projectCharacters.map(char => ({
-            label: char.ID,
-            kind: monaco.languages.CompletionItemKind.User,
-            insertText: `${char.ID}: `,
-            range: range,
-            detail: char.Name || 'Character',
-            filterText: ':' // Ensure it matches the trigger character
-        }));
-
-        return { suggestions };
-    }
+    });
 });
 
-monaco.languages.registerCompletionItemProvider('ink-dinky', {
-    triggerCharacters: [':'],
-    provideCompletionItems: (model, position) => {
-        const lineContent = model.getLineContent(position.lineNumber);
-        const textBeforeCursor = lineContent.substring(0, position.column - 1);
+// Writing status tag autocomplete
+['ink', 'ink-dinky'].forEach(lang => {
+    monaco.languages.registerCompletionItemProvider(lang, {
+        triggerCharacters: [':'],
+        provideCompletionItems: (model, position) => {
+            const lineContent = model.getLineContent(position.lineNumber);
+            const textBeforeCursor = lineContent.substring(0, position.column - 1);
 
-        if (!/^\s*:$/.test(textBeforeCursor)) {
-            return { suggestions: [] };
+            const match = textBeforeCursor.match(/#ws:([a-z0-9]*)$/);
+            if (!match) {
+                return { suggestions: [] };
+            }
+
+            const wsStartIndex = textBeforeCursor.lastIndexOf('#ws:');
+            const range = new monaco.Range(
+                position.lineNumber,
+                wsStartIndex + 5,
+                position.lineNumber,
+                position.column
+            );
+
+            const suggestions = projectWritingStatusTags.map(ws => ({
+                label: ws.wstag,
+                kind: monaco.languages.CompletionItemKind.Keyword,
+                insertText: ws.wstag,
+                range: range,
+                detail: ws.status || 'Writing Status',
+                documentation: `Status: ${ws.status}${ws.record ? ' (record)' : ''}${ws.loc ? ' (loc)' : ''}`
+            }));
+
+            return { suggestions };
         }
-
-        const range = new monaco.Range(
-            position.lineNumber,
-            lineContent.indexOf(':') + 1,
-            position.lineNumber,
-            position.column
-        );
-
-        const suggestions = projectCharacters.map(char => ({
-            label: char.ID,
-            kind: monaco.languages.CompletionItemKind.User,
-            insertText: `${char.ID}: `,
-            range: range,
-            detail: char.Name || 'Character',
-            filterText: ':' // Ensure it matches the trigger character
-        }));
-
-        return { suggestions };
-    }
-});
-
-// Writing status tag autocomplete for 'ink' language
-monaco.languages.registerCompletionItemProvider('ink', {
-    triggerCharacters: [':'],
-    provideCompletionItems: (model, position) => {
-        const lineContent = model.getLineContent(position.lineNumber);
-        const textBeforeCursor = lineContent.substring(0, position.column - 1);
-
-        // Check if user is typing #ws: followed by optional alphanumeric characters
-        const match = textBeforeCursor.match(/#ws:([a-z0-9]*)$/);
-        if (!match) {
-            return { suggestions: [] };
-        }
-
-        console.log('[Autocomplete] Providing writing status suggestions. Count:', projectWritingStatusTags.length);
-
-        const wsStartIndex = textBeforeCursor.lastIndexOf('#ws:');
-        const range = new monaco.Range(
-            position.lineNumber,
-            wsStartIndex + 5, // +1 for 1-based column, +4 for '#ws:' length
-            position.lineNumber,
-            position.column
-        );
-
-        const suggestions = projectWritingStatusTags.map(ws => ({
-            label: ws.wstag,
-            kind: monaco.languages.CompletionItemKind.Keyword,
-            insertText: ws.wstag,
-            range: range,
-            detail: ws.status || 'Writing Status',
-            documentation: `Status: ${ws.status}${ws.record ? ' (record)' : ''}${ws.loc ? ' (loc)' : ''}`
-        }));
-
-        return { suggestions };
-    }
-});
-
-// Writing status tag autocomplete for 'ink-dinky' language
-monaco.languages.registerCompletionItemProvider('ink-dinky', {
-    triggerCharacters: [':'],
-    provideCompletionItems: (model, position) => {
-        const lineContent = model.getLineContent(position.lineNumber);
-        const textBeforeCursor = lineContent.substring(0, position.column - 1);
-
-        // Check if user is typing #ws: followed by optional alphanumeric characters
-        const match = textBeforeCursor.match(/#ws:([a-z0-9]*)$/);
-        if (!match) {
-            return { suggestions: [] };
-        }
-
-        console.log('[Autocomplete] Providing writing status suggestions (ink-dinky). Count:', projectWritingStatusTags.length);
-
-        const wsStartIndex = textBeforeCursor.lastIndexOf('#ws:');
-        const range = new monaco.Range(
-            position.lineNumber,
-            wsStartIndex + 5, // +1 for 1-based column, +4 for '#ws:' length
-            position.lineNumber,
-            position.column
-        );
-
-        const suggestions = projectWritingStatusTags.map(ws => ({
-            label: ws.wstag,
-            kind: monaco.languages.CompletionItemKind.Keyword,
-            insertText: ws.wstag,
-            range: range,
-            detail: ws.status || 'Writing Status',
-            documentation: `Status: ${ws.status}${ws.record ? ' (record)' : ''}${ws.loc ? ' (loc)' : ''}`
-        }));
-
-        return { suggestions };
-    }
+    });
 });
 
 window.electronAPI.onThemeUpdated((theme) => {
@@ -1759,326 +1680,27 @@ window.electronAPI.onCharactersUpdated(() => {
 checkSyntax();
 
 // ===== Navigation Dropdown =====
-const navDropdown = document.getElementById('nav-dropdown');
-let isUpdatingDropdown = false; // Flag to prevent recursive updates
+// All navigation logic is delegated to NavigationSystem.
+// These thin wrappers maintain the call-site interface used throughout renderer.js.
 
-/**
- * Parse all files in the project to extract file/knot/stitch structure
- * Uses caching to avoid reparsing when structure hasn't changed
- * Returns an array of navigation items with hierarchy
- */
-function parseNavigationStructure() {
-    // Return cached structure if it's still valid
-    if (!navigationStructureDirty && cachedNavigationStructure !== null) {
-        return cachedNavigationStructure;
-    }
-
-    const structure = [];
-
-    // Process all loaded files
-    for (const [filePath, file] of loadedInkFiles) {
-        // Add the file as an entry
-        structure.push({
-            type: 'file',
-            name: file.relativePath,
-            filePath: filePath,
-            line: 0,
-            indent: 0
-        });
-
-        // Get file content
-        let content;
-        if (filePath === currentFilePath) {
-            // Use current editor content for active file
-            const model = editor.getModel();
-            content = model ? model.getValue() : file.content;
-        } else {
-            content = file.content;
-        }
-
-        const lines = content.split(/\r?\n/);
-        let currentKnot = null;
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmed = line.trim();
-
-            // Check for knot: === KnotName or === KnotName ===
-            const knotMatch = trimmed.match(/^={2,}\s*([\w_]+)/);
-            if (knotMatch) {
-                currentKnot = {
-                    type: 'knot',
-                    name: knotMatch[1],
-                    filePath: filePath,
-                    line: i + 1,
-                    indent: 3
-                };
-                structure.push(currentKnot);
-                continue;
-            }
-
-            // Check for stitch: = StitchName
-            const stitchMatch = trimmed.match(/^=\s+([\w_]+)/);
-            if (stitchMatch && currentKnot) {
-                structure.push({
-                    type: 'stitch',
-                    name: `${currentKnot.name}.${stitchMatch[1]}`,
-                    filePath: filePath,
-                    line: i + 1,
-                    indent: 3,
-                    knotName: currentKnot.name,
-                    stitchName: stitchMatch[1]
-                });
-            }
-        }
-    }
-
-    // Cache the result and mark as clean
-    cachedNavigationStructure = structure;
-    navigationStructureDirty = false;
-
-    return structure;
-}
-
-/**
- * Populate the dropdown with navigation structure
- */
 function updateNavigationDropdown() {
-    if (loadedInkFiles.size === 0) {
-        navDropdown.innerHTML = '<option value="">No file loaded</option>';
-        return;
-    }
-
-    const structure = parseNavigationStructure();
-
-    // Use DocumentFragment to batch DOM insertions (more efficient than appending one at a time)
-    const fragment = document.createDocumentFragment();
-
-    structure.forEach(item => {
-        const option = document.createElement('option');
-        option.value = `${item.type}:${item.filePath}:${item.line}`;
-
-        // Create indentation using spaces (Unicode non-breaking spaces work better in options)
-        const indent = '\u00A0\u00A0'.repeat(item.indent);
-        let displayName = item.name;
-
-        // Add visual marker for files to distinguish them from knots/stitches
-        if (item.type === 'file') {
-            displayName = `📄 ${item.name}`;
-        }
-
-        option.textContent = `${indent}${displayName}`;
-
-        fragment.appendChild(option);
-    });
-
-    // Single DOM update with all options at once
-    navDropdown.innerHTML = '';
-    navDropdown.appendChild(fragment);
+    navigationSystem.updateNavigationDropdown();
 }
 
-/**
- * Find the current location (file/knot/stitch) based on cursor position
- * Returns the navigation item at or before the cursor
- */
-function findCurrentLocation(lineNumber) {
-    const structure = parseNavigationStructure();
-
-    // Filter to only items in the current file
-    const currentFileItems = structure.filter(item => item.filePath === currentFilePath);
-
-    if (currentFileItems.length === 0) return null;
-
-    // Find the last item that is at or before the cursor line
-    let currentItem = currentFileItems[0]; // Default to file
-
-    for (const item of currentFileItems) {
-        if (item.line <= lineNumber) {
-            currentItem = item;
-        } else {
-            break;
-        }
-    }
-
-    return currentItem;
-}
-
-/**
- * Update dropdown selection based on cursor position
- */
 function updateDropdownSelection() {
-    if (isUpdatingDropdown) return;
-
-    const position = editor.getPosition();
-    if (!position) return;
-
-    const currentItem = findCurrentLocation(position.lineNumber);
-    if (!currentItem) return;
-
-    const value = `${currentItem.type}:${currentItem.filePath}:${currentItem.line}`;
-
-    // Find and select the matching option
-    for (let i = 0; i < navDropdown.options.length; i++) {
-        if (navDropdown.options[i].value === value) {
-            isUpdatingDropdown = true;
-            navDropdown.selectedIndex = i;
-            isUpdatingDropdown = false;
-            break;
-        }
-    }
+    navigationSystem.updateDropdownSelection();
 }
 
-/**
- * Handle dropdown change - navigate to selected location
- */
-navDropdown.addEventListener('change', () => {
-    if (isUpdatingDropdown) return;
-
-    const selected = navDropdown.value;
-    if (!selected) return;
-
-    const parts = selected.split(':');
-    const type = parts[0];
-    const filePath = parts.slice(1, -1).join(':'); // Handle colons in file path
-    const line = parseInt(parts[parts.length - 1], 10);
-
-    // Switch to the file if needed
-    if (filePath !== currentFilePath) {
-        const file = loadedInkFiles.get(filePath);
-        if (file && file.listItem) {
-            file.listItem.click();
-            // Wait a tick for the file to load before navigating
-            setTimeout(() => {
-                navigateToLine(line);
-                // Track navigation when navigating via dropdown
-                addToNavigationHistory(filePath, line);
-            }, 100);
-            return;
-        }
-    }
-
-    navigateToLine(line);
-    // Track navigation when navigating via dropdown
-    addToNavigationHistory(filePath, line);
-});
-
-/**
- * Navigate to a specific line in the editor
- */
-function navigateToLine(line) {
-    if (line === 0) {
-        // Navigate to top of file
-        editor.setPosition({ lineNumber: 1, column: 1 });
-        editor.revealLineInCenter(1);
-    } else {
-        // Navigate to the line after the heading (knot/stitch declaration)
-        const targetLine = line + 1;
-        editor.setPosition({ lineNumber: targetLine, column: 1 });
-        editor.revealLineInCenter(targetLine);
-    }
-
-    editor.focus();
-}
-
-/**
- * Add a navigation point to history
- */
 function addToNavigationHistory(filePath, lineNumber) {
-    // Remove any forward history if we're not at the end
-    if (navigationHistoryIndex < navigationHistory.length - 1) {
-        navigationHistory = navigationHistory.slice(0, navigationHistoryIndex + 1);
-    }
-
-    // Add new entry if it's different from the last one
-    const lastEntry = navigationHistory[navigationHistory.length - 1];
-    if (!lastEntry || lastEntry.filePath !== filePath || lastEntry.line !== lineNumber) {
-        navigationHistory.push({ filePath, line: lineNumber });
-        navigationHistoryIndex = navigationHistory.length - 1;
-    }
-
-    updateNavigationButtons();
+    navigationSystem.addToNavigationHistory(filePath, lineNumber);
 }
 
-/**
- * Navigate back in history
- */
 function navigateBack() {
-    if (navigationHistoryIndex > 0) {
-        navigationHistoryIndex--;
-        const entry = navigationHistory[navigationHistoryIndex];
-
-        isNavigatingHistory = true;
-
-        if (entry.filePath !== currentFilePath) {
-            const file = loadedInkFiles.get(entry.filePath);
-            if (file && file.listItem) {
-                file.listItem.click();
-                setTimeout(() => {
-                    navigateToLine(entry.line);
-                    isNavigatingHistory = false;
-                    updateNavigationButtons();
-                }, 100);
-                return;
-            }
-        }
-
-        navigateToLine(entry.line);
-        isNavigatingHistory = false;
-        updateNavigationButtons();
-    }
+    navigationSystem.navigateBack();
 }
 
-/**
- * Navigate forward in history
- */
 function navigateForward() {
-    if (navigationHistoryIndex < navigationHistory.length - 1) {
-        navigationHistoryIndex++;
-        const entry = navigationHistory[navigationHistoryIndex];
-
-        isNavigatingHistory = true;
-
-        if (entry.filePath !== currentFilePath) {
-            const file = loadedInkFiles.get(entry.filePath);
-            if (file && file.listItem) {
-                file.listItem.click();
-                setTimeout(() => {
-                    navigateToLine(entry.line);
-                    isNavigatingHistory = false;
-                    updateNavigationButtons();
-                }, 100);
-                return;
-            }
-        }
-
-        navigateToLine(entry.line);
-        isNavigatingHistory = false;
-        updateNavigationButtons();
-    }
-}
-
-/**
- * Update the enabled/disabled state of back/forward buttons
- */
-function updateNavigationButtons() {
-    const backBtn = document.getElementById('btn-back');
-    const forwardBtn = document.getElementById('btn-forward');
-
-    if (navigationHistoryIndex > 0) {
-        backBtn.style.opacity = '1';
-        backBtn.style.pointerEvents = 'auto';
-    } else {
-        backBtn.style.opacity = '0.5';
-        backBtn.style.pointerEvents = 'none';
-    }
-
-    if (navigationHistoryIndex < navigationHistory.length - 1) {
-        forwardBtn.style.opacity = '1';
-        forwardBtn.style.pointerEvents = 'auto';
-    } else {
-        forwardBtn.style.opacity = '0.5';
-        forwardBtn.style.pointerEvents = 'none';
-    }
+    navigationSystem.navigateForward();
 }
 
 /**
@@ -2285,15 +1907,15 @@ async function refreshAudioGlyphs() {
     const model = editor.getModel();
     if (!model) return;
 
-    // Collect all line IDs from the current file's decorations
+    // Collect all line IDs from tracked decorations (not ALL model decorations)
     const lineIds = [];
-    const idToLineNumber = {};
-    const decorations = model.getAllDecorations();
-    for (const dec of decorations) {
-        const inkId = idManager.decorationToId.get(dec.id);
-        if (inkId) {
+    const linesWithIds = new Set();
+
+    for (const [decId, inkId] of idManager.decorationToId) {
+        const range = model.getDecorationRange(decId);
+        if (range) {
             lineIds.push(inkId);
-            idToLineNumber[inkId] = dec.range.startLineNumber;
+            linesWithIds.add(range.startLineNumber);
         }
     }
 
@@ -2305,13 +1927,12 @@ async function refreshAudioGlyphs() {
     // Fetch audio status for all IDs in one call
     const audioStatusMap = await window.electronAPI.getBulkAudioStatus(lineIds);
 
-    // Determine which lines are dialogue lines
+    // Only check dialogue status for lines that have IDs (not every line in the file)
     const dialogueLines = new Set();
-    const lineCount = model.getLineCount();
-    for (let i = 1; i <= lineCount; i++) {
-        const lineContent = model.getLineContent(i);
+    for (const lineNumber of linesWithIds) {
+        const lineContent = model.getLineContent(lineNumber);
         if (isDinkDialogueLine(lineContent)) {
-            dialogueLines.add(i);
+            dialogueLines.add(lineNumber);
         }
     }
 
@@ -2343,29 +1964,16 @@ initScratchRecorder({
 /**
  * Listen to cursor position changes
  */
+const debouncedUpdateTestAudio = debounce(updateTestAudioButton, 150);
+const debouncedUpdateRecordScratch = debounce(updateRecordScratchButton, 150);
+
 editor.onDidChangeCursorPosition(() => {
     updateDropdownSelection();
-    updateTestAudioButton();
-    updateRecordScratchButton();
+    debouncedUpdateTestAudio();
+    debouncedUpdateRecordScratch();
 
-    // Don't track history if we're navigating via back/forward
-    if (isNavigatingHistory) return;
-
-    // Track navigation when jumping to a different knot/stitch
-    if (currentFilePath) {
-        const position = editor.getPosition();
-        if (position) {
-            const currentLocation = findCurrentLocation(position.lineNumber);
-            const currentKnotName = currentLocation ? currentLocation.name : null;
-
-            // Only track if the knot/stitch changed (not just line within same knot/stitch)
-            if (lastNavigationLocation.filePath !== currentFilePath ||
-                lastNavigationLocation.knotName !== currentKnotName) {
-                lastNavigationLocation = { filePath: currentFilePath, knotName: currentKnotName };
-                addToNavigationHistory(currentFilePath, position.lineNumber);
-            }
-        }
-    }
+    // Navigation history tracking is handled by NavigationSystem
+    navigationSystem.onCursorPositionChange();
 });
 
 /**
@@ -2524,17 +2132,7 @@ async function handleTestKnot() {
 }
 
 function findCurrentKnot(model, position) {
-    // Scan backwards from current line
-    for (let i = position.lineNumber; i >= 1; i--) {
-        const line = model.getLineContent(i);
-        // Regex for knot: === Name === or === Name
-        // We match: ^\s*={2,}\s*([\w_]+)
-        const match = line.match(/^\s*={2,}\s*([\w_]+)/);
-        if (match) {
-            return match[1];
-        }
-    }
-    return null;
+    return navigationSystem.findCurrentKnot(model, position);
 }
 
 document.getElementById('btn-test-knot').addEventListener('click', async () => {
@@ -2668,179 +2266,15 @@ function openFileAndSelectLine(filePath, line, query) {
     }
 }
 
+// Validation functions delegate to ValidationEngine (single source of truth)
 function validateCharacterNamesInText(text) {
-    const lines = text.split(/\r?\n/);
-    const markers = [];
-    const validIds = new Set(projectCharacters.map(c => c.ID));
-
-    // Regex to capture Name in Dinky lines
-    const dinkyLineRegex = /^(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/;
-
-    // Check Global Mode
-    const isGlobalDinky = detectDinkyGlobal(text);
-    let inDinkyContext = isGlobalDinky;
-
-    lines.forEach((line, index) => {
-        const trimmed = line.trim();
-
-        if (!isGlobalDinky) {
-            // Check for Knot Start
-            if (/^={2,}/.test(trimmed)) {
-                // Reset context on new knot
-                inDinkyContext = false;
-
-                // Check if this knot is tagged immediately
-                if (/#\s*dink(?=\s|$)/.test(trimmed)) {
-                    inDinkyContext = true;
-                }
-            } else {
-                // Check for delayed #dink tag in the flow
-                if (/#\s*dink(?=\s|$)/.test(trimmed)) {
-                    inDinkyContext = true;
-                }
-            }
-        }
-
-        // Skip validation if not in Dink context
-        if (!inDinkyContext) return;
-
-        const match = line.match(dinkyLineRegex);
-        if (match) {
-            const name = match[2];
-            const nameStartCol = match[1].length + 1;
-            const nameEndCol = nameStartCol + name.length;
-
-            if (!validIds.has(name)) {
-                markers.push({
-                    message: `Invalid Character Name: ${name}`,
-                    severity: monaco.MarkerSeverity.Error,
-                    startLineNumber: index + 1,
-                    startColumn: nameStartCol,
-                    endLineNumber: index + 1,
-                    endColumn: nameEndCol,
-                    source: 'dinky-validator',
-                    code: name // Store name for quick fix
-                });
-            }
-        }
-    });
-
-    return markers;
-}
-
-function validateCharacterNames(model) {
-    const text = model.getValue();
-    return validateCharacterNamesInText(text);
+    return validationEngine.validateCharacterNamesInText(text, detectDinkyGlobal);
 }
 
 function validateWritingStatusTagsInText(text) {
-    const lines = text.split(/\r?\n/);
-    const markers = [];
-    const validTags = new Set(projectWritingStatusTags.map(ws => ws.wstag));
-
-    // Regex to capture #ws:tag
-    const wsTagRegex = /#ws:(\S+)/g;
-
-    lines.forEach((line, index) => {
-        let match;
-        // Reset regex for each line
-        wsTagRegex.lastIndex = 0;
-
-        while ((match = wsTagRegex.exec(line)) !== null) {
-            const tag = match[1];
-            const tagStartCol = match.index + 1; // +1 for Monaco 1-based columns
-            const tagEndCol = tagStartCol + match[0].length;
-
-            if (!validTags.has(tag)) {
-                markers.push({
-                    message: `Invalid writing status tag: ${tag}`,
-                    severity: monaco.MarkerSeverity.Error,
-                    startLineNumber: index + 1,
-                    startColumn: tagStartCol,
-                    endLineNumber: index + 1,
-                    endColumn: tagEndCol,
-                    source: 'ws-validator',
-                    code: tag // Store tag for quick fix
-                });
-            }
-        }
-    });
-
-    return markers;
-}
-
-function validateWritingStatusTags(model) {
-    const text = model.getValue();
-    return validateWritingStatusTagsInText(text);
+    return validationEngine.validateWritingStatusTagsInText(text);
 }
 
 function highlightWritingStatusTags(model) {
-    if (!model || projectWritingStatusTags.length === 0) {
-        wsTagDecorationCollection.clear();
-        return;
-    }
-
-    const text = model.getValue();
-    const lines = text.split(/\r?\n/);
-    const decorations = [];
-
-    // Create a map of wstag -> color for quick lookup
-    const tagColorMap = new Map();
-    projectWritingStatusTags.forEach(ws => {
-        if (ws.wstag && ws.color) {
-            tagColorMap.set(ws.wstag, ws.color);
-        }
-    });
-
-    // Regex to capture #ws:tag
-    const wsTagRegex = /#ws:(\S+)/g;
-
-    lines.forEach((line, index) => {
-        let match;
-        // Reset regex for each line
-        wsTagRegex.lastIndex = 0;
-
-        while ((match = wsTagRegex.exec(line)) !== null) {
-            const tag = match[1];
-            const color = tagColorMap.get(tag);
-
-            if (color) {
-                // Convert hex color (RRGGBB) to rgba with transparency
-                const r = parseInt(color.substring(0, 2), 16);
-                const g = parseInt(color.substring(2, 4), 16);
-                const b = parseInt(color.substring(4, 6), 16);
-
-                // Dynamically create CSS rule for this specific color
-                const styleId = `ws-tag-style-${color}`;
-                const className = `ws-tag-highlight-${color}`;
-
-                if (!document.getElementById(styleId)) {
-                    const style = document.createElement('style');
-                    style.id = styleId;
-                    style.textContent = `
-                        .${className} {
-                            background-color: rgba(${r}, ${g}, ${b}, 0.25) !important;
-                            color: rgb(${r}, ${g}, ${b}) !important;
-                            border-radius: 2px;
-                        }
-                    `;
-                    document.head.appendChild(style);
-                }
-
-                decorations.push({
-                    range: new monaco.Range(
-                        index + 1,
-                        match.index + 1,
-                        index + 1,
-                        match.index + 1 + match[0].length
-                    ),
-                    options: {
-                        inlineClassName: className
-                    }
-                });
-            }
-        }
-    });
-
-    wsTagDecorationCollection.set(decorations);
+    validationEngine.highlightWritingStatusTags(model, wsTagDecorationCollection);
 }

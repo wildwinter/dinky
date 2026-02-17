@@ -146,6 +146,63 @@ export class DinkySpellChecker {
         return markers;
     }
 
+    checkLines(model, monaco, lineNumbers) {
+        if (!this.spell || !this.dictionariesLoaded) return [];
+
+        const markers = [];
+        const text = model.getValue();
+        const languageId = model.getLanguageId();
+        const tokenizedLines = monaco.editor.tokenize(text, languageId);
+
+        const wordRegex = /[a-zA-Z']+/g;
+        const ignoredTypes = ['code', 'keyword', 'comment', 'annotation', 'type', 'delimiter', 'function', 'dinky.name', 'dinky.qualifier', 'dinky.direction'];
+
+        for (const i of lineNumbers) {
+            if (i < 1 || i > model.getLineCount()) continue;
+
+            const lineContent = model.getLineContent(i);
+            if (/^\s*~/.test(lineContent)) continue;
+            const lineTokens = tokenizedLines[i - 1];
+
+            wordRegex.lastIndex = 0;
+            let match;
+            while ((match = wordRegex.exec(lineContent)) !== null) {
+                const word = match[0];
+                if (word.length < 2) continue;
+
+                const startCol = match.index;
+
+                let tokenType = '';
+                if (lineTokens) {
+                    for (let t = 0; t < lineTokens.length; t++) {
+                        if (lineTokens[t].offset <= startCol) {
+                            tokenType = lineTokens[t].type;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+
+                const isIgnored = ignoredTypes.some(t => tokenType.indexOf(t) !== -1);
+                if (isIgnored) continue;
+
+                if (!this.spell.correct(word)) {
+                    markers.push({
+                        message: `Misspelled: ${word}`,
+                        severity: 2,
+                        startLineNumber: i,
+                        startColumn: match.index + 1,
+                        endLineNumber: i,
+                        endColumn: match.index + 1 + word.length,
+                        source: 'spellcheck',
+                        code: word
+                    });
+                }
+            }
+        }
+        return markers;
+    }
+
     getSuggestions(word) {
         if (!this.spell) return [];
         return this.spell.suggest(word);

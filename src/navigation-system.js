@@ -12,26 +12,22 @@ export class NavigationSystem {
         this.navDropdown = document.getElementById('nav-dropdown');
         this.loadedInkFiles = loadedInkFilesRef || new Map();
         this.currentFilePath = null;
-        
+
         // Navigation history for back/forward functionality
         this.navigationHistory = [];
         this.navigationHistoryIndex = -1;
         this.lastNavigationLocation = { filePath: null, knotName: null };
         this.isNavigatingHistory = false;
-        
+
         // Navigation structure caching for performance
         this.cachedNavigationStructure = null;
         this.navigationStructureDirty = true;
-        
+
         // UI state
         this.isUpdatingDropdown = false;
-        
-        this.setupEventListeners();
-    }
 
-    setupEventListeners() {
+        // Set up dropdown change handler (cursor listener is managed externally by renderer)
         this.navDropdown.addEventListener('change', () => this.onDropdownChange());
-        this.editor.onDidChangeCursorPosition(() => this.onCursorPositionChange());
     }
 
     /**
