@@ -1,126 +1,299 @@
 # Dinky
 
-**Dinky** is a custom editor for **Ink** projects, which adds features specifically for [Dink](https://github.com/wildwinter/dink) ("Dialogue Ink") and adds IDs to every Ink line in the same way as [Ink-Localiser](https://github.com/wildwinter/Ink-Localiser/).
+**Dinky** is a specialized IDE for creating and editing **Dink** scripts—a narrative design-focused flavour of Inkle's [Ink](https://www.inklestudios.com/ink/) language.
 
-![Dinky](doc/Dinky.png)
+This manual assumes you are familiar with basic Ink syntax. It focuses on the unique features of Dinky and the **Dink Pipeline**—a set of tools designed to solve the production headaches of modern narrative games: voice recording, localisation, and asset tracking.
+
+## Why Dink?
+
+Ink is fantastic for branching narrative flow, but out of the box, it doesn't separate "dialogue" from "text".
+
+In a complex game production, you need to know:
+
+* **Who** is speaking?
+* **How** should they say it? (Direction)
+* **What** is the recording status of this line? (Draft, Final, Recorded?)
+* **Where** is the audio file for this line?
+* **How** do we track this line through localisation without breaking things?
+
+**Dink** adds a layer of structure to Ink to answer these questions without losing Ink's flexibility. **Dinky** is the tool that makes writing Dink easy.
+
+---
 
 ## Contents
 
-- [Key Features](#key-features)
-- [The ID format](#the-id-format)
-- [Getting Started](#getting-started)
-- [Audio](#audio)
-  - [Scratch Audio](#scratch-audio)
-- [Project Settings](#project-settings)
-- [Releases](#releases)
-- [Acknowledgements](#acknowledgements)
-- [License and Attribution](#license-and-attribution)
+* [Dink Basics](#dink-basics)
+* [Using Dinky](#using-dinky)
+  * [Interface Overview](#interface-overview)
+  * [Character Management](#character-management)
+  * [Audio & Scratch Recording](#audio--scratch-recording)
+  * [Testing](#testing)
+* [The Dink Pipeline & Compiler Artefacts](#the-dink-pipeline--compiler-artefacts)
+  * [Runtime Files](#runtime-files)
+  * [Production Files](#production-files)
+* [Production Workflow](#production-workflow)
+  * [Writing Status](#writing-status-ws)
+  * [Audio Status](#audio-status)
+* [Advanced Project Settings](#advanced-project-settings)
+* [Installation & Technical Details](#installation--technical-details)
 
-## Key Features
+---
 
-### Ink Syntax Highlighting
+## Dink Basics
 
-Dinky has full syntax highlighting for Ink.
+Dink introduces a specific syntax for dialogue lines, while keeping standard Ink for logic and flow.
 
-### Dinky Dialogue Syntax
+### Dialogue Syntax
 
-If you're in a **Dink** section of the Ink file (i.e. in a knot with the tag `#dink` at the top) then additional dialogue syntax highlighting kicks in.
+Inside a knot or stitch or whole file tagged with `#dink`, write dialogue like a screenplay:
 
-This means that character names and dialogue elements will be highlighted:
-
-```text
-CHARACTER (qualifier): (direction) The spoken line of text. #tag
+```ink
+== TheTavern ==
+#dink
+BARKEEP: What can I get you?
+PLAYER: (hesitant) Just a water, thanks.
+BARKEEP: A water? In this place?
+GUARD (O.S.): Has anyone seen the player?
 ```
 
-![Highlighting](doc/Highlighting.png)
+* **Speaker**: Everything before the colon is the speaker.
+* **Qualifier** (Optional): Text in parentheses `(O.S.)` is treated as a qualifier for where the voice is coming from. Common in scripts for off-screen or radio etc.
+* **Direction** (Optional): Text in parentheses `(hesitant)` is treated as direction for the actor.
+* **Text**: Everything after the colon is the line itself.
 
-### Character Name Handling
+### Action Lines
 
-Your cast of characters will be real-time checked against the list for your project, which can be edited in **Project Settings**.
+Dink also supports "Action Lines" (or "Beats") which are just standard text lines inside a `#dink` block. These are for stage directions or non-dialogue events.
 
-Typed an unrecognised name wrong? Dinky will catch it and offer a quick-fix to add it to the project or correct it.
+```ink
+The Barkeep slams a glass on the counter.
+```
 
-![QuickFix](doc/AddChar.png)
+### The ID System
 
-At the beginning of a Dink line, type the `:` key to start an auto-complete - the list of available characters will pop up for you to choose from.
+The core of the Dink pipeline is the **ID**.
 
-![AutoComplete](doc/CharComplete.png)
+In standard Ink, lines are anonymous. In Dink, **every line gets a unique, stable ID**.
 
-### Line ID Management
+* **Dinky** generates these automatically as you write.
+* They are hidden in the editor to keep your workspace clean.
+* They look like `#id:TheTavern_Line_AbCd`.
 
-Dinky generates an ID for every line of text or choice. It's hidden in the editor, but the saved Ink file has a tag starting #id:&lt;someID&gt;. This is replicating what the **Ink-Localiser** project does (and also the command-line **dink** compiler).
+These IDs are the "golden thread" connecting your script to your audio files, localisation spreadsheets, and game engine.
 
-- **Auto-Tagging:** Every line of text or choice is automatically assigned a unique, context-aware ID on save.
-- **Contextual Prefixes:** IDs follow the standard format: `Filename_Knot_Stitch_CODE`.
-- **Clean Workspace:** ID tags are visually hidden in the editor, represented instead by a small **ID Chip** in the gutter. Roll over it to see the ID.
-- **Jump to ID:** Use `Cmd+J` (or `Ctrl+J`) to instantly navigate to any ID across your entire project.
-![JumpToID](doc/JumpToID.png)
-- **One-Click Copy:** Click an ID Chip to copy the ID to your clipboard for use in spreadsheets or game engines.
-![ID Chip](doc/IDChip.png)
+---
 
-### Dink Compiler Integration
+## Using Dinky
 
-Dinky bundles the the [Dink Compiler](https://github.com/wildwinter/dink); you can compile your project and see the results. It also has an editor for all Dink settings. This means you get features like localisation exports, script stats, recording scripts, audio status, TTS generation, and lots more.
+### Interface Overview
 
-![Dink Compile](doc/DinkCompile.png)
+Dinky looks like a standard code editor but is tuned for Dink/Ink.
 
-### Additional Features
+![Dinky Editor](doc/Dinky.png)
 
-- **Integrated Test Runner:** Run your story in a dedicated window. Use "Test from Knot" to skip the intro and jump straight to the scene you're working on.
-![Testing](doc/Testing.png)
-- **Global Search & Replace:** Search and replace across all project files.
-![SearchReplace](doc/SearchReplace.png)
-- **Built-in Spellchecker:** Real-time spellchecking with support for project-specific dictionaries - you can add your own terms to the spellchecker. Useful for projects with arcane terms! Currently support US English and UK English.
-![Spelling](doc/Spelling.png)
-- **Theme:** Supports light, dark, or current system theme!
-- **Error Navigation:** Step through the list of errors, including any Ink errors and invalid character names.
-![Errors](doc/Errors.png)
-- **Knot/Stitch Navigation:** Go straight to a particular knot or stitch.
-![Navigations](doc/Navigations.png)
-- **Export Readable Versions:** Export to PDF, Word, and also interactive HTML, where a reader can explore different sections of the script.
+* **Syntax Highlighting**: Distinguishes between speakers, directions, tags, and logic.
+* **ID Chips**: Those small gray pills in the gutter? Those are your Line IDs. Hover to see the full ID, click the ID to copy it. If a line has associated recorded audio, clicking the icon will play the line.
+* **Project Settings**: Configure your project, characters, and pipeline rules.
 
-## The ID format
+### Character Management
 
-Dinky generates IDs that are stable and descriptive:
-`[FileName]_[KnotName]_[StitchName]_[CODE]`
+Dinky validates character names in real-time against your project's `characters.json`.
 
-- **Stable:** IDs are preserved once generated.
-- **Human-Readable:** You can tell exactly where a line lives just by looking at its ID in a spreadsheet.
-- **Collision-Free:** The 4-character random suffix ensures uniqueness even with identical knot names across different files.
+* **Auto-complete**: Type `:` at the start of a line to see a list of valid characters.
+![Char Complete](doc/CharComplete.png)
+* **Quick Fix**: If you type an unknown name, Dinky highlights it. Click the lightbulb to add it to your project or fix a typo.
+![Add Character](doc/AddChar.png)
 
-## Getting Started
+### Audio & Scratch Recording
 
-1. **Create a New Project**: Open Dinky and create a `.dinkproj` file.
-2. **Define Your Root**: Point Dinky to your main `.ink` file.
-3. **Configure Settings**: Set up your project preferences.
-4. **Write**: Focus on the story.
+Dinky integrates audio directly into the writing process.
 
-## Audio
-
-![Audio Status](doc/AudioStatus.png)
-
-Dinky supports associating a Wav or Ogg file with a dialogue line. These are just files named with the file ID and the relevant file extension, saved in one of the folders defined by the **Audio Status** settings in Project Settings. The files will be automatically read, and then the **Play** button on the toolbar will show you where the file was found and let you play it. You can also use `SHIFT+SPACE` to play the line your cursor is currently on, or click on the little icon on the left.
+* **Scratch Audio**: Record temporary placeholders yourself to test timing and flow.
+    1. Click the **Record** button (red circle) in the toolbar.
+    2. Speak the line.
+    3. Press **Space** to save or **Esc** to cancel.
+* **Playback**: Press `Shift+Space` to play the audio for the current line. Dinky will play the "best" available version: Final Studio Recording > Scratch Recording > TTS Placeholder.
 
 ![Audio Controls](doc/AudioControls.png)
 
-### Scratch Audio
+### Testing
 
-Dinky allows you to record and playback temporary "scratch" audio for each line of your script. This is far more useful for testing timing, intent, and emotion than Text-To-Speech (TTS).
+Use the integrated **Test Runner** to play through your script.
 
-- **Setup**: Make sure **Audio Statuses** are set up in Project Settings, and then enable **Scratch Audio** in Project Settings and select an audio status (e.g., "Scratch").
-- **Recording**: When the cursor is on a Dink-style line (`CHARACTER: Dialogue`), click the red **Record Scratch** button on the toolbar. Press **Space** to finish or **Esc** to cancel.
-- **Check Scratch**: Tick the **Check Scratch?** option next to the audio controls. Any scratch which is out of date (because text has changed) or missing will be added to the error list. You'll see a Record button there you can use to re-record, or to mark it as OK if the text has been tweaked but the words are the same.
-- **Playback**: Use the Play button or `Shift+Space`. This plays the highest status audio available for that line (TTS, Scratch, or final).
+* **Test from Knot**: Jump straight to a knot, skipping the intro.
+![Testing](doc/Testing.png)
 
-## Project Settings
+---
 
-There's a comprehensive list of settings in **Project Settings**, which wraps up the options provided by the [Dink Compiler](https://github.com/wildwinter/dink). Look there for more information.
+## The Dink Pipeline & Compiler Artefacts
+
+When you hit **Compile** (or run `DinkCompiler`), Dink doesn't just produce a JSON file from the Ink for the runtime. It generates a suite of production assets.
+
+### Runtime Files
+
+These are the files your game engine needs:
+
+1. **`myproject.json`** (Standard Ink JSON)
+    * The compiled Ink story.
+    * *Crucially:* Text lines can be stripped out, leaving only logic and IDs, reducing memory footprint if you use the separate strings file.
+
+2. **`myproject-dink.json`** (Dink Metadata)
+    * Maps every Line ID to its metadata: Speaker, Direction, Mood tags, etc.
+    * Your game queries this at runtime: *"Current line ID is `Tavern_01`. Who is speaking? Ah, it's BARKEEP."*
+
+3. **`myproject-strings-en-GB.json`** (Text Content)
+    * Separates text from logic. Contains the actual words for every ID.
+    * For localisation, you simply load `myproject-strings-fr-FR.json` instead.
+
+### Production Files
+
+These are for your team (Producers, Audio Engineers, Localisation):
+
+1. **`myproject-recording.xlsx`** (The Recording Script)
+    * A spreadsheet of every line needing recording.
+    * Columns: ID, Character, Actor, Text, Direction, Context Comments.
+    * **Filtering**: Only lines marked with "Recordable" status (see below) appear here.
+    * **Context**: Automatically notes if a line is an option in a choice, or part of a shuffled set `(1 of 3)`.
+![Recording Script](doc/Recording.png)
+
+2. **`myproject-stats.xlsx`** (Production Dashboard)
+    * **Word Counts**: Per output, per character, per scene.
+    * **Status Tracking**: How many lines are "Draft"? How many are "Final"? How many are "Recorded"?
+    * **Estimates**: If you used placeholder tags (e.g., `#ws:stub`), this shows estimated final counts vs actuals.
+
+3. **`myproject-loc.xlsx`** or **`.po` files** (Localisation)
+    * Dink supports both Excel-based and standard PO/POT localisation workflows.
+    * Includes speaker names and context notes to help translators.
+
+---
+
+## Production Workflow
+
+### Writing Status (`#ws`)
+
+Track the maturity of your script using tags. Configure these in **Project Settings**.
+
+* `#ws:stub` - Just a placeholder.
+* `#ws:draft` - Needs review.
+* `#ws:final` - locked for recording.
+
+Propagate status hierarchy:
+
+```ink
+== ChapterOne ==
+#dink
+#ws:draft
+... (all lines here are Draft) ...
+
+= TheEnding
+#ws:final
+... (except these lines, which are Final) ...
+```
+
+### Audio Status
+
+Dink tracks your audio asset pipeline by checking folders defined in your settings.
+
+* If a file named `Tavern_01.wav` exists in `Audio/Final/`, status is **Final**.
+* If in `Audio/Scratch/`, status is **Scratch**.
+* If missing, status is **Missing**.
+
+This feeds directly into the **Stats** file, so you instantly see "We have recorded 45% of the Barkeep's lines."
+
+## Advanced Project Settings
+
+The **Project Settings** dialog allows you to configure Dinky's behaviour. It is organized into several tabs:
 
 ![Project Settings](doc/ProjectSettings.png)
 
-## Releases
+### General
 
-You can find releases for various platforms [on the releases page](https://github.com/wildwinter/dinky/releases).
+* **Output Folder**: The destination directory for all compiled artifacts (`.json`, `.xlsx`, etc.).
+* **Include Debug Text**: If checked (`nostrip` setting), the compiled Ink JSON will retain the original text lines. This is useful for debugging but increases the file size.
+
+### Outputs
+
+Control which files are generated when you compile.
+
+* **Output Recording Script**: Generates the Excel spreadsheet for voice actors.
+* **Output Dink Structure**: Generates a JSON file describing the scene/beat structure (useful for tools).
+* **Output Stats Spreadsheet**: Generates the comprehensive status report.
+
+### Characters
+
+Define the cast of your game.
+
+* **Script Name**: The name used in your Ink script (e.g. `BARKEEP`).
+* **Actor**: The name of the real-world actor (e.g. `Jane Doe`). This appears in the Recording Script.
+
+### Localization
+
+* **Output Localization Spreadsheet**: Generates an Excel file for translation.
+* **Default Locale Code**: The code for your source language (e.g. `en-GB`).
+* **Localize Actions**: If checked, "Action" lines (stage directions) are included in the export.
+* **PO/POT Export**:
+  * **Output Pot File**: Generates a `.pot` template.
+  * **PO Folder**: Where `.po` files are stored.
+  * **PO Languages**: Comma-separated codes (e.g. `fr-FR, de-DE, ja-JP`) for target languages.
+
+### Spelling
+
+* **Language**: Select the dictionary for the editor's spellchecker (English UK/US are supplied).
+* **Project Dictionary**: Add your own made-up words here so they aren't flagged as errors.
+
+### Writing Status
+
+Manage the `#ws:` tags used to track script progress.
+
+* **Ignore Writing Status Filter**: If checked, *all* lines are exported to recording/localisations scripts, regardless of their status.
+* **Status List**: Define tags like `#ws:draft`, `#ws:final`.
+  * **Record**: Include lines with this status in the recording script?
+  * **Loc**: Include lines with this status in the localization kit?
+  * **Est**: Use this status for estimates? (See *Estimating* tab).
+  * **Color**: The highlight color used in the Stats spreadsheet.
+
+### Audio Status Settings
+
+Define where Dinky looks for audio files to track progress.
+
+* Map folders (e.g. `Audio/Final`) to statuses (e.g. `Final`).
+* **Recorded**: If checked, lines found in this folder count as "Complete" in the stats.
+
+### Filters
+
+"The Esoteric Stuff" - precise control over what gets exported.
+
+* **Localization Comments**: Dictionary of comment prefixes that should be sent to translators (e.g. `LOC`, `TRANS`). `?` includes comments with no prefix.
+* **Recording Comments**: Dictionary of comment prefixes that should go to the studio (e.g. `VO`, `DIR`).
+* **Recording Tags**: Specific `#tags` to export to the recording script (e.g. `vo` to capture `#vo:loud`).
+
+### Scratch Audio
+
+* **Enable Scratch Audio**: Turns on the recording feature in the editor.
+* **Output to Audio Status**: Which audio status folder should new scratch recordings be saved to?
+* **Audio Format**: WAV or OGG.
+
+### Google TTS
+
+* **Generate TTS**: If checked, Dinky generates placeholder audio on compile.
+* **Key File**: Your Google Cloud Service Account JSON key.
+* **Output to Audio Status**: Which folder to save TTS files in.
+* **Character Voices**: Map your characters to specific Google Cloud TTS voice IDs.
+
+### Estimating
+
+* **Tag / Lines**: Define estimates for specific tags.
+  * Example: Tag `conversation` = `50` lines.
+  * If a scene is marked with an "Estimate" writing status (e.g. `#ws:stub`) and has the tag `#conversation`, the stats report will use your estimated count (50) instead of the actual line count. Great for tracking progress on unwritten scenes.
+
+---
+
+## Installation & Technical Details
+
+### Getting Dinky
+
+You can find the latest release of Dinky on GitHub:
+**[Dinky Releases](https://github.com/wildwinter/dinky/releases)**
 
 ## Acknowledgements
 
