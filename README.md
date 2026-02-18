@@ -4,6 +4,8 @@
 
 This manual assumes you are familiar with basic Ink syntax. It focuses on the unique features of Dinky and the **Dink Pipeline**—a set of tools designed to solve the production headaches of modern narrative games: voice recording, localisation, and asset tracking.
 
+![Dinky](doc/Dinky.png)
+
 ## Why Dink?
 
 Ink is fantastic for branching narrative flow, but out of the box, it doesn't separate "dialogue" from "text".
