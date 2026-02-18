@@ -2,7 +2,7 @@
 
 **Dinky** is a specialized IDE for creating and editing **Dink** scripts—a narrative design-focused flavour of Inkle's [Ink](https://www.inklestudios.com/ink/) language.
 
-This manual assumes you are familiar with basic Ink syntax. It focuses on the unique features of Dinky and the **Dink Pipeline**—a set of tools designed to solve the production headaches of modern narrative games: voice recording, localisation, and asset tracking.
+This doc assumes you are familiar with basic Ink syntax. It focuses on the unique features of Dinky and the **Dink Pipeline** - a set of tools designed to solve the production headaches of modern narrative games: voice recording, localisation, and asset tracking.
 
 ![Dinky](doc/Dinky.png)
 
