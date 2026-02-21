@@ -81,8 +81,8 @@ async function init() {
     const updateOutputFolderDisplay = () => {
         const destFolder = projectConfig.destFolder || '';
         if (destFolder) {
-            // Prepend ./ if it doesn't already start with ../ to make it clear it's relative
-            const displayPath = destFolder.startsWith('../') ? destFolder : `./${destFolder}`;
+            // Prepend ./ if it doesn't already start with . to make it clear it's relative
+            const displayPath = destFolder.startsWith('.') ? destFolder : `./${destFolder}`;
             outputFolderDisplay.textContent = displayPath;
             outputFolderDisplay.classList.remove('empty');
         } else {
@@ -312,8 +312,8 @@ async function init() {
     const updateGoogleTTSKeyFileDisplay = () => {
         const authentication = projectConfig.googleTTS?.authentication || '';
         if (authentication) {
-            // Prepend ./ if it doesn't already start with ../ to make it clear it's relative
-            const displayPath = authentication.startsWith('../') ? authentication : `./${authentication}`;
+            // Prepend ./ if it doesn't already start with . to make it clear it's relative
+            const displayPath = authentication.startsWith('.') ? authentication : `./${authentication}`;
             googleTTSKeyFileDisplay.textContent = displayPath;
             googleTTSKeyFileDisplay.classList.remove('empty');
         } else {
@@ -531,7 +531,7 @@ async function init() {
     const updatePoDirDisplay = () => {
         const poDir = projectConfig.poDir || '';
         if (poDir) {
-            const displayPath = poDir.startsWith('../') ? poDir : `./${poDir}`;
+            const displayPath = poDir.startsWith('.') ? poDir : `./${poDir}`;
             poDirDisplay.textContent = displayPath;
             poDirDisplay.classList.remove('empty');
         } else {
@@ -1144,8 +1144,8 @@ async function init() {
         folderDisplay.className = 'folder-display';
         const folderPath = status.folder || '';
         if (folderPath) {
-            // Prepend ./ if it doesn't already start with ../ to make it clear it's relative
-            const displayPath = folderPath.startsWith('../') ? folderPath : `./${folderPath}`;
+            // Prepend ./ if it doesn't already start with . to make it clear it's relative
+            const displayPath = folderPath.startsWith('.') ? folderPath : `./${folderPath}`;
             folderDisplay.textContent = displayPath;
             folderDisplay.classList.remove('empty');
         } else {
@@ -1165,8 +1165,8 @@ async function init() {
             if (selectedPath) {
                 const relativePath = makeRelativePath(selectedPath);
                 updateAudioStatusField(index, 'folder', relativePath);
-                // Prepend ./ if it doesn't already start with ../ to make it clear it's relative
-                const displayPath = relativePath.startsWith('../') ? relativePath : `./${relativePath}`;
+                // Prepend ./ if it doesn't already start with . to make it clear it's relative
+                const displayPath = relativePath.startsWith('.') ? relativePath : `./${relativePath}`;
                 folderDisplay.textContent = displayPath;
                 folderDisplay.classList.remove('empty');
             }
