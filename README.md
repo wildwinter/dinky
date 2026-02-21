@@ -18,7 +18,7 @@ In a complex game production, you need to know:
 * **Where** is the audio file for this line?
 * **How** do we track this line through localisation without breaking things?
 
-**Dink** adds a layer of structure to Ink to answer these questions without losing Ink's flexibility. **Dinky** is the tool that makes writing Dink easy.
+**[Dink](https://github.com/wildwinter/dink)** adds a layer of structure to Ink to answer these questions without losing Ink's flexibility. **Dinky** is the tool that makes writing Dink easy.
 
 ---
 
@@ -43,7 +43,7 @@ In a complex game production, you need to know:
 
 ## Dink Basics
 
-Dink introduces a specific syntax for dialogue lines, while keeping standard Ink for logic and flow.
+**[Dink](https://github.com/wildwinter/dink)**  introduces a specific syntax for dialogue lines, while keeping standard Ink for logic and flow.
 
 ### Dialogue Syntax
 
