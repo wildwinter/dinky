@@ -136,7 +136,7 @@ export class DinkySpellChecker {
                         startLineNumber: i,
                         startColumn: match.index + 1,
                         endLineNumber: i,
-                        endColumn: match.index + 1 + word.length,
+                        endColumn: Math.min(match.index + 1 + word.length, lineContent.length),
                         source: 'spellcheck',
                         code: word // Use code field to pass the word to the action provider
                     });
@@ -193,7 +193,7 @@ export class DinkySpellChecker {
                         startLineNumber: i,
                         startColumn: match.index + 1,
                         endLineNumber: i,
-                        endColumn: match.index + 1 + word.length,
+                        endColumn: Math.min(match.index + 1 + word.length, lineContent.length),
                         source: 'spellcheck',
                         code: word
                     });
