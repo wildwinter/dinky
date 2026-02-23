@@ -173,7 +173,7 @@ function generateIdsForUntagged(parsedStory, filePrefix = "") {
         let currentFilePrefix = filePrefix;
         if (item.node.debugMetadata && item.node.debugMetadata.fileName) {
             // Use the actual file name of the node for the prefix
-            currentFilePrefix = path.basename(item.node.debugMetadata.fileName, '.ink');
+            currentFilePrefix = path.basename(item.node.debugMetadata.fileName, '.ink').replace(/[^a-zA-Z0-9-]/g, '');
         }
 
         const prefix = getLocPrefix(item.ancestry, currentFilePrefix);

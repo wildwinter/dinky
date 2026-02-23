@@ -277,8 +277,8 @@ if (!gotTheLock) {
             return [];
         }
 
-        // Extract filename without .ink for ID prefix
-        const filePrefix = path.basename(filePath, '.ink');
+        // Extract filename without .ink for ID prefix, keeping only alphanumerics and hyphens
+        const filePrefix = path.basename(filePath, '.ink').replace(/[^a-zA-Z0-9-]/g, '');
 
         // Generate IDs for untagged lines
         const edits = generateIdsForUntagged(parsedStory, filePrefix);
