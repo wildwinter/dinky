@@ -46,7 +46,7 @@ export class IdPreservationManager {
             if (!codeEl.closest('.monaco-hover')) return;
 
             const text = codeEl.textContent.trim();
-            const idRegex = /^([a-zA-Z0-9_]+_[a-zA-Z0-9]{4})$/;
+            const idRegex = /^([a-zA-Z0-9_-]+_[a-zA-Z0-9]{4})$/;
             const match = text.match(idRegex);
 
             if (match) {
@@ -86,7 +86,7 @@ export class IdPreservationManager {
         // We capture:
         // 1. Optional whitespace before the tag (to strip it cleanly)
         // 2. The tag itself
-        const idRegex = /(\s?)#id:([a-zA-Z0-9_]+_[a-zA-Z0-9]{4})\b/g;
+        const idRegex = /(\s?)#id:([a-zA-Z0-9_-]+_[a-zA-Z0-9]{4})\b/g;
 
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i];

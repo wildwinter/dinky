@@ -1,5 +1,7 @@
 TODO:
 -----
+BUG: Sometimes spelling mistakes are highlighted on the correct line, but also at the end of the following line.
+
 Play connected audio?
 
 Typescript?
@@ -72,6 +74,8 @@ Make button icons more readable
 Mark scratch audio as ok
 Rerecord scratch / next / prev
 Line icons
+BUG: No folder selected should = .
+BUG: IDs with - in are not correctly parsed
 
 NOTES:
 ------

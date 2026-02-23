@@ -71,7 +71,7 @@ async function init() {
 
         relativeParts.push(...absoluteParts.slice(i));
 
-        return relativeParts.join('/');
+        return relativeParts.join('/') || '.';
     };
 
     // Set up Output Folder display and button

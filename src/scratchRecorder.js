@@ -146,7 +146,7 @@ export function isDinkDialogueLine(lineContent) {
 
 
 // Regex to extract lineIds from raw ink file content (matches #id:XXXX_XXXX tags)
-const idTagRegex = /(\s?)#id:([a-zA-Z0-9_]+_[a-zA-Z0-9]{4})\b/;
+const idTagRegex = /(\s?)#id:([a-zA-Z0-9_-]+_[a-zA-Z0-9]{4})\b/;
 
 /**
  * Parse a raw ink file's content to find dialogue lines needing scratch work.
