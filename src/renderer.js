@@ -1338,17 +1338,21 @@ async function checkSyntax() {
 }
 
 
+let isAutoTagging = false;
+
 async function autoTag() {
     if (!rootInkPath || !currentFilePath) return;
+    if (isAutoTagging) return;
 
-    // Use current content
-    const content = editor.getValue();
-    const projectFiles = getProjectFilesContent();
-    // Pass reconstructed content (with existing IDs) to tagger
-    // This ensures we generating IDs for lines that truly don't have them
-    const reconstructedContent = idManager.reconstructContent(content);
-
+    isAutoTagging = true;
     try {
+        // Use current content
+        const content = editor.getValue();
+        const projectFiles = getProjectFilesContent();
+        // Pass reconstructed content (with existing IDs) to tagger
+        // This ensures we generating IDs for lines that truly don't have them
+        const reconstructedContent = idManager.reconstructContent(content);
+
         const edits = await window.electronAPI.autoTagInk(reconstructedContent, currentFilePath, projectFiles);
         if (edits && edits.length > 0) {
             edits.forEach(edit => {
@@ -1359,11 +1363,11 @@ async function autoTag() {
                 // We don't modify the text, just start tracking it.
                 idManager.addId(edit.line, edit.newId);
             });
-
         }
-
     } catch (e) {
         window.electronAPI.log('autoTag failed:', e.toString());
+    } finally {
+        isAutoTagging = false;
     }
 }
 

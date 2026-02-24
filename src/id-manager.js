@@ -264,22 +264,45 @@ export class IdPreservationManager {
     }
 
 
-    // RE-IMPLEMENTING with raw deltaDecorations to support incremental updates
-
     /**
      * Add a single ID tracker.
+     * Uses decorationCollection exclusively to avoid orphaned deltaDecorations.
      */
     addId(lineNumber, idStr) {
-        const newDec = {
-            range: new this.monaco.Range(lineNumber, 1, lineNumber, 1),
+        const model = this.editor.getModel();
+        if (!model) return;
+
+        // Collect current decorations, preserving their shifted ranges
+        const currentDecorations = [];
+        const currentIds = [];
+
+        for (const [decId, inkId] of this.decorationToId) {
+            const range = model.getDecorationRange(decId);
+            if (range && !range.isEmpty()) {
+                currentDecorations.push({
+                    range: range,
+                    options: this._getDecorationOptions(inkId)
+                });
+                currentIds.push(inkId);
+            }
+        }
+
+        // Append the new decoration (use a non-empty range so subsequent addId calls
+        // don't mistake it for a deleted-line decoration when iterating ranges)
+        const lineContent = model.getLineContent(lineNumber);
+        const maxCol = lineContent.length + 1;
+        currentDecorations.push({
+            range: new this.monaco.Range(lineNumber, 1, lineNumber, maxCol),
             options: this._getDecorationOptions(idStr)
-        };
+        });
+        currentIds.push(idStr);
 
-        const resultIds = this.editor.deltaDecorations([], [newDec]);
-        const decId = resultIds[0];
-
-        // Store
-        this.decorationToId.set(decId, idStr);
+        // Atomically replace the entire collection
+        this.decorationToId.clear();
+        const decorationIds = this.decorationCollection.set(currentDecorations);
+        for (let i = 0; i < decorationIds.length; i++) {
+            this.decorationToId.set(decorationIds[i], currentIds[i]);
+        }
     }
 
     /**

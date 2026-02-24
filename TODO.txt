@@ -76,6 +76,7 @@ Line icons
 BUG: No folder selected should = .
 BUG: IDs with - in are not correctly parsed
 BUG: Sometimes spelling mistakes are highlighted on the correct line, but also at the end of the following line.
+BUG: Multiple IDs shown after pasting.
 
 NOTES:
 ------

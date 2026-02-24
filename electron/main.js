@@ -22,6 +22,8 @@ if (process.platform === 'win32') {
 app.setName('Dinky')
 app.commandLine.appendSwitch('disable-features', 'Autofill')
 app.setAboutPanelOptions({
+    applicationVersion: app.getVersion(),
+    version: '',
     copyright: 'Copyright © 2026 Ian Thomas',
     credits: `Powered by inkjs v${pkg.inkjsVersion} and Dink v${pkg.dinkVersion}`
 })
