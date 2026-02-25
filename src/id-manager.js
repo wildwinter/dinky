@@ -306,6 +306,23 @@ export class IdPreservationManager {
     }
 
     /**
+     * Returns true if the line is eligible to carry an #id: tag.
+     * Structural Ink lines (knots, stitches, functions, logic, declarations)
+     * must not carry IDs or the compiler will reject them.
+     */
+    _isLineEligibleForId(lineText) {
+        const commentIdx = lineText.indexOf('//');
+        const contentPart = commentIdx === -1 ? lineText : lineText.substring(0, commentIdx);
+        const trimmed = contentPart.trim();
+
+        if (!trimmed) return false;
+        if (trimmed.startsWith('=')) return false;  // knots (== name), stitches (= name), functions
+        if (trimmed.startsWith('~')) return false;  // ink logic lines
+        if (/^(VAR|CONST|LIST|EXTERNAL|INCLUDE)\s/i.test(trimmed)) return false;
+        return true;
+    }
+
+    /**
      * Reconstruct the content by injecting IDs back into the text.
      */
     reconstructContent(currentContent) {
@@ -335,6 +352,12 @@ export class IdPreservationManager {
 
             const lineIndex = range.startLineNumber - 1; // 0-based
             if (lineIndex >= 0 && lineIndex < resultLines.length) {
+                // If the line is no longer eligible for an ID (e.g. it became a knot header),
+                // drop the decoration so the ID is not written back to the file.
+                if (!this._isLineEligibleForId(resultLines[lineIndex])) {
+                    decorationsToRemove.push(decId);
+                    continue;
+                }
                 resultLines[lineIndex] = this.injectIdIntoLine(resultLines[lineIndex], inkId);
             }
         }
