@@ -2043,6 +2043,7 @@ const newIncludeModal = new ModalHelper({
     onConfirm: async () => {
         const name = document.getElementById('new-include-name').value.trim();
         const folder = document.getElementById('new-include-folder').value.trim();
+        await saveAllFiles();
         return await window.electronAPI.createNewInclude(name, folder);
     }
 });
@@ -2066,7 +2067,8 @@ document.getElementById('btn-add-include').addEventListener('click', () => {
     window.electronAPI.openNewIncludeUI();
 });
 
-document.getElementById('btn-choose-include').addEventListener('click', () => {
+document.getElementById('btn-choose-include').addEventListener('click', async () => {
+    await saveAllFiles();
     window.electronAPI.chooseExistingInclude();
 });
 

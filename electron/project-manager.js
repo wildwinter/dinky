@@ -282,6 +282,8 @@ async function createNewInclude(win, name, folderPath) {
         // Ensure forward slashes for cross-platform compatibility in Ink INCLUDE
         const includeLine = `INCLUDE ${relativePath.replace(/\\/g, '/')}`;
 
+        if (rootContent.includes(includeLine)) return true;
+
         const newContent = insertIncludeIntoContent(rootContent, includeLine);
 
         await fs.writeFile(currentInkRoot, newContent, 'utf-8');
