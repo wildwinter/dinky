@@ -1,5 +1,8 @@
 TODO:
 -----
+BUG: When adding a new include file, a line is added to the ink root to include the file (e.g. "INCLUDE scene1.ink"). But the ink root might already have that line, so adding a second one causes a compile error. The program should check whether the ink root file has an include line before adding one.
+BUG: Relatedly: If the ink root text is edited but not saved, and then an include file is added, the file reverts to the saved version and the edits are lost. (presumably because the include button is adding an "INLCUDE" line to the ink root). It could check with the user whether they want to save the ink root before including a file.
+
 Play connected audio?
 
 Typescript?
@@ -78,6 +81,7 @@ BUG: IDs with - in are not correctly parsed
 BUG: Sometimes spelling mistakes are highlighted on the correct line, but also at the end of the following line.
 BUG: Multiple IDs shown after pasting.
 BUG: Remove IDs when the line is no long eligible.
+BUG: In the light mode, the yellow text is not visible against the white background.
 
 NOTES:
 ------

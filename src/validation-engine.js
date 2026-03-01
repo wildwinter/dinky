@@ -4,6 +4,50 @@
  */
 
 /**
+ * Compute a solid contrasting background color for a given RGB text color.
+ * Light text colors (e.g. yellow) get a dark background; dark text colors get a light one.
+ * Both the hue and saturation of the text color are preserved so the pair looks coherent.
+ */
+function contrastingBackground(r, g, b) {
+    const rn = r / 255, gn = g / 255, bn = b / 255;
+    const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+    const d = max - min;
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
+    if (d > 0) {
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6;
+        else if (max === gn) h = ((bn - rn) / d + 2) / 6;
+        else h = ((rn - gn) / d + 4) / 6;
+    }
+
+    // Perceived luminance — determines whether to use a dark or light background
+    const luminance = 0.2126 * rn + 0.7152 * gn + 0.0722 * bn;
+    const isLight = luminance > 0.5;
+
+    const bgL = isLight ? 0.25 : 0.85;
+    // Keep saturation but cap it so the background isn't overly vivid.
+    // Achromatic text (grey) gets an achromatic background.
+    const bgS = s < 0.05 ? 0 : Math.min(s, isLight ? 0.7 : 0.4);
+
+    const q = bgL < 0.5 ? bgL * (1 + bgS) : bgL + bgS - bgL * bgS;
+    const p = 2 * bgL - q;
+    const hue2rgb = (p, q, t) => {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+    };
+    return [
+        Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+        Math.round(hue2rgb(p, q, h) * 255),
+        Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+    ];
+}
+
+/**
  * Validation engine for character names and writing status tags
  */
 export class ValidationEngine {
@@ -186,7 +230,7 @@ export class ValidationEngine {
                 const color = tagColorMap.get(tag);
 
                 if (color) {
-                    // Convert hex color (RRGGBB) to rgba with transparency
+                    // Convert hex color (RRGGBB) to RGB components
                     const r = parseInt(color.substring(0, 2), 16);
                     const g = parseInt(color.substring(2, 4), 16);
                     const b = parseInt(color.substring(4, 6), 16);
@@ -196,11 +240,12 @@ export class ValidationEngine {
                     const className = `ws-tag-highlight-${color}`;
 
                     if (!document.getElementById(styleId)) {
+                        const [bgR, bgG, bgB] = contrastingBackground(r, g, b);
                         const style = document.createElement('style');
                         style.id = styleId;
                         style.textContent = `
                             .${className} {
-                                background-color: rgba(${r}, ${g}, ${b}, 0.25) !important;
+                                background-color: rgb(${bgR}, ${bgG}, ${bgB}) !important;
                                 color: rgb(${r}, ${g}, ${b}) !important;
                                 border-radius: 2px;
                             }
