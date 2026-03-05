@@ -82,8 +82,15 @@ export class ValidationEngine {
         const markers = [];
         const validIds = new Set(this.projectCharacters.map(c => c.ID));
 
-        // Regex to capture Name in Dinky lines
-        const dinkyLineRegex = /^(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/;
+        // Regexes to capture Name in Dinky lines
+        const dinkyLineRegexes = [
+            // Plain: NAME (qual): (dir) Text
+            { regex: /^(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/, nameIndex: 2, getPrefixLength: m => m[1].length },
+            // Gather: - NAME (qual): (dir) Text
+            { regex: /^(\s*-\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/, nameIndex: 2, getPrefixLength: m => m[1].length },
+            // Bracketed: * [NAME (qual): (dir) Text
+            { regex: /^(\s*[\*\+-]+\s*\[\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^\]/#]|\/(?![/*]))*)/, nameIndex: 2, getPrefixLength: m => m[1].length }
+        ];
 
         // Check Global Mode
         const isGlobalDinky = detectDinkyGlobal(text);
@@ -113,10 +120,19 @@ export class ValidationEngine {
             // Skip validation if not in Dink context
             if (!inDinkyContext) return;
 
-            const match = line.match(dinkyLineRegex);
-            if (match) {
-                const name = match[2];
-                const nameStartCol = match[1].length + 1;
+            let match = null;
+            let rule = null;
+            for (const r of dinkyLineRegexes) {
+                match = line.match(r.regex);
+                if (match) {
+                    rule = r;
+                    break;
+                }
+            }
+
+            if (match && rule) {
+                const name = match[rule.nameIndex];
+                const nameStartCol = rule.getPrefixLength(match) + 1;
                 const nameEndCol = nameStartCol + name.length;
 
                 if (!validIds.has(name)) {

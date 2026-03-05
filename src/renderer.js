@@ -1502,7 +1502,7 @@ function isDinkyAtPosition(model, position) {
             const lineContent = model.getLineContent(position.lineNumber);
             const textBeforeCursor = lineContent.substring(0, position.column - 1);
 
-            if (!/^\s*:$/.test(textBeforeCursor)) {
+            if (!/^(?:\s*|\s*-\s*|\s*[\*\+-]+\s*\[\s*):$/.test(textBeforeCursor)) {
                 return { suggestions: [] };
             }
 
@@ -1620,7 +1620,7 @@ async function saveAllFiles() {
                         // so the decoration appears immediately without reload.
                         if (filePath === currentFilePath) {
                             idManager.addId(edit.line, edit.newId);
-                
+
                         }
                     }
                 });

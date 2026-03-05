@@ -171,12 +171,12 @@ export function registerInkLanguage(monaco) {
                 ...standardInkRules
             ],
             ...commonInkStates,
-            // Extend braceBlock with standard + dinky rules for content lines
+            // Extend braceBlock with dinky + standard rules for content lines
             braceBlock: [
-                ...commonInkStates.braceBlock,
                 dinkyDialogueBracketedRule,
                 dinkyDialogueGatherRule,
                 dinkyDialogueRule,
+                ...commonInkStates.braceBlock,
                 ...standardInkRules
             ]
         }
@@ -214,10 +214,10 @@ export function registerInkLanguage(monaco) {
             ...commonInkStates,
             // Extend braceBlock with dinky + standard rules for content lines
             braceBlock: [
-                ...commonInkStates.braceBlock,
                 dinkyDialogueBracketedRule,
                 dinkyDialogueGatherRule,
                 dinkyDialogueRule,
+                ...commonInkStates.braceBlock,
                 ...standardInkRules
             ]
         }
