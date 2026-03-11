@@ -84,6 +84,7 @@ BUG: Relatedly: If the ink root text is edited but not saved, and then an includ
 BUG: Character names not recognised in shuffles
 BUG: Character name completion didn't work in gathers and brackets
 BUG: Windows path issue in project settings
+BUG: Fixes to autotagging and spellchecking.
 
 NOTES:
 ------

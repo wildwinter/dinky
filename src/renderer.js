@@ -60,6 +60,7 @@ let currentErrors = []; // Array of all current errors (compilation errors + spe
 let errorBannerIndex = 0; // Current error being displayed in the banner
 let previousErrorsCount = 0; // Track previous error count to detect changes
 let hasInkCompileErrors = false; // True when the Ink compiler reports errors — blocks auto-tagging
+let inkErrorFiles = new Set();   // Paths of files that currently have Ink compile errors
 
 
 // Initialize core instances
@@ -277,6 +278,7 @@ monaco.editor.registerCommand('add-project-character', async (accessor, characte
 function checkSpelling() {
     const model = editor.getModel();
     if (!model) return;
+    if (inkErrorFiles.has(currentFilePath)) return; // Skip while this file has Ink compile errors
 
     const modelFilePath = model.uri.path;
     const cachedMarkers = spellCheckMarkersByLine.get(modelFilePath);
@@ -1225,6 +1227,7 @@ async function checkSyntax() {
 
         const inkErrorsWerePresent = hasInkCompileErrors;
         hasInkCompileErrors = !!(errors && errors.length > 0);
+        inkErrorFiles = new Set((errors || []).map(e => e.filePath).filter(Boolean));
 
         const model = editor.getModel();
         if (model) {
@@ -1252,6 +1255,9 @@ async function checkSyntax() {
             const currentModelText = model.getValue();
 
             for (const [filePath, fileObj] of loadedInkFiles) {
+                // Skip validation for files that have Ink compile errors — they produce false positives
+                if (inkErrorFiles.has(filePath)) continue;
+
                 const isCurrentFile = (filePath === activePath);
                 const text = isCurrentFile ? currentModelText : fileObj.content;
 
@@ -1329,9 +1335,10 @@ async function checkSyntax() {
             currentErrors = newErrors;
             updateErrorBanner();
 
-            // If Ink compile errors just cleared, run a fresh auto-tag pass now
+            // If Ink compile errors just cleared, run fresh passes now
             if (inkErrorsWerePresent && !hasInkCompileErrors) {
                 autoTag();
+                checkSpelling();
             }
 
             // Update Monaco markers with visible errors + character errors + writing status errors + scratch audio errors for current file
@@ -1392,9 +1399,10 @@ const debouncedDinkyModeCheck = debounce(() => {
         const targetLang = isDinky ? 'ink-dinky' : 'ink';
         if (currentLang !== targetLang) {
             monaco.editor.setModelLanguage(model, targetLang);
-            // File just became a Dink file — run a full auto-tag pass
+            // File just became a Dink file — re-run checks that depend on Dink syntax awareness
             if (targetLang === 'ink-dinky') {
                 autoTag();
+                checkSpelling();
             }
         }
     }
