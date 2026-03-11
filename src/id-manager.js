@@ -103,7 +103,6 @@ export class IdPreservationManager {
                 const targetMatch = matches[0];
 
                 const fullMatchStr = targetMatch[0];
-                const leadingSpace = targetMatch[1];
                 const idPart = targetMatch[2];
 
                 extractedIds.push({
@@ -111,16 +110,15 @@ export class IdPreservationManager {
                     id: idPart
                 });
 
-                // Remove it from the line
-                // We construct the "Clean" line by removing the matched text.
-                // Note: We strip the leading space captured in group 1 IF it exists.
-                // Use substring replacement to avoid regex global madness on replace
-                // (Replacing only the match instance)
-
+                // Remove the first ID from the line
                 const pre = line.substring(0, targetMatch.index);
                 const post = line.substring(targetMatch.index + fullMatchStr.length);
-
                 line = pre + post;
+
+                // Remove any additional duplicate ID tags silently (keep only the first)
+                if (matches.length > 1) {
+                    line = line.replace(/\s?#id:[a-zA-Z0-9_-]+_[a-zA-Z0-9]{4}\b/g, '');
+                }
             }
 
             cleanLines.push(line);

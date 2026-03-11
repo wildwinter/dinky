@@ -59,6 +59,7 @@ let spellCheckMarkersByLine = new Map(); // filePath -> markers array
 let currentErrors = []; // Array of all current errors (compilation errors + spell check)
 let errorBannerIndex = 0; // Current error being displayed in the banner
 let previousErrorsCount = 0; // Track previous error count to detect changes
+let hasInkCompileErrors = false; // True when the Ink compiler reports errors — blocks auto-tagging
 
 
 // Initialize core instances
@@ -1222,6 +1223,8 @@ async function checkSyntax() {
 
         const errors = await window.electronAPI.compileInk(contentToCompile, rootInkPath, projectFiles);
 
+        const inkErrorsWerePresent = hasInkCompileErrors;
+        hasInkCompileErrors = !!(errors && errors.length > 0);
 
         const model = editor.getModel();
         if (model) {
@@ -1326,6 +1329,11 @@ async function checkSyntax() {
             currentErrors = newErrors;
             updateErrorBanner();
 
+            // If Ink compile errors just cleared, run a fresh auto-tag pass now
+            if (inkErrorsWerePresent && !hasInkCompileErrors) {
+                autoTag();
+            }
+
             // Update Monaco markers with visible errors + character errors + writing status errors + scratch audio errors for current file
             monaco.editor.setModelMarkers(model, 'ink', [...(visibleErrors || []), ...currentFileCharErrors, ...currentFileWsErrors, ...currentFileScratchErrors]);
         }
@@ -1343,6 +1351,7 @@ let isAutoTagging = false;
 async function autoTag() {
     if (!rootInkPath || !currentFilePath) return;
     if (isAutoTagging) return;
+    if (hasInkCompileErrors) return; // Don't tag while Ink has compile errors
 
     isAutoTagging = true;
     try {
@@ -1383,6 +1392,10 @@ const debouncedDinkyModeCheck = debounce(() => {
         const targetLang = isDinky ? 'ink-dinky' : 'ink';
         if (currentLang !== targetLang) {
             monaco.editor.setModelLanguage(model, targetLang);
+            // File just became a Dink file — run a full auto-tag pass
+            if (targetLang === 'ink-dinky') {
+                autoTag();
+            }
         }
     }
 }, 500);
