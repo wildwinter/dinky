@@ -39,7 +39,8 @@ async function init() {
 
     // Get project path for relative path calculations
     const projectPath = projectConfig._projectPath;
-    const projectDir = projectPath ? projectPath.substring(0, projectPath.lastIndexOf('/')) : '';
+    const normalizedProjectPath = projectPath ? projectPath.replace(/\\/g, '/') : '';
+    const projectDir = normalizedProjectPath ? normalizedProjectPath.substring(0, normalizedProjectPath.lastIndexOf('/')) : '';
 
     // Helper function to convert relative path to absolute
     const resolveRelativePath = (relativePath) => {
@@ -51,9 +52,12 @@ async function init() {
     const makeRelativePath = (absolutePath) => {
         if (!absolutePath || !projectDir) return absolutePath;
 
+        // Normalize path separators for cross-platform compatibility
+        const normalizedAbsolute = absolutePath.replace(/\\/g, '/');
+
         // Split paths into parts
         const projectParts = projectDir.split('/');
-        const absoluteParts = absolutePath.split('/');
+        const absoluteParts = normalizedAbsolute.split('/');
 
         // Find common prefix
         let i = 0;
