@@ -1,8 +1,8 @@
 {
     "name": "dinky",
     "productName": "Dinky",
-    "version": "0.0.27",
-    "dinkVersion": "0.0.14",
+    "version": "0.0.28",
+    "dinkVersion": "0.0.15",
     "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
@@ -21,7 +21,9 @@
         "mac": {
             "category": "public.app-category.productivity",
             "icon": "build/DinkyApp.icns",
-            "identity": null,
+            "hardenedRuntime": true,
+            "gatekeeperAssess": false,
+            "notarize": true,
             "extraResources": [
                 {
                     "from": "resources/compiler/DinkCompiler",
