@@ -140,3 +140,5 @@ dist-electron
 release
 
 google-tts-key.json
+.claude
+.gemini

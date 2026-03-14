@@ -1,13 +1,14 @@
 {
     "name": "dinky",
     "productName": "Dinky",
-    "version": "0.0.28",
-    "dinkVersion": "0.0.15",
+    "version": "0.0.29",
+    "dinkVersion": "0.0.16",
     "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
         "dev": "vite",
         "start": "npm run dev",
+        "prebuild": "node scripts/sync-dink-builds.mjs",
         "build": "check-node-version --node \">=22.12\" && vite build",
         "clean": "rm -rf dist dist-electron release",
         "preview": "npm run build && electron .",

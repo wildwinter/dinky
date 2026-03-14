@@ -297,6 +297,26 @@ Define where Dinky looks for audio files to track progress.
 You can find the latest release of Dinky on GitHub:
 **[Dinky Releases](https://github.com/wildwinter/dinky/releases)**
 
+### Note on Windows Security
+
+Because this is a hobbyist project, this app is **currently not digitally signed*** for Windows. When you run the installer, Windows may show a blue "Windows protected your PC" box.
+
+To install anyway:
+
+1. Click "**More info**" on the blue popup.
+
+2. Click "**Run anyway**".
+
+Alternatively, you can right-click the .exe, select Properties, check the Unblock box at the bottom, and click OK.
+
+For more details on why Windows shows this, see the [Official Microsoft SmartScreen Documentation](https://learn.microsoft.com/en-us/windows/security/operating-system-security/virus-and-threat-protection/microsoft-defender-smartscreen/).
+
+\* *Because it costs a lot and seems to be impossible outside North America right now for individual developers. Thanks Microsoft!*
+
+### Note on Mac Security
+
+The app is signed. Because it's easier on Mac.
+
 ## Acknowledgements
 
 Dinky is built with **Electron**, **Monaco Editor**, **Inkjs**, and **dink**.

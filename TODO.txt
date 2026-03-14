@@ -1,13 +1,14 @@
 TODO:
 -----
 Play connected audio?
+Query IDs + export audio
 
 Typescript?
 Add debug/watching
 Add live compile
 Dinky icons for Unreal 
 Set up Github auto building/blockmaps/update checker
-Code signing (costs money!)
+Code signing for Windows (blocked by Microsoft's stupid rules for individuals not from North America)
 
 Done:
 ----
