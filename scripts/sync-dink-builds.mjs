@@ -12,19 +12,19 @@ const dinkRoot = resolve(root, '..', 'dink', 'csharp');
 
 const copies = [
     {
-        src: resolve(dinkRoot, 'DinkCompiler', 'bin', 'Release', 'net8.0', 'osx-arm64', 'DinkCompiler'),
+        src: resolve(dinkRoot, 'dist', 'osx-arm64', 'DinkCompiler'),
         dst: resolve(root, 'resources', 'compiler', 'DinkCompiler'),
     },
     {
-        src: resolve(dinkRoot, 'DinkCompiler', 'bin', 'Release', 'net8.0', 'win-x64', 'DinkCompiler.exe'),
+        src: resolve(dinkRoot, 'dist', 'win-x64', 'DinkCompiler.exe'),
         dst: resolve(root, 'resources', 'compiler', 'DinkCompiler.exe'),
     },
     {
-        src: resolve(dinkRoot, 'DinkViewer', 'bin', 'Release', 'net8.0', 'osx-arm64', 'DinkViewer'),
+        src: resolve(dinkRoot, 'dist', 'osx-arm64', 'DinkViewer'),
         dst: resolve(root, 'resources', 'compiler', 'DinkViewer'),
     },
     {
-        src: resolve(dinkRoot, 'DinkViewer', 'bin', 'Release', 'net8.0', 'win-x64', 'DinkViewer.exe'),
+        src: resolve(dinkRoot, 'dist', 'win-x64', 'DinkViewer.exe'),
         dst: resolve(root, 'resources', 'compiler', 'DinkViewer.exe'),
     },
 ];
