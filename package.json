@@ -2,7 +2,7 @@
     "name": "dinky",
     "productName": "Dinky",
     "version": "0.0.30",
-    "dinkVersion": "0.0.19",
+    "dinkVersion": "0.0.20",
     "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
@@ -89,7 +89,7 @@
     "license": "ISC",
     "description": "",
     "dependencies": {
-        "@wildwinter/simple-vc-lib": "file:../simple-vc-lib/js",
+        "@wildwinter/simple-vc-lib": "^0.0.5",
         "inkjs": "^2.3.2",
         "monaco-editor": "^0.50.0",
         "nspell": "^2.1.5"
