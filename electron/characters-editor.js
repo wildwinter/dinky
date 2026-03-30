@@ -1,9 +1,10 @@
-import { BrowserWindow, nativeTheme, ipcMain } from 'electron'
+import { BrowserWindow, nativeTheme, ipcMain, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import { getWindowState, saveWindowState } from './config'
 import { setupThemeListener, safeSend } from './utils'
 import { getCurrentProject } from './project-manager'
+import { vcWriteText } from './vc'
 
 let charactersWindow = null;
 
@@ -131,7 +132,7 @@ ipcMain.handle('save-characters', async (event, characters) => {
     if (!filePath) return false;
 
     try {
-        await fs.writeFile(filePath, JSON.stringify(characters, null, 4), 'utf-8');
+        vcWriteText(filePath, JSON.stringify(characters, null, 4));
 
         // Notify all windows that characters have been updated
         BrowserWindow.getAllWindows().forEach(win => {
@@ -143,6 +144,7 @@ ipcMain.handle('save-characters', async (event, characters) => {
         return true;
     } catch (error) {
         console.error('Failed to save characters:', error);
+        dialog.showErrorBox('Failed to save characters', error.message);
         return false;
     }
 });

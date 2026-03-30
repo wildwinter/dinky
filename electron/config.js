@@ -1,6 +1,7 @@
-import { app } from 'electron'
+import { app, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
+import { vcWriteText } from './vc'
 
 // Config persistence
 const configPath = path.join(app.getPath('userData'), 'config.json')
@@ -82,13 +83,11 @@ async function saveSettings(settings, immediate = false) {
 
 async function performSave() {
     saveQueue = saveQueue.then(async () => {
-        const tmpPath = `${configPath}.tmp`;
         try {
-            await fs.writeFile(tmpPath, JSON.stringify(settingsCache, null, 2));
-            await fs.rename(tmpPath, configPath);
+            vcWriteText(configPath, JSON.stringify(settingsCache, null, 2));
         } catch (error) {
             console.error('Failed to save settings:', error);
-            try { await fs.unlink(tmpPath); } catch { }
+            dialog.showErrorBox('Failed to save settings', error.message);
         }
     });
     return saveQueue;

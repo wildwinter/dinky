@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs/promises'
 import { addToRecentProjects, getProjectSetting, removeFromRecentProjects, setProjectSetting } from './config'
 import { safeSend } from './utils'
+import { vcWriteText, vcDelete, vcRename } from './vc'
 
 let currentDinkProject = null;
 let currentInkRoot = null;
@@ -41,7 +42,7 @@ async function updateProjectConfig(key, value) {
     }
 
     // Write to disk
-    await fs.writeFile(currentDinkProject.path, JSON.stringify(currentDinkProject.content, null, 2), 'utf-8');
+    vcWriteText(currentDinkProject.path, JSON.stringify(currentDinkProject.content, null, 2));
 }
 
 // Helper to recursively load ink files
@@ -246,10 +247,10 @@ async function createNewProject(win, name, parentPath) {
             };
         }
 
-        await fs.writeFile(projectFile, JSON.stringify(projectContent, null, 2), 'utf-8');
+        vcWriteText(projectFile, JSON.stringify(projectContent, null, 2));
 
         // Default Ink content
-        await fs.writeFile(inkFile, '// Add Ink content here', 'utf-8');
+        vcWriteText(inkFile, '// Add Ink content here');
 
         // Set this as the preferred ink root for this project immediately
         // This ensures it loads automatically and is remembered
@@ -274,7 +275,7 @@ async function createNewInclude(win, name, folderPath) {
 
     try {
         // Create file with valid Ink comment
-        await fs.writeFile(fullIncludePath, '// Type Ink here', 'utf-8');
+        vcWriteText(fullIncludePath, '// Type Ink here');
 
         const rootContent = await fs.readFile(currentInkRoot, 'utf-8');
         const relativePath = path.relative(path.dirname(currentInkRoot), fullIncludePath);
@@ -286,7 +287,7 @@ async function createNewInclude(win, name, folderPath) {
 
         const newContent = insertIncludeIntoContent(rootContent, includeLine);
 
-        await fs.writeFile(currentInkRoot, newContent, 'utf-8');
+        vcWriteText(currentInkRoot, newContent);
 
         const files = await loadRootInk(currentInkRoot);
         safeSend(win, 'root-ink-loaded', files);
@@ -357,11 +358,11 @@ async function createInkRoot(win) {
             // File doesn't exist, proceed
         }
 
-        await fs.writeFile(inkFile, '// Add Ink content here', 'utf-8');
+        vcWriteText(inkFile, '// Add Ink content here');
 
         // Update project JSON
         currentDinkProject.content.source = 'main.ink';
-        await fs.writeFile(projectFile, JSON.stringify(currentDinkProject.content, null, 2), 'utf-8');
+        vcWriteText(projectFile, JSON.stringify(currentDinkProject.content, null, 2));
 
         // Set preference
         await setProjectSetting(projectFile, 'lastInkRoot', inkFile);
@@ -399,8 +400,8 @@ async function renameInkRoot(win, newName) {
             // Safe
         }
 
-        // Rename file
-        await fs.rename(currentInkRoot, newPath);
+        // Rename the file, informing VC (git mv / p4 move / svn move as appropriate)
+        vcRename(currentInkRoot, newPath);
 
         // Update Project settings and source if needed
         const oldRootPath = currentInkRoot;
@@ -423,7 +424,7 @@ async function renameInkRoot(win, newName) {
                     currentDinkProject.content.source = newRelativeSource.replace(/\\/g, '/'); // Normalize slashes
 
                     // Save proj file
-                    await fs.writeFile(currentDinkProject.path, JSON.stringify(currentDinkProject.content, null, 2), 'utf-8');
+                    vcWriteText(currentDinkProject.path, JSON.stringify(currentDinkProject.content, null, 2));
                 }
             }
         }
@@ -456,7 +457,7 @@ async function createNewInkRoot(win, name, folderPath) {
             // Good
         }
 
-        await fs.writeFile(inkFile, '// Add Ink content here', 'utf-8');
+        vcWriteText(inkFile, '// Add Ink content here');
 
         // Update Project settings and source if needed
         // If we are creating a new root via this UI, we assume the user wants to switch to it
@@ -468,7 +469,7 @@ async function createNewInkRoot(win, name, folderPath) {
         // Check if it's actually inside (not starting with ..)
         if (!relative.startsWith('..') && !path.isAbsolute(relative)) {
             currentDinkProject.content.source = relative.replace(/\\/g, '/');
-            await fs.writeFile(currentDinkProject.path, JSON.stringify(currentDinkProject.content, null, 2), 'utf-8');
+            vcWriteText(currentDinkProject.path, JSON.stringify(currentDinkProject.content, null, 2));
         }
 
         // Set preference
@@ -562,7 +563,7 @@ async function chooseExistingInclude(win) {
 
         const newContent = insertIncludeIntoContent(rootContent, includeLine);
 
-        await fs.writeFile(currentInkRoot, newContent, 'utf-8');
+        vcWriteText(currentInkRoot, newContent);
 
         const files = await loadRootInk(currentInkRoot);
         safeSend(win, 'root-ink-loaded', files);
@@ -627,10 +628,10 @@ async function removeInclude(win, filePathToDelete) {
         }
 
         const newContent = newLines.join('\n');
-        await fs.writeFile(currentInkRoot, newContent, 'utf-8');
+        vcWriteText(currentInkRoot, newContent);
 
         if (shouldDeleteFile) {
-            await fs.unlink(filePathToDelete);
+            vcDelete(filePathToDelete);
         }
 
         const files = await loadRootInk(currentInkRoot);
@@ -664,8 +665,8 @@ async function renameInclude(win, oldPath, newName) {
             // Good, it doesn't exist
         }
 
-        // Rename physical file
-        await fs.rename(oldPath, newPath);
+        // Rename the file, informing VC (git mv / p4 move / svn move as appropriate)
+        vcRename(oldPath, newPath);
 
         // Update INCLUDE in Root file
         // We need to find the include line that corresponds to the old relative path
@@ -691,7 +692,7 @@ async function renameInclude(win, oldPath, newName) {
         });
 
         if (updated) {
-            await fs.writeFile(currentInkRoot, newLines.join('\n'), 'utf-8');
+            vcWriteText(currentInkRoot, newLines.join('\n'));
         } else {
             console.warn('Could not find INCLUDE line to update for rename.');
         }

@@ -14,6 +14,7 @@ import './project-settings' // Import to register IPC handlers
 import './characters-editor' // Import to register IPC handlers
 import './audio-lookup' // Import to register IPC handlers
 import { safeSend, setupThemeListener } from './utils'
+import { vcWriteText } from './vc'
 import pkg from '../package.json'
 
 if (process.platform === 'win32') {
@@ -25,7 +26,7 @@ app.setAboutPanelOptions({
     applicationVersion: app.getVersion(),
     version: '',
     copyright: 'Copyright © 2026 Ian Thomas',
-    credits: `Powered by inkjs v${pkg.inkjsVersion} and Dink v${pkg.dinkVersion}`
+    credits: `Powered by inkjs v${pkg.inkjsVersion}, Dink v${pkg.dinkVersion} and simple-vc-lib v${__VC_LIB_VERSION__}`
 })
 
 // Wire up the menu rebuild callback
@@ -297,12 +298,17 @@ if (!gotTheLock) {
 
     // Save files handling
     ipcMain.handle('save-files', async (event, files) => {
+        const errors = [];
         for (const { path: filePath, content } of files) {
             try {
-                await fs.writeFile(filePath, content, 'utf-8');
+                vcWriteText(filePath, content);
             } catch (e) {
                 console.error('Failed to save file', filePath, e);
+                errors.push(`${path.basename(filePath)}: ${e.message}`);
             }
+        }
+        if (errors.length > 0) {
+            dialog.showErrorBox('Failed to save files', errors.join('\n'));
         }
     });
 
@@ -830,10 +836,11 @@ if (!gotTheLock) {
             let lines = content.split('\n').map(l => l.trim()).filter(l => l);
             if (!lines.includes(word)) {
                 lines.push(word);
-                await fs.writeFile(dictPath, lines.join('\n') + '\n', 'utf-8');
+                vcWriteText(dictPath, lines.join('\n') + '\n');
             }
         } catch (e) {
             console.error('Failed to update dictionary', e);
+            dialog.showErrorBox('Failed to update dictionary', e.message);
         }
     });
 
@@ -849,7 +856,7 @@ if (!gotTheLock) {
             try {
                 await fs.access(dictPath);
             } catch {
-                await fs.writeFile(dictPath, '', 'utf-8');
+                vcWriteText(dictPath, '');
             }
 
             // Open with system default
@@ -933,11 +940,12 @@ if (!gotTheLock) {
 
             chars.push({ ID: characterId, Actor: "" });
 
-            await fs.writeFile(targetPath, JSON.stringify(chars, null, 4), 'utf-8');
+            vcWriteText(targetPath, JSON.stringify(chars, null, 4));
             return true;
 
         } catch (e) {
             console.error('Failed to add character to project', e);
+            dialog.showErrorBox('Failed to add character', e.message);
             return false;
         }
     });

@@ -1,7 +1,8 @@
-import { ipcMain } from 'electron'
+import { ipcMain, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import { getCurrentProject } from './project-manager'
+import { vcWriteBinary } from './vc'
 
 const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'];
 
@@ -316,10 +317,11 @@ ipcMain.handle('update-audio-hash', async (event, filePath, newHash) => {
 
         if (!updatedData) return { success: false, error: 'Could not find DINK hash in file' };
 
-        await fs.writeFile(filePath, updatedData);
+        vcWriteBinary(filePath, updatedData);
         return { success: true };
     } catch (error) {
         console.error('Failed to update audio hash:', error);
+        dialog.showErrorBox('Failed to update audio hash', error.message);
         return { success: false, error: error.message };
     }
 });
@@ -410,11 +412,12 @@ ipcMain.handle('save-scratch-audio', async (event, lineId, audioArrayBuffer, fol
 
         const filePath = path.join(folderPath, `${lineId}.${ext}`);
         const buffer = Buffer.from(audioArrayBuffer);
-        await fs.writeFile(filePath, buffer);
+        vcWriteBinary(filePath, buffer);
 
         return { success: true, path: filePath };
     } catch (error) {
         console.error('Failed to save scratch audio:', error);
+        dialog.showErrorBox('Failed to save audio recording', error.message);
         return { success: false, error: error.message };
     }
 });

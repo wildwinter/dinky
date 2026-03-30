@@ -1,6 +1,12 @@
 import { defineConfig } from 'vite'
 import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
+
+const vcLibVersion = JSON.parse(
+    readFileSync(resolve('./node_modules/@wildwinter/simple-vc-lib/package.json'), 'utf-8')
+).version;
 
 export default defineConfig({
     base: './',
@@ -22,6 +28,9 @@ export default defineConfig({
                 // Main-Process entry file of the Electron App.
                 entry: 'electron/main.js',
                 vite: {
+                    define: {
+                        __VC_LIB_VERSION__: JSON.stringify(vcLibVersion),
+                    },
                     build: {
                         rollupOptions: {
                             external: ['inkjs', 'inkjs/full'],

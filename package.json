@@ -1,8 +1,8 @@
 {
     "name": "dinky",
     "productName": "Dinky",
-    "version": "0.0.29",
-    "dinkVersion": "0.0.18",
+    "version": "0.0.30",
+    "dinkVersion": "0.0.19",
     "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
@@ -14,7 +14,8 @@
         "preview": "npm run build && electron .",
         "dist-mac": "npm run clean && npm run build && electron-builder --mac",
         "dist-win": "npm run clean && npm run build && electron-builder --win --x64",
-        "dist": "npm run clean && npm run build && electron-builder --mac && electron-builder --win --x64"
+        "dist": "npm run clean && npm run build && electron-builder --mac && electron-builder --win --x64",
+        "test": "npm run build && mocha"
     },
     "build": {
         "appId": "net.wildwinter.dinky",
@@ -88,14 +89,17 @@
     "license": "ISC",
     "description": "",
     "dependencies": {
+        "@wildwinter/simple-vc-lib": "file:../simple-vc-lib/js",
         "inkjs": "^2.3.2",
         "monaco-editor": "^0.50.0",
         "nspell": "^2.1.5"
     },
     "devDependencies": {
+        "chai": "^6.2.2",
         "check-node-version": "^4.2.1",
         "electron": "^40.0.0",
         "electron-builder": "^26.4.0",
+        "mocha": "^11.7.5",
         "vite": "^7.3.1",
         "vite-plugin-electron": "^0.28.0",
         "vite-plugin-electron-renderer": "^0.14.5"
