@@ -1,5 +1,6 @@
 TODO:
 -----
+BUG: Need to repoll recorded audio after running dink compile (as TTS might have been generated)
 Play connected audio?
 Query IDs + export audio
 
