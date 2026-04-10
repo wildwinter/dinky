@@ -1,14 +1,14 @@
 {
     "name": "dinky",
     "productName": "Dinky",
-    "version": "0.0.31",
-    "dinkVersion": "0.0.21",
+    "version": "0.0.32",
+    "dinkVersion": "0.0.22",
     "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
         "dev": "vite",
         "start": "npm run dev",
-        "prebuild": "node scripts/sync-dink-builds.mjs",
+        "prebuild": "node scripts/update-simple-vc-lib.mjs && node scripts/sync-dink-builds.mjs",
         "build": "node scripts/check-node.mjs && vite build",
         "clean": "shx rm -rf dist dist-electron release",
         "preview": "npm run build && electron .",
@@ -89,7 +89,7 @@
     "license": "ISC",
     "description": "",
     "dependencies": {
-        "@wildwinter/simple-vc-lib": "^0.0.6",
+        "@wildwinter/simple-vc-lib": "^0.0.7",
         "inkjs": "^2.3.2",
         "monaco-editor": "^0.50.0",
         "nspell": "^2.1.5"
