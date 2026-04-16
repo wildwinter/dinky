@@ -35,7 +35,8 @@ setMenuRebuildCallback(buildMenu);
 
 let mainWindow = null;
 let fileToOpen = null; // Store file path to open on startup
-let pendingAction = null; // { type: 'close' } or { type: 'load', path: '...' }
+let inkFileToOpen = null; // Optional .ink file to activate after loading a project
+let pendingAction = null; // { type: 'close' } or { type: 'load', path: '...', inkPath: '...' }
 
 // Handle file association on macOS
 app.on('open-file', (event, filePath) => {
@@ -64,18 +65,15 @@ if (!gotTheLock) {
             if (mainWindow.isMinimized()) mainWindow.restore();
             mainWindow.focus();
 
-            // Windows: Extract file path from command line arguments
+            // Extract file paths from command line arguments
             const filePath = commandLine.find(arg => arg.endsWith('.dinkproj'));
+            const inkPath = commandLine.find(arg => arg.endsWith('.ink'));
             if (filePath) {
-                // Trigger safe load check
-                pendingAction = { type: 'load', path: filePath };
+                pendingAction = { type: 'load', path: filePath, inkPath: inkPath || null };
                 safeSend(mainWindow, 'check-unsaved');
-            } else {
-                const inkPath = commandLine.find(arg => arg.endsWith('.ink'));
-                if (inkPath) {
-                    pendingAction = { type: 'load', path: inkPath };
-                    safeSend(mainWindow, 'check-unsaved');
-                }
+            } else if (inkPath) {
+                pendingAction = { type: 'load', path: inkPath };
+                safeSend(mainWindow, 'check-unsaved');
             }
         }
     });
@@ -125,14 +123,16 @@ if (!gotTheLock) {
         win.webContents.on('did-finish-load', async () => {
             updateTheme()
 
-            // Check if we have a file to open (Mac or Windows/Linux)
-            if (process.platform === 'win32') {
-                const filePath = process.argv.find(arg => arg.endsWith('.dinkproj'));
-                if (filePath) {
-                    fileToOpen = filePath;
-                } else {
-                    const inkPath = process.argv.find(arg => arg.endsWith('.ink'));
-                    if (inkPath) fileToOpen = inkPath;
+            // Check command line args for files to open (all platforms).
+            // On macOS, fileToOpen may already be set via the open-file event (file association).
+            if (!fileToOpen) {
+                const argProjPath = process.argv.find(arg => arg.endsWith('.dinkproj'));
+                const argInkPath = process.argv.find(arg => arg.endsWith('.ink'));
+                if (argProjPath) {
+                    fileToOpen = argProjPath;
+                    inkFileToOpen = argInkPath || null;
+                } else if (argInkPath) {
+                    fileToOpen = argInkPath;
                 }
             }
 
@@ -140,12 +140,16 @@ if (!gotTheLock) {
                 console.log('Opening file from association:', fileToOpen);
 
                 if (fileToOpen.endsWith('.dinkproj')) {
-                    await loadProject(win, fileToOpen);
+                    const loaded = await loadProject(win, fileToOpen);
+                    if (loaded && inkFileToOpen) {
+                        await switchToInkRoot(win, inkFileToOpen);
+                    }
                 } else if (fileToOpen.endsWith('.ink')) {
                     await openInkFile(win, fileToOpen);
                 }
 
-                fileToOpen = null; // Clear it
+                fileToOpen = null;
+                inkFileToOpen = null;
                 return;
             }
 
@@ -253,7 +257,10 @@ if (!gotTheLock) {
             win.close();
         } else if (pendingAction.type === 'load') {
             if (pendingAction.path.endsWith('.dinkproj')) {
-                await loadProject(win, pendingAction.path);
+                const loaded = await loadProject(win, pendingAction.path);
+                if (loaded && pendingAction.inkPath) {
+                    await switchToInkRoot(win, pendingAction.inkPath);
+                }
             } else if (pendingAction.path.endsWith('.ink')) {
                 await openInkFile(win, pendingAction.path);
             }
@@ -317,20 +324,29 @@ if (!gotTheLock) {
 
 
     async function openInkFile(win, filePath) {
-        const dir = path.dirname(filePath);
+        // Walk up the directory tree to find a .dinkproj (like git finds .git)
+        async function findDinkProj(dir) {
+            while (true) {
+                try {
+                    const files = await fs.readdir(dir);
+                    const dinkProj = files.find(f => f.endsWith('.dinkproj'));
+                    if (dinkProj) return path.join(dir, dinkProj);
+                } catch {
+                    return null;
+                }
+                const parent = path.dirname(dir);
+                if (parent === dir) return null; // reached filesystem root
+                dir = parent;
+            }
+        }
 
         try {
-            // Check for sibling .dinkproj
-            const files = await fs.readdir(dir);
-            const dinkProj = files.find(f => f.endsWith('.dinkproj'));
+            const projectPath = await findDinkProj(path.dirname(filePath));
 
-            if (dinkProj) {
-                const projectPath = path.join(dir, dinkProj);
-                console.log('Found sibling project, loading that:', projectPath);
-
+            if (projectPath) {
+                console.log('Found project, loading:', projectPath);
                 const loaded = await loadProject(win, projectPath);
                 if (loaded) {
-                    // Force switch to the opened file as the root
                     await switchToInkRoot(win, filePath);
                 }
             } else {
