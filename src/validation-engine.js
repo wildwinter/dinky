@@ -3,6 +3,17 @@
  * Handles character name and writing status tag validation
  */
 
+const DINKY_LINE_REGEXES = [
+    // Plain: NAME (qual): (dir) Text
+    { regex: /^(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/, nameIndex: 2, getPrefixLength: m => m[1].length },
+    // Gather: - NAME (qual): (dir) Text
+    { regex: /^(\s*-\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/, nameIndex: 2, getPrefixLength: m => m[1].length },
+    // Bracketed: * [NAME (qual): (dir) Text
+    { regex: /^(\s*[\*\+-]+\s*\[\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^\]/#]|\/(?![/*]))*)/, nameIndex: 2, getPrefixLength: m => m[1].length }
+];
+
+const WS_TAG_REGEX = /#ws:(\S+)/g;
+
 /**
  * Compute a solid contrasting background color for a given RGB text color.
  * Light text colors (e.g. yellow) get a dark background; dark text colors get a light one.
@@ -82,16 +93,6 @@ export class ValidationEngine {
         const markers = [];
         const validIds = new Set(this.projectCharacters.map(c => c.ID));
 
-        // Regexes to capture Name in Dinky lines
-        const dinkyLineRegexes = [
-            // Plain: NAME (qual): (dir) Text
-            { regex: /^(\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/, nameIndex: 2, getPrefixLength: m => m[1].length },
-            // Gather: - NAME (qual): (dir) Text
-            { regex: /^(\s*-\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^/#]|\/(?![/*]))*)/, nameIndex: 2, getPrefixLength: m => m[1].length },
-            // Bracketed: * [NAME (qual): (dir) Text
-            { regex: /^(\s*[\*\+-]+\s*\[\s*)([A-Z0-9_]+)(\s*)(\(.*?\)|)(\s*)(:)(\s*)(\(.*?\)|)(\s*)((?:[^\]/#]|\/(?![/*]))*)/, nameIndex: 2, getPrefixLength: m => m[1].length }
-        ];
-
         // Check Global Mode
         const isGlobalDinky = detectDinkyGlobal(text);
         let inDinkyContext = isGlobalDinky;
@@ -122,7 +123,7 @@ export class ValidationEngine {
 
             let match = null;
             let rule = null;
-            for (const r of dinkyLineRegexes) {
+            for (const r of DINKY_LINE_REGEXES) {
                 match = line.match(r.regex);
                 if (match) {
                     rule = r;
@@ -171,15 +172,8 @@ export class ValidationEngine {
         const markers = [];
         const validTags = new Set(this.projectWritingStatusTags.map(ws => ws.wstag));
 
-        // Regex to capture #ws:tag
-        const wsTagRegex = /#ws:(\S+)/g;
-
         lines.forEach((line, index) => {
-            let match;
-            // Reset regex for each line
-            wsTagRegex.lastIndex = 0;
-
-            while ((match = wsTagRegex.exec(line)) !== null) {
+            for (const match of line.matchAll(WS_TAG_REGEX)) {
                 const tag = match[1];
                 const tagStartCol = match.index + 1; // +1 for Monaco 1-based columns
                 const tagEndCol = tagStartCol + match[0].length;
@@ -193,7 +187,7 @@ export class ValidationEngine {
                         endLineNumber: index + 1,
                         endColumn: tagEndCol,
                         source: 'ws-validator',
-                        code: tag // Store tag for quick fix
+                        code: tag
                     });
                 }
             }
@@ -233,15 +227,8 @@ export class ValidationEngine {
             }
         });
 
-        // Regex to capture #ws:tag
-        const wsTagRegex = /#ws:(\S+)/g;
-
         lines.forEach((line, index) => {
-            let match;
-            // Reset regex for each line
-            wsTagRegex.lastIndex = 0;
-
-            while ((match = wsTagRegex.exec(line)) !== null) {
+            for (const match of line.matchAll(WS_TAG_REGEX)) {
                 const tag = match[1];
                 const color = tagColorMap.get(tag);
 

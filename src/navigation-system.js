@@ -31,13 +31,6 @@ export class NavigationSystem {
     }
 
     /**
-     * Set reference to loadedInkFiles Map
-     */
-    setLoadedInkFiles(filesRef) {
-        this.loadedInkFiles = filesRef;
-    }
-
-    /**
      * Parse all files in the project to extract file/knot/stitch structure
      * Uses caching to avoid reparsing when structure hasn't changed
      */

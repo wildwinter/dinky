@@ -1,5 +1,8 @@
 import nspell from 'nspell';
 
+const IGNORED_TOKEN_TYPES = ['code', 'keyword', 'comment', 'annotation', 'type', 'delimiter', 'function', 'dinky.name', 'dinky.qualifier', 'dinky.direction'];
+const WORD_REGEX = /[a-zA-Z']+/g;
+
 export class DinkySpellChecker {
     constructor() {
         this.spell = null;
@@ -92,24 +95,20 @@ export class DinkySpellChecker {
         const languageId = model.getLanguageId();
         const tokenizedLines = monaco.editor.tokenize(text, languageId);
 
-        const wordRegex = /[a-zA-Z']+/g;
-
         for (let i = 1; i <= lineCount; i++) {
             const lineContent = model.getLineContent(i);
             if (/^\s*~/.test(lineContent)) continue; // Skip lines starting with ~
             const lineTokens = tokenizedLines[i - 1]; // tokenize returns array matching lines, 0-indexed
 
-            wordRegex.lastIndex = 0;
+            WORD_REGEX.lastIndex = 0;
             let match;
-            while ((match = wordRegex.exec(lineContent)) !== null) {
+            while ((match = WORD_REGEX.exec(lineContent)) !== null) {
                 const word = match[0];
                 if (word.length < 2) continue; // Skip single letters
 
                 const startCol = match.index;
 
-                // Find token covering this word
-                // Tokens are objects: { offset: number, type: string, language: string }
-                // We find the token with the largest offset that is <= startCol
+                // Find the token with the largest offset <= startCol
                 let tokenType = '';
                 if (lineTokens) {
                     for (let t = 0; t < lineTokens.length; t++) {
@@ -121,11 +120,7 @@ export class DinkySpellChecker {
                     }
                 }
 
-                // If it's a special token (code, keyword, comment, annotation), skip it.
-                // We change to a blocklist approach to be safer:
-                // If it looks like code, skip it. If it's unknown or empty, check it.
-                const ignoredTypes = ['code', 'keyword', 'comment', 'annotation', 'type', 'delimiter', 'function', 'dinky.name', 'dinky.qualifier', 'dinky.direction'];
-                const isIgnored = ignoredTypes.some(t => tokenType.indexOf(t) !== -1);
+                const isIgnored = IGNORED_TOKEN_TYPES.some(t => tokenType.indexOf(t) !== -1);
 
                 if (isIgnored) continue;
 
@@ -154,9 +149,6 @@ export class DinkySpellChecker {
         const languageId = model.getLanguageId();
         const tokenizedLines = monaco.editor.tokenize(text, languageId);
 
-        const wordRegex = /[a-zA-Z']+/g;
-        const ignoredTypes = ['code', 'keyword', 'comment', 'annotation', 'type', 'delimiter', 'function', 'dinky.name', 'dinky.qualifier', 'dinky.direction'];
-
         for (const i of lineNumbers) {
             if (i < 1 || i > model.getLineCount()) continue;
 
@@ -164,9 +156,9 @@ export class DinkySpellChecker {
             if (/^\s*~/.test(lineContent)) continue;
             const lineTokens = tokenizedLines[i - 1];
 
-            wordRegex.lastIndex = 0;
+            WORD_REGEX.lastIndex = 0;
             let match;
-            while ((match = wordRegex.exec(lineContent)) !== null) {
+            while ((match = WORD_REGEX.exec(lineContent)) !== null) {
                 const word = match[0];
                 if (word.length < 2) continue;
 
@@ -183,7 +175,7 @@ export class DinkySpellChecker {
                     }
                 }
 
-                const isIgnored = ignoredTypes.some(t => tokenType.indexOf(t) !== -1);
+                const isIgnored = IGNORED_TOKEN_TYPES.some(t => tokenType.indexOf(t) !== -1);
                 if (isIgnored) continue;
 
                 if (!this.spell.correct(word)) {

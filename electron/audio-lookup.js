@@ -4,7 +4,7 @@ import fs from 'fs/promises'
 import { getCurrentProject } from './project-manager'
 import { vcWriteBinary } from './vc'
 
-const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'];
+const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg']);
 
 const MIME_TYPES = {
     '.mp3': 'audio/mpeg',
@@ -25,7 +25,7 @@ async function findAudioInFolder(folderPath, lineId) {
         const entries = await fs.readdir(folderPath);
         for (const entry of entries) {
             const ext = path.extname(entry).toLowerCase();
-            if (!AUDIO_EXTENSIONS.includes(ext)) continue;
+            if (!AUDIO_EXTENSIONS.has(ext)) continue;
             const baseName = path.basename(entry, ext);
             if (baseName === lineId || baseName.startsWith(lineId + '_') || baseName.startsWith(lineId + '-') || baseName.startsWith(lineId + '.')) {
                 // Check it starts with lineId as a complete prefix
@@ -220,7 +220,7 @@ async function listLineIdsInFolder(folderPath) {
         const entries = await fs.readdir(folderPath);
         for (const entry of entries) {
             const ext = path.extname(entry).toLowerCase();
-            if (!AUDIO_EXTENSIONS.includes(ext)) continue;
+            if (!AUDIO_EXTENSIONS.has(ext)) continue;
             const lineId = path.basename(entry, ext);
             result[lineId] = path.join(folderPath, entry);
         }
