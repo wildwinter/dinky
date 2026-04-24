@@ -1,8 +1,8 @@
 {
     "name": "dinky",
     "productName": "Dinky",
-    "version": "0.0.35",
-    "dinkVersion": "0.0.25",
+    "version": "0.0.36",
+    "dinkVersion": "0.0.26",
     "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
