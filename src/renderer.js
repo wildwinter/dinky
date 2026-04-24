@@ -1586,9 +1586,9 @@ function isDinkyAtPosition(model, position) {
 
 const COMMENT_TYPE_DESCRIPTIONS = {
     'Scene Comment':  'Applies to the whole scene (knot).',
-    'Block Comment':  'Applies to this stitch block.',
+    'Block Comment':  'Applies to this whole block (stitch).',
     'Group Comment':  'Applies to all entries in this shuffle/once/stopping group.',
-    'Beat Comment':   'Applies to the next dialogue line or action beat.',
+    'Beat Comment':   'Applies to this dialogue line or action beat.',
     'Snippet Comment':'Applies to this snippet (multi-line exchange).',
     'Option Comment': 'Appears as context before the response to this choice.',
 };
