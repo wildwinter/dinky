@@ -12,6 +12,7 @@ import { initTooltips } from './tooltipManager';
 import { ModelPool } from './model-pool';
 import { ValidationEngine } from './validation-engine';
 import { escapeRegExp, levenshtein, debounce } from './utils/string-utilities';
+import { classifyCommentAtLine, findLineCommentStart } from './comment-classifier';
 
 // Add platform-specific CSS class
 if (window.electronAPI.platform === 'win32') {
@@ -1579,6 +1580,45 @@ function isDinkyAtPosition(model, position) {
             }));
 
             return { suggestions };
+        }
+    });
+});
+
+const COMMENT_TYPE_DESCRIPTIONS = {
+    'Scene Comment':  'Applies to the whole scene (knot).',
+    'Block Comment':  'Applies to this stitch block.',
+    'Group Comment':  'Applies to all entries in this shuffle/once/stopping group.',
+    'Beat Comment':   'Applies to the next dialogue line or action beat.',
+    'Snippet Comment':'Applies to this snippet (multi-line exchange).',
+    'Option Comment': 'Appears as context before the response to this choice.',
+};
+
+
+// Dink comment type hover tooltips
+['ink', 'ink-dinky'].forEach(lang => {
+    monaco.languages.registerHoverProvider(lang, {
+        provideHover(model, position) {
+            const text = model.getLineContent(position.lineNumber);
+            const commentStart = findLineCommentStart(text);
+            if (commentStart < 0) return null;
+
+            const lines = model.getValue().split(/\r?\n/);
+            const lineIndex = position.lineNumber - 1;
+            const columnIndex = position.column - 1;
+            const isDinkyGlobal = lang === 'ink-dinky';
+
+            const type = classifyCommentAtLine(lines, lineIndex, columnIndex, isDinkyGlobal);
+            if (!type) return null;
+
+            return {
+                range: new monaco.Range(
+                    position.lineNumber, commentStart + 1,
+                    position.lineNumber, text.length + 1
+                ),
+                contents: [
+                    { value: `**${type}** — ${COMMENT_TYPE_DESCRIPTIONS[type] || ''}` }
+                ]
+            };
         }
     });
 });
