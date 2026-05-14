@@ -16,6 +16,7 @@ import './audio-lookup' // Import to register IPC handlers
 import { safeSend, setupThemeListener } from './utils'
 import { vcWriteText } from './vc'
 import pkg from '../package.json'
+import { startBackgroundUpdateCheck } from './updater'
 
 if (process.platform === 'win32') {
     app.setAppUserModelId('net.wildwinter.dinky')
@@ -735,6 +736,7 @@ if (!gotTheLock) {
 
     app.whenReady().then(() => {
         createWindow()
+        startBackgroundUpdateCheck()
 
         app.on('activate', () => {
             if (BrowserWindow.getAllWindows().length === 0) {

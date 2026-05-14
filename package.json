@@ -15,17 +15,32 @@
         "dist-mac": "npm run clean && npm run build && electron-builder --mac",
         "dist-win": "npm run clean && npm run build && electron-builder --win --x64",
         "dist": "npm run clean && npm run build && electron-builder --mac && electron-builder --win --x64",
+        "publish-mac": "npm run clean && npm run build && electron-builder --mac --publish always",
+        "publish-win": "npm run clean && npm run build && electron-builder --win --x64 --publish always",
+        "publish": "npm run clean && npm run build && electron-builder --mac --publish always && electron-builder --win --x64 --publish always",
+        "release:patch": "npm version patch && git push --follow-tags && npm run publish",
+        "release:minor": "npm version minor && git push --follow-tags && npm run publish",
+        "release:major": "npm version major && git push --follow-tags && npm run publish",
         "test": "npm run build && mocha"
     },
     "build": {
         "appId": "net.wildwinter.dinky",
         "productName": "Dinky",
+        "publish": {
+            "provider": "github",
+            "owner": "wildwinter",
+            "repo": "dinky"
+        },
         "mac": {
             "category": "public.app-category.productivity",
             "icon": "build/DinkyApp.icns",
             "hardenedRuntime": true,
             "gatekeeperAssess": false,
             "notarize": true,
+            "target": [
+                "dmg",
+                "zip"
+            ],
             "extraResources": [
                 {
                     "from": "resources/compiler/DinkCompiler",
@@ -90,6 +105,7 @@
     "description": "",
     "dependencies": {
         "@wildwinter/simple-vc-lib": "^0.0.9",
+        "electron-updater": "^6.8.3",
         "inkjs": "^2.3.2",
         "monaco-editor": "^0.50.0",
         "nspell": "^2.1.5"

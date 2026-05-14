@@ -6,6 +6,7 @@ import { openSearchWindow } from './search'
 import { openSettingsWindow } from './settings'
 import { openProjectSettingsWindow } from './project-settings'
 import { safeSend } from './utils'
+import { manualCheckForUpdates } from './updater'
 
 let recordingMode = false;
 
@@ -68,6 +69,10 @@ async function buildMenu(win) {
             label: app.name,
             submenu: [
                 { role: 'about' },
+                {
+                    label: 'Check for Updates...',
+                    click: () => manualCheckForUpdates(win)
+                },
                 { type: 'separator' },
                 {
                     label: 'Settings...',
@@ -329,6 +334,11 @@ async function buildMenu(win) {
         ...(isMac ? [] : [{
             label: 'Help',
             submenu: [
+                {
+                    label: 'Check for Updates...',
+                    click: () => manualCheckForUpdates(win)
+                },
+                { type: 'separator' },
                 {
                     label: 'About Dinky',
                     click: () => app.showAboutPanel()
