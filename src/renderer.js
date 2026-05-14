@@ -13,6 +13,7 @@ import { ModelPool } from './model-pool';
 import { ValidationEngine } from './validation-engine';
 import { escapeRegExp, levenshtein, debounce } from './utils/string-utilities';
 import { classifyCommentAtLine, findLineCommentStart } from './comment-classifier';
+import { initSidebarResizer } from './sidebar-resizer';
 
 // Add platform-specific CSS class
 if (window.electronAPI.platform === 'win32') {
@@ -25,6 +26,9 @@ if (window.electronAPI.platform === 'win32') {
 
 // Initialize tooltip system
 initTooltips();
+
+// Initialize draggable sidebar resizer (loads persisted width)
+initSidebarResizer();
 
 // Initialize Monaco worker environment
 configureMonacoWorkers();

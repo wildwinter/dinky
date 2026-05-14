@@ -39,6 +39,9 @@ body {
 
 #sidebar {
     width: 200px;
+    flex: 0 0 auto;
+    min-width: 150px;
+    max-width: 600px;
     background-color: var(--sidebar-bg);
     border-right: 1px solid var(--sidebar-border);
     color: var(--text-color);
@@ -47,6 +50,30 @@ body {
     display: flex;
     flex-direction: column;
     height: 100%;
+}
+
+#sidebar-resizer {
+    flex: 0 0 5px;
+    width: 5px;
+    cursor: col-resize;
+    background-color: transparent;
+    height: 100%;
+    margin-left: -2px;
+    margin-right: -2px;
+    z-index: 10;
+    position: relative;
+    user-select: none;
+}
+
+#sidebar-resizer:hover,
+#sidebar-resizer.dragging {
+    background-color: var(--sidebar-border);
+}
+
+body.resizing-sidebar,
+body.resizing-sidebar * {
+    cursor: col-resize !important;
+    user-select: none !important;
 }
 
 #file-list {
@@ -82,12 +109,11 @@ body {
 }
 
 #main-content {
-    flex-grow: 1;
+    flex: 1 1 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     height: 100%;
-    width: calc(100% - 200px);
-    /* Fill remaining width */
     overflow: hidden;
 }
 
