@@ -327,4 +327,6 @@ Obviously, huge thanks to [Inkle](https://www.inklestudios.com/) (and **Joseph H
 
 This is licensed under the MIT license - you should find it in the root folder. If you're successfully or unsuccessfully using this tool, I'd love to hear about it!
 
+Third-party licenses for bundled components (dictionaries, Dink compiler, and npm dependencies) are documented in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
 You can find me [on Medium, here](https://wildwinter.medium.com/).

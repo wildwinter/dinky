@@ -101,7 +101,7 @@
     },
     "keywords": [],
     "author": "Ian Thomas",
-    "license": "ISC",
+    "license": "MIT",
     "description": "",
     "dependencies": {
         "@wildwinter/simple-vc-lib": "^0.0.9",
