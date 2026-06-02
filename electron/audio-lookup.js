@@ -6,6 +6,20 @@ import { vcWriteBinary } from './vc'
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg']);
 
+// Log audio-folder IO failures once per (operation, folder) per session.
+// ENOENT is treated as legitimate "user hasn't recorded yet" and stays silent
+// — anything else (EACCES, ENOTDIR, EIO, network-mount blips) gets a loud
+// console.error so the cause is at least visible in dev tools instead of
+// silently flooding the UI with "Missing scratch audio" markers.
+const _audioErrorsSurfaced = new Set();
+function logAudioError(label, folderPath, error) {
+    if (!error || error.code === 'ENOENT') return;
+    const key = `${label}:${folderPath}`;
+    if (_audioErrorsSurfaced.has(key)) return;
+    _audioErrorsSurfaced.add(key);
+    console.error(`[audio-lookup] ${label} failed for ${folderPath}: ${error.message} (code: ${error.code || 'unknown'})`);
+}
+
 const MIME_TYPES = {
     '.mp3': 'audio/mpeg',
     '.wav': 'audio/wav',
@@ -32,8 +46,8 @@ async function findAudioInFolder(folderPath, lineId) {
                 return path.join(folderPath, entry);
             }
         }
-    } catch {
-        // Folder doesn't exist or can't be read
+    } catch (e) {
+        logAudioError('findAudioInFolder', folderPath, e);
     }
     return null;
 }
@@ -108,7 +122,8 @@ ipcMain.handle('read-audio-file', async (event, filePath) => {
         const buffer = await fs.readFile(filePath);
         const base64 = buffer.toString('base64');
         return `data:${mimeType};base64,${base64}`;
-    } catch {
+    } catch (e) {
+        logAudioError('read-audio-file', filePath, e);
         return null;
     }
 });
@@ -132,8 +147,8 @@ ipcMain.handle('read-audio-hash', async (event, filePath) => {
         } finally {
             await fd.close();
         }
-    } catch {
-        // File doesn't exist or can't be read
+    } catch (e) {
+        logAudioError('read-audio-hash', filePath, e);
     }
     return null;
 });
@@ -224,8 +239,8 @@ async function listLineIdsInFolder(folderPath) {
             const lineId = path.basename(entry, ext);
             result[lineId] = path.join(folderPath, entry);
         }
-    } catch {
-        // Folder doesn't exist
+    } catch (e) {
+        logAudioError('listLineIdsInFolder', folderPath, e);
     }
     return result;
 }

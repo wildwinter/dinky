@@ -83,25 +83,33 @@ export async function openSettingsWindow(parentWindow) {
 // IPC handlers for settings logic
 ipcMain.handle('set-theme', async (event, themeMode) => {
     nativeTheme.themeSource = themeMode;
-    await saveSettings({ theme: themeMode });
+    const result = await saveSettings({ theme: themeMode });
 
     // Notify all windows? setupThemeListener handles the nativeTheme 'updated' event for UI colors,
     // but we might want to ensure 'themeSource' prop is propagated if needed.
-    // Notify settings window to update UI state (like the theme dropdown)
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
+    // Notify settings window to update UI state (like the theme dropdown) —
+    // only if the persist actually succeeded, otherwise the dropdown would
+    // show a value that isn't on disk.
+    if (result?.ok && settingsWindow && !settingsWindow.isDestroyed()) {
         safeSend(settingsWindow, 'settings-updated', { theme: themeMode });
     }
+    return result || { ok: false, reason: 'no-result' };
 });
 
 ipcMain.handle('set-setting', async (event, key, value) => {
     const s = {};
     s[key] = value;
-    await saveSettings(s);
+    const result = await saveSettings(s);
 
-    // Broadcast to all windows
-    BrowserWindow.getAllWindows().forEach(w => {
-        if (!w.isDestroyed()) {
-            safeSend(w, 'settings-updated', s);
-        }
-    });
+    // Only broadcast and report success if the value was actually written to
+    // disk. Otherwise the renderer would think the value persisted when
+    // performSave silently refused (corrupt config) or failed (write error).
+    if (result?.ok) {
+        BrowserWindow.getAllWindows().forEach(w => {
+            if (!w.isDestroyed()) {
+                safeSend(w, 'settings-updated', s);
+            }
+        });
+    }
+    return result || { ok: false, reason: 'no-result' };
 });

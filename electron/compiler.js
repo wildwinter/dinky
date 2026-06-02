@@ -246,14 +246,27 @@ async function compileStory(content, filePath, projectFiles = {}) {
     const compiler = prepareCompiler(content, filePath, projectFiles, errorHandler);
     const story = compiler.Compile()
 
+    // Distinguish warnings from real errors — Ink's compiler prefixes message
+    // strings with "WARNING:" / "ERROR:" / "TODO:". Warnings and TODOs are
+    // safe to ignore; running the test window with a story the compiler
+    // flagged as ERROR is not. Previously we logged + continued for both,
+    // which let half-broken stories run silently.
+    const realErrors = collectedErrors.filter(m => {
+        const upper = (m || '').toUpperCase();
+        return !upper.startsWith('WARNING:') && !upper.startsWith('TODO:');
+    });
+
     if (collectedErrors.length > 0) {
-        // Log errors but continue if possible
-        console.error('Story compilation warnings/errors:', collectedErrors);
+        console.error('Story compilation messages:', collectedErrors);
     }
 
-    // Checks if the compilation succeeded
+    if (realErrors.length > 0) {
+        throw new Error('Compilation failed:\n' + realErrors.join('\n'));
+    }
+
     if (!story) {
-        throw new Error("Compilation failed: " + collectedErrors.join('\n'))
+        throw new Error('Compilation failed: compiler produced no story' +
+            (collectedErrors.length ? '\n' + collectedErrors.join('\n') : ''));
     }
 
     return story.ToJson()
@@ -262,8 +275,15 @@ async function compileStory(content, filePath, projectFiles = {}) {
 function parseInk(content, filePath, projectFiles = {}) {
     content = removeBOM(content);
 
-    // Silent error handler for parsing - we don't want to spam console for every keystroke
-    const errorHandler = (msg, type) => { };
+    // Capture errors instead of silently dropping them. parseInk is called
+    // frequently (autotag pipeline on every save), so we don't pop dialogs —
+    // but we DO log a warning when a parse fails AND _parsedStory is missing,
+    // so the user has a breadcrumb in dev tools if auto-tagging mysteriously
+    // stops working.
+    const collectedErrors = [];
+    const errorHandler = (msg /* , type */) => {
+        collectedErrors.push(msg);
+    };
 
     const compiler = prepareCompiler(content, filePath, projectFiles, errorHandler);
 
@@ -271,7 +291,12 @@ function parseInk(content, filePath, projectFiles = {}) {
         // Compile populates _parsedStory
         compiler.Compile();
     } catch (e) {
-        // Ignore compilation errors, we just want the AST
+        if (!compiler._parsedStory) {
+            const summary = collectedErrors.length
+                ? collectedErrors.slice(0, 3).join(' | ')
+                : (e?.message || String(e));
+            console.warn('[parseInk]', filePath || '(no path)', 'failed:', summary);
+        }
     }
 
     return compiler._parsedStory;

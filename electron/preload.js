@@ -5,7 +5,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onFileOpened: (callback) => ipcRenderer.on('file-opened', (_event, value) => callback(value)),
     loadSettings: () => ipcRenderer.invoke('load-settings'),
     onUpdateSpellLocale: (callback) => ipcRenderer.on('update-spell-locale', (_event, value) => callback(value)),
-    onRootInkLoaded: (callback) => ipcRenderer.on('root-ink-loaded', (_event, value) => callback(value)),
+    onRootInkLoaded: (callback) => ipcRenderer.on('root-ink-loaded', (_event, value, rev) => callback(value, rev)),
+    onInkFilesRefreshed: (callback) => ipcRenderer.on('ink-files-refreshed', (_event, value, rev) => callback(value, rev)),
+    refreshInkRoot: () => ipcRenderer.invoke('refresh-ink-root'),
     onProjectLoaded: (callback) => ipcRenderer.on('project-loaded', (_event, value) => callback(value)),
     onSaveAll: (callback) => ipcRenderer.on('save-all', (_event, ...args) => callback(...args)),
     onSaveAndExit: (callback) => ipcRenderer.on('save-and-exit', (_event, ...args) => callback(...args)),
@@ -38,6 +40,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     sendUnsavedStatus: (status) => ipcRenderer.send('unsaved-status', status),
     sendSaveExitComplete: () => ipcRenderer.send('save-exit-complete'),
     sendSaveExitComplete: () => ipcRenderer.send('save-exit-complete'),
+
+    // Updater-specific unsaved check (decoupled from the pendingAction flow
+    // so the updater can ask the renderer cleanly before quitAndInstall).
+    onUpdaterIsDirty: (callback) => ipcRenderer.on('updater-is-dirty', (_event) => callback()),
+    sendUpdaterIsDirtyReply: (isDirty) => ipcRenderer.send('updater-is-dirty-reply', isDirty),
+    onUpdaterSaveBeforeInstall: (callback) => ipcRenderer.on('updater-save-before-install', (_event) => callback()),
+    sendUpdaterSaveDone: (result) => ipcRenderer.send('updater-save-done', result),
     startTest: (rootPath, projectFiles, knotName) => ipcRenderer.invoke('start-test', rootPath, projectFiles, knotName),
     onStartStory: (callback) => ipcRenderer.on('start-story', (_event, value) => callback(value)),
     onTriggerStartTest: (callback) => ipcRenderer.on('trigger-start-test', (_event) => callback()),
@@ -94,7 +103,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Project Settings API
     getProjectConfig: () => ipcRenderer.invoke('get-project-config'),
-    setProjectConfig: (key, value) => ipcRenderer.invoke('set-project-config', key, value),
+    setProjectConfig: (key, value, projectPath) => ipcRenderer.invoke('set-project-config', key, value, projectPath),
     onProjectConfigUpdated: (callback) => ipcRenderer.on('project-config-updated', (_event, value) => callback(value)),
     openProjectSettings: () => ipcRenderer.send('open-project-settings'),
 

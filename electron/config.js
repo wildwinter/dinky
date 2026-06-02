@@ -2,15 +2,23 @@ import { app, dialog } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
 import { vcWriteText } from './vc'
+import { safeReadJSON } from './safe-read'
 
 // Config persistence
 const configPath = path.join(app.getPath('userData'), 'config.json')
 const MAX_RECENT_PROJECTS = 10;
 
+const DEFAULT_SETTINGS = () => ({ theme: 'system', recentProjects: [], projectSettings: {}, windowStates: {} });
+
 let settingsCache = null;
 let loadPromise = null;
 let saveQueue = Promise.resolve();
 let debounceTimer = null;
+// When the on-disk config exists but couldn't be read/parsed, we fall back to
+// defaults so the app stays usable — but we refuse to write the defaults back
+// over the (possibly recoverable) original. Cleared only by a successful read.
+let isCorrupt = false;
+let warnedCorrupt = false;
 
 async function loadSettings() {
     if (settingsCache) return settingsCache;
@@ -18,12 +26,33 @@ async function loadSettings() {
 
     loadPromise = (async () => {
         try {
-            const data = await fs.readFile(configPath, 'utf-8');
-            settingsCache = JSON.parse(data);
-
-            return settingsCache;
-        } catch (e) {
-            settingsCache = { theme: 'system', recentProjects: [], projectSettings: {}, windowStates: {} };
+            const result = await safeReadJSON(configPath);
+            if (result.kind === 'ok') {
+                settingsCache = result.data;
+                isCorrupt = false;
+            } else if (result.kind === 'absent') {
+                // First run — legitimate, OK to write defaults later.
+                settingsCache = DEFAULT_SETTINGS();
+                isCorrupt = false;
+            } else {
+                // File exists but couldn't be read/parsed. Use defaults in
+                // memory so the app runs, but block writes so the user's real
+                // config isn't overwritten with empty defaults.
+                settingsCache = DEFAULT_SETTINGS();
+                isCorrupt = true;
+                console.error('Config is corrupt; refusing to overwrite:', result.error);
+                if (!warnedCorrupt) {
+                    warnedCorrupt = true;
+                    dialog.showErrorBox(
+                        'Settings file could not be read',
+                        `Dinky couldn't read its settings file:\n\n${configPath}\n\n` +
+                        `Reason: ${result.error?.message || 'unknown error'}\n\n` +
+                        `The app will use default settings for this session, but it ` +
+                        `will NOT overwrite the existing file. Fix or remove it to ` +
+                        `clear this warning.`
+                    );
+                }
+            }
             return settingsCache;
         } finally {
             loadPromise = null;
@@ -83,11 +112,19 @@ async function saveSettings(settings, immediate = false) {
 
 async function performSave() {
     saveQueue = saveQueue.then(async () => {
+        if (isCorrupt) {
+            // Don't write defaults over a config we couldn't read — that's how
+            // recent projects / window state / per-project settings get wiped.
+            console.warn('Skipping settings save: config is marked corrupt.');
+            return { ok: false, reason: 'corrupt' };
+        }
         try {
             vcWriteText(configPath, JSON.stringify(settingsCache, null, 2));
+            return { ok: true };
         } catch (error) {
             console.error('Failed to save settings:', error);
             dialog.showErrorBox('Failed to save settings', error.message);
+            return { ok: false, reason: 'write-failed', message: error.message };
         }
     });
     return saveQueue;

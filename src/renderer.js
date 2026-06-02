@@ -394,15 +394,10 @@ function findFileByPath(errorPath) {
         }
     }
 
-    // Try to match by filename if full path doesn't work
-    const errorFileName = errorPath.replace(/^.*[\\\/]/, '');
-    for (const [storedPath, file] of loadedInkFiles) {
-        const storedFileName = storedPath.replace(/^.*[\\\/]/, '');
-        if (storedFileName === errorFileName) {
-            return file;
-        }
-    }
-
+    // No basename fallback: when two .ink files share a name in different
+    // folders, matching by basename routes error markers to whichever match
+    // is iterated first — i.e. silently wrong. Better to return null and let
+    // the caller treat it as "unknown file" than to mislead.
     return null;
 }
 
@@ -610,7 +605,15 @@ window.electronAPI.onProjectLoaded(({ hasRoot }) => {
     }
 });
 
-window.electronAPI.onRootInkLoaded(async (files) => {
+// Tracks the highest structural-change revision the renderer has seen.
+// Used to drop stale 'ink-files-refreshed' events that were captured before
+// a more recent structural change (rename, add, remove, project switch).
+let lastSeenInkRootRev = 0;
+
+window.electronAPI.onRootInkLoaded(async (files, rev) => {
+    if (typeof rev === 'number' && rev > lastSeenInkRootRev) {
+        lastSeenInkRootRev = rev;
+    }
     // Load project dictionary
     const projectDict = await window.electronAPI.loadProjectDictionary();
     spellChecker.setPersonalDictionary(projectDict);
@@ -678,6 +681,76 @@ window.electronAPI.onRootInkLoaded(async (files) => {
         checkSpelling();
         updateNavigationDropdown();
     }
+});
+
+// Sidebar-only reconcile: fired by main on window focus and after save.
+// Adds new INCLUDEs, removes stale ones, but DOES NOT touch the editor model
+// (so unsaved edits survive). The full 'root-ink-loaded' event still handles
+// project loads / root switches as before.
+window.electronAPI.onInkFilesRefreshed((files, rev) => {
+    if (!Array.isArray(files) || files.length === 0) return;
+
+    // Bail if the project hasn't done its initial full load yet — the add
+    // loop below intentionally skips index 0 (the root file), so processing
+    // a refresh against an empty map would populate includes but never the
+    // root. Let the imminent 'root-ink-loaded' do the first build.
+    if (loadedInkFiles.size === 0) return;
+
+    // Drop refreshes that have been overtaken by a more recent structural
+    // change. Fixes the race where a slow focus refresh emits stale paths
+    // after a rename has already happened and re-built the sidebar.
+    if (typeof rev === 'number' && rev < lastSeenInkRootRev) {
+        console.warn(`Ignoring stale ink-files-refreshed (rev ${rev} < ${lastSeenInkRootRev})`);
+        return;
+    }
+
+    const newPathSet = new Set(files.map(f => f.absolutePath));
+    const fileList = document.getElementById('file-list');
+
+    // Remove sidebar entries (and cached state) for files no longer reachable.
+    // Skip files with unsaved edits so the user doesn't silently lose work —
+    // they can save (which writes to the original path) or close the file first.
+    const removedPaths = [];
+    for (const path of Array.from(loadedInkFiles.keys())) {
+        if (newPathSet.has(path)) continue;
+        if (path === rootInkPath) continue; // root shouldn't vanish; ignore if it does
+        const file = loadedInkFiles.get(path);
+        const hasUnsavedEdits = file && file.content !== file.originalContent;
+        if (hasUnsavedEdits) {
+            console.warn('Keeping unsaved file in sidebar despite missing INCLUDE / disk file:', path);
+            continue;
+        }
+        if (file?.listItem && file.listItem.parentNode) {
+            file.listItem.parentNode.removeChild(file.listItem);
+        }
+        loadedInkFiles.delete(path);
+        modelPool.removeModel?.(path);
+        spellCheckMarkersByLine.delete(path);
+        removedPaths.push(path);
+    }
+
+    // If the user was viewing one of the removed files, switch back to the root.
+    if (removedPaths.includes(currentFilePath)) {
+        const rootFile = loadedInkFiles.get(rootInkPath);
+        const rootListItem = document.getElementById('ink-root-file-item');
+        if (rootFile) loadFileToEditor(rootFile, rootListItem, true);
+    }
+
+    // Add new INCLUDEs that weren't loaded before.
+    files.forEach((file, index) => {
+        if (index === 0) return; // root file — handled by 'root-ink-loaded'
+        if (loadedInkFiles.has(file.absolutePath)) return;
+
+        file.originalContent = file.content;
+        loadedInkFiles.set(file.absolutePath, file);
+
+        const li = document.createElement('li');
+        file.listItem = li;
+        li.textContent = file.relativePath;
+        li.setAttribute('data-tooltip', file.absolutePath);
+        li.onclick = () => loadFileToEditor(file, li);
+        fileList.appendChild(li);
+    });
 });
 
 
@@ -1419,19 +1492,30 @@ let spellCheckDirtyLines = new Set();
 editor.onDidChangeModelContent((e) => {
     if (isUpdatingContent) return;
 
-    // Track which lines changed for incremental spellchecking
+    const model = editor.getModel();
+    const modelPath = model?.uri.path;
+
+    // Track which lines changed for incremental spellchecking. If any change
+    // alters the line count (insertion/deletion of newlines), the cached
+    // markers' line numbers below the change point become stale — drop the
+    // cache so the next check does a full pass.
+    let lineCountChanged = false;
     for (const change of e.changes) {
-        // Mark the changed range of lines as dirty (use post-change line numbers)
         const startLine = change.range.startLineNumber;
+        const oldLineSpan = change.range.endLineNumber - change.range.startLineNumber;
         const newLineCount = (change.text.match(/\n/g) || []).length;
+        if (newLineCount !== oldLineSpan) lineCountChanged = true;
         const endLine = startLine + newLineCount;
         for (let i = startLine; i <= endLine; i++) {
             spellCheckDirtyLines.add(i);
         }
     }
+    if (lineCountChanged && modelPath) {
+        spellCheckMarkersByLine.delete(modelPath);
+        if (lastSpellCheckedFilePath === modelPath) lastSpellCheckedFilePath = null;
+    }
 
     // Clear spellcheck markers immediately to avoid visual desync during editing
-    const model = editor.getModel();
     if (model) {
         monaco.editor.setModelMarkers(model, 'spellcheck', []);
     }
@@ -1640,7 +1724,17 @@ window.electronAPI.onThemeUpdated((theme) => {
 });
 
 // Save Logic
+// Re-entrancy guard: if a save is already in flight, return that promise rather
+// than starting a second concurrent pass. Two interleaved saveAllFiles runs can
+// corrupt originalContent tracking and double-apply tagger edits.
+let _saveInFlight = null;
 async function saveAllFiles() {
+    if (_saveInFlight) return _saveInFlight;
+    _saveInFlight = _doSaveAllFiles().finally(() => { _saveInFlight = null; });
+    return _saveInFlight;
+}
+
+async function _doSaveAllFiles() {
     const filesToSave = [];
 
     // Prepare project files map for the tagger
@@ -1696,24 +1790,50 @@ async function saveAllFiles() {
             console.error('Auto-tag on save failed for', filePath, e);
         }
 
-        // Update the file object
-        if (content !== file.content) {
+        // For non-current files, sync `file.content` to the tagger-merged
+        // output so that the next time the user opens this file, the in-memory
+        // copy matches what's on disk (including any tagger IDs we just added).
+        // For the CURRENT file, do NOT touch file.content — the keystroke
+        // handler kept it in sync with the editor during the autoTag await,
+        // and clobbering it here would lose mid-save edits.
+        if (filePath !== currentFilePath && content !== file.content) {
             file.content = content;
         }
 
-        filesToSave.push({ path: filePath, content: file.content });
+        filesToSave.push({ path: filePath, content });
     }
 
-    // Invoke IPC to save files
-    await window.electronAPI.saveFiles(filesToSave);
+    // Invoke IPC to save files. Result tells us which files actually made it
+    // to disk, so we don't mark refused/errored files as clean.
+    const result = await window.electronAPI.saveFiles(filesToSave);
+    const savedPaths = new Set(result?.savedPaths || []);
+    const savedContentByPath = new Map(filesToSave.map(f => [f.path, f.content]));
 
-    // Update original content and remove asterisks
+    // Update originalContent only for files that actually saved. For the
+    // current file, file.content may have diverged from what we wrote (the
+    // user typed during the save) — set originalContent to what's actually on
+    // disk so the asterisk re-appears if and only if the user has unsaved
+    // edits relative to disk.
     for (const [filePath, file] of loadedInkFiles) {
-        file.originalContent = file.content;
+        if (!savedPaths.has(filePath)) continue; // failed/refused — leave dirty
+        const onDisk = savedContentByPath.get(filePath);
+        file.originalContent = onDisk;
+        // For non-current files, content didn't change during save, so this is
+        // a no-op equality. For the current file, if the user kept typing
+        // during the save, file.content already has the latest editor value
+        // (via the keystroke handler) — leave it alone; the asterisk reflects
+        // the divergence.
         if (file.listItem) {
-            file.listItem.textContent = file.relativePath;
+            const isModified = file.content !== file.originalContent;
+            file.listItem.textContent = file.relativePath + (isModified ? '*' : '');
         }
     }
+
+    // Re-traverse INCLUDEs from disk so the sidebar reflects any INCLUDE lines
+    // the user added/removed by editing the root file directly. Fire-and-forget;
+    // the result arrives via 'ink-files-refreshed'.
+    window.electronAPI.refreshInkRoot().catch(() => {});
+
     return true;
 }
 
@@ -1736,6 +1856,30 @@ window.electronAPI.onCheckUnsaved(() => {
         }
     }
     window.electronAPI.sendUnsavedStatus(hasUnsaved);
+});
+
+// Updater-specific listeners: kept separate from the regular check-unsaved
+// flow so the updater can probe + save without colliding with the
+// pendingAction state machine in main.
+window.electronAPI.onUpdaterIsDirty(() => {
+    let isDirty = false;
+    for (const [filePath, file] of loadedInkFiles) {
+        if (file.content !== file.originalContent) {
+            isDirty = true;
+            break;
+        }
+    }
+    window.electronAPI.sendUpdaterIsDirtyReply(isDirty);
+});
+
+window.electronAPI.onUpdaterSaveBeforeInstall(async () => {
+    let ok = false;
+    try {
+        ok = await saveAllFiles();
+    } catch (e) {
+        console.error('Save before update install failed:', e);
+    }
+    window.electronAPI.sendUpdaterSaveDone({ ok: !!ok });
 });
 
 window.electronAPI.onCharactersUpdated(() => {
@@ -2268,28 +2412,49 @@ window.electronAPI.onClearSearchHighlights(() => {
 });
 
 window.electronAPI.onReplaceRequested(({ query, replacement, caseSensitive }) => {
+    if (!query) {
+        // An empty query matches every position; replacing would insert the
+        // replacement string between every character. Bail out loudly rather
+        // than silently corrupting every file.
+        window.electronAPI.sendReplaceComplete(0);
+        return;
+    }
     let totalReplacements = 0;
     const regexFlags = caseSensitive ? 'g' : 'gi';
     const regex = new RegExp(escapeRegExp(query), regexFlags);
 
     for (const [path, file] of loadedInkFiles) {
-        if (regex.test(file.content)) {
-            const count = (file.content.match(regex) || []).length;
-            totalReplacements += count;
+        // For the current file, file.content may be ID-stripped (the keystroke
+        // handler overwrites it with editor.getValue() on every edit). Use the
+        // reconstructed content so the regex sees the same text as disk does,
+        // and so IDs survive the replace.
+        const sourceContent = (path === currentFilePath)
+            ? idManager.reconstructContent(editor.getValue())
+            : file.content;
 
-            const newContent = file.content.replace(regex, replacement);
-            file.content = newContent;
+        if (!regex.test(sourceContent)) continue;
 
-            if (path === currentFilePath) {
-                isUpdatingContent = true;
-                editor.setValue(newContent);
-                isUpdatingContent = false;
-            }
+        const count = (sourceContent.match(regex) || []).length;
+        totalReplacements += count;
 
-            if (file.listItem) {
-                const isModified = file.content !== file.originalContent;
-                file.listItem.textContent = file.relativePath + (isModified ? '*' : '');
-            }
+        const newContent = sourceContent.replace(regex, replacement);
+        file.content = newContent;
+
+        if (path === currentFilePath) {
+            // setValue() invalidates the decorations we use to remember which
+            // line each ID belongs to. Re-extract from the new text and re-set
+            // up decorations so the next reconstructContent call (e.g. on
+            // save) injects IDs at the correct lines.
+            isUpdatingContent = true;
+            const { cleanContent, extractedIds } = idManager.extractIds(newContent);
+            editor.setValue(cleanContent);
+            idManager.setupDecorations(extractedIds);
+            isUpdatingContent = false;
+        }
+
+        if (file.listItem) {
+            const isModified = file.content !== file.originalContent;
+            file.listItem.textContent = file.relativePath + (isModified ? '*' : '');
         }
     }
     window.electronAPI.sendReplaceComplete(totalReplacements);

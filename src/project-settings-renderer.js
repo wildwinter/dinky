@@ -42,6 +42,15 @@ async function init() {
     const normalizedProjectPath = projectPath ? projectPath.replace(/\\/g, '/') : '';
     const projectDir = normalizedProjectPath ? normalizedProjectPath.substring(0, normalizedProjectPath.lastIndexOf('/')) : '';
 
+    // Pin every setProjectConfig call from this window to the project path it
+    // was opened for. If the user switches the main window to a different
+    // project while this settings window is still open, the main process will
+    // refuse the write — without this guard the edits would silently land on
+    // the *new* current project.
+    const _originalSetProjectConfig = window.electronAPI.setProjectConfig;
+    window.electronAPI.setProjectConfig = (key, value) =>
+        _originalSetProjectConfig(key, value, projectPath);
+
     // Helper function to convert relative path to absolute
     const resolveRelativePath = (relativePath) => {
         if (!relativePath || !projectDir) return '';

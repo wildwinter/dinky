@@ -8,13 +8,14 @@ import { buildMenu } from './menu'
 import { compileInk, parseInk } from './compiler'
 import { openTestWindow } from './test-runner'
 import { generateIdsForUntagged } from './tagger'
-import { loadProject, loadAdhocInkProject, switchToInkRoot, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject, getCurrentInkRoot } from './project-manager'
+import { loadProject, loadAdhocInkProject, switchToInkRoot, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject, getCurrentInkRoot, loadRootInk, getInkRootRev } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
 import './project-settings' // Import to register IPC handlers
 import './characters-editor' // Import to register IPC handlers
 import './audio-lookup' // Import to register IPC handlers
 import { safeSend, setupThemeListener } from './utils'
 import { vcWriteText } from './vc'
+import { safeReadText, safeReadJSON } from './safe-read'
 import pkg from '../package.json'
 import { startBackgroundUpdateCheck } from './updater'
 
@@ -198,6 +199,27 @@ if (!gotTheLock) {
         win.on('move', () => saveWindowState('main', win.getBounds()));
         win.on('resize', () => saveWindowState('main', win.getBounds()));
 
+        // When the user returns to the app, re-traverse the Ink root so the
+        // sidebar reflects files that may have been added/deleted on disk.
+        // This sends 'ink-files-refreshed' (sidebar-only reconcile), NOT
+        // 'root-ink-loaded' which would clobber the editor and lose unsaved edits.
+        //
+        // We capture the structural revision at the start. The renderer drops
+        // refreshes whose rev is older than the most recent 'root-ink-loaded'
+        // it has seen — that's how we avoid the race where a slow focus
+        // refresh emits stale file paths after a rename has already happened.
+        win.on('focus', async () => {
+            const inkRoot = getCurrentInkRoot();
+            if (!inkRoot) return;
+            const revAtStart = getInkRootRev();
+            try {
+                const files = await loadRootInk(inkRoot);
+                safeSend(win, 'ink-files-refreshed', files, revAtStart);
+            } catch (e) {
+                console.error('Focus refresh failed:', e);
+            }
+        });
+
         win.on('close', (e) => {
             if (win.forceClose) return;
             if (win.webContents.isDestroyed()) return;
@@ -285,6 +307,10 @@ if (!gotTheLock) {
         const parsedStory = parseInk(content, filePath, projectFiles);
 
         if (!parsedStory) {
+            // parseInk already logs the underlying error. Log here too so the
+            // breadcrumb explicitly says "auto-tag skipped" — otherwise it
+            // looks like auto-tag silently does nothing.
+            console.warn('[auto-tag-ink] parse failed for', filePath, '— skipping auto-tag for this file.');
             return [];
         }
 
@@ -304,19 +330,90 @@ if (!gotTheLock) {
         return filteredEdits;
     })
 
-    // Save files handling
+    // Save files handling. Returns per-file outcome so the renderer can:
+    //   - keep the dirty marker (asterisk) on files that didn't actually save
+    //   - leave originalContent untouched for failed files (so the next save
+    //     retries the right content rather than silently treating them clean)
     ipcMain.handle('save-files', async (event, files) => {
-        const errors = [];
+        const savedPaths = [];
+        const errors = [];      // [{ path, message }]
+        const refused = [];     // [{ path, reason }]
+
         for (const { path: filePath, content } of files) {
+            // Safety net: refuse to write content that looks like the legacy
+            // "// Error reading file: ENOENT…" placeholder from an old codepath.
+            // If we ever see this in memory it means the load failed and the
+            // in-memory content is junk — saving it would destroy the real file.
+            if (typeof content !== 'string' || /^\/\/ Error reading file:/.test(content)) {
+                console.error('Refusing to save error-placeholder content for', filePath);
+                refused.push({ path: filePath, reason: 'error-placeholder content' });
+                continue;
+            }
+
+            // Belt-and-suspenders: refuse to truncate a non-empty file with an
+            // empty string. A legitimate "delete all content" save would have
+            // had a non-empty file at some point and the user typed it to ''
+            // — that's a manual action, but if it ever happens via a bug
+            // (model swap race, init order issue, etc.), we'd silently zero
+            // out the file. Compare against on-disk size to allow real empties.
+            if (content === '') {
+                let onDiskSize = 0;
+                try {
+                    const stat = await fs.stat(filePath);
+                    onDiskSize = stat.size;
+                } catch {
+                    // File doesn't exist yet — empty write is fine (legit new file).
+                }
+                if (onDiskSize > 0) {
+                    console.error('Refusing to truncate non-empty file with empty content:', filePath, `(disk size ${onDiskSize})`);
+                    refused.push({ path: filePath, reason: 'empty content over non-empty file' });
+                    continue;
+                }
+            }
+
             try {
                 vcWriteText(filePath, content);
+                savedPaths.push(filePath);
             } catch (e) {
                 console.error('Failed to save file', filePath, e);
-                errors.push(`${path.basename(filePath)}: ${e.message}`);
+                errors.push({ path: filePath, message: e.message });
             }
         }
+
         if (errors.length > 0) {
-            dialog.showErrorBox('Failed to save files', errors.join('\n'));
+            dialog.showErrorBox(
+                'Failed to save files',
+                errors.map(e => `${path.basename(e.path)}: ${e.message}`).join('\n')
+            );
+        }
+        if (refused.length > 0) {
+            dialog.showErrorBox(
+                'Refused to overwrite files',
+                `These files were not saved because their in-memory content looked like an error placeholder. ` +
+                `Restore them from version control if needed:\n\n${refused.map(r => path.basename(r.path)).join('\n')}`
+            );
+        }
+
+        return { savedPaths, errors, refused };
+    });
+
+    // Re-traverse INCLUDE statements from disk and notify the renderer.
+    // Used after saves and on window focus to keep the sidebar in sync with
+    // INCLUDEs that were added/removed (either via the UI or by editing the
+    // root file directly). Emits 'ink-files-refreshed' — the renderer reconciles
+    // the sidebar without touching the editor model.
+    ipcMain.handle('refresh-ink-root', async (event) => {
+        const inkRoot = getCurrentInkRoot();
+        if (!inkRoot) return null;
+        const win = BrowserWindow.fromWebContents(event.sender);
+        const revAtStart = getInkRootRev();
+        try {
+            const files = await loadRootInk(inkRoot);
+            safeSend(win, 'ink-files-refreshed', files, revAtStart);
+            return files;
+        } catch (e) {
+            console.error('refresh-ink-root failed:', e);
+            return null;
         }
     });
 
@@ -844,18 +941,26 @@ if (!gotTheLock) {
         const projectDir = path.dirname(project.path);
         const dictPath = path.join(projectDir, 'project-dictionary.txt');
 
-        try {
-            let content = '';
-            try {
-                content = await fs.readFile(dictPath, 'utf-8');
-            } catch (e) { }
+        const read = await safeReadText(dictPath);
+        if (read.kind === 'broken') {
+            // File exists but we can't read it — refuse to overwrite with a
+            // one-word file. The user's real dictionary may be recoverable.
+            console.error('Refusing to update unreadable dictionary:', read.error);
+            dialog.showErrorBox(
+                'Project dictionary unreadable',
+                `Couldn't read ${dictPath}\n\n${read.error?.message || 'unknown error'}\n\n` +
+                `Word not added. Fix or restore the file and try again.`
+            );
+            return;
+        }
 
-            // Cleanly add the word to a list of lines
-            let lines = content.split('\n').map(l => l.trim()).filter(l => l);
-            if (!lines.includes(word)) {
-                lines.push(word);
-                vcWriteText(dictPath, lines.join('\n') + '\n');
-            }
+        const existing = read.kind === 'ok' ? read.content : '';
+        const lines = existing.split('\n').map(l => l.trim()).filter(l => l);
+        if (lines.includes(word)) return;
+        lines.push(word);
+
+        try {
+            vcWriteText(dictPath, lines.join('\n') + '\n');
         } catch (e) {
             console.error('Failed to update dictionary', e);
             dialog.showErrorBox('Failed to update dictionary', e.message);
@@ -892,27 +997,25 @@ if (!gotTheLock) {
         const jsonPath = path.join(projectDir, 'characters.json');
         const jsoncPath = path.join(projectDir, 'characters.jsonc');
 
-        let content = null;
-        try {
-            content = await fs.readFile(jsonPath, 'utf-8');
-        } catch {
-            try {
-                content = await fs.readFile(jsoncPath, 'utf-8');
-            } catch {
-                return []; // No character file found
-            }
+        // Prefer .json, fall back to .jsonc. ENOENT on both → no character file.
+        let result = await safeReadJSON(jsonPath, { allowComments: true });
+        let triedPath = jsonPath;
+        if (result.kind === 'absent') {
+            result = await safeReadJSON(jsoncPath, { allowComments: true });
+            triedPath = jsoncPath;
         }
 
-        if (!content) return [];
-
-        try {
-            // Strip comments from JSONC content (handles // and /* */ style comments)
-            const cleanContent = content.replace(/\/\/.*(?:\r?\n|$)/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-            return JSON.parse(cleanContent);
-        } catch (e) {
-            console.error('Failed to parse characters file', e);
+        if (result.kind === 'absent') return [];
+        if (result.kind === 'broken') {
+            console.error('Failed to read/parse characters file', triedPath, result.error);
+            dialog.showErrorBox(
+                'Characters file is invalid',
+                `Couldn't parse ${triedPath}\n\n${result.error?.message || 'unknown error'}\n\n` +
+                `Character validation is disabled until this file is fixed.`
+            );
             return [];
         }
+        return Array.isArray(result.data) ? result.data : [];
     });
 
     ipcMain.handle('add-project-character', async (event, characterId) => {
@@ -923,44 +1026,38 @@ if (!gotTheLock) {
         const jsonPath = path.join(projectDir, 'characters.json');
         const jsoncPath = path.join(projectDir, 'characters.jsonc');
 
-        let targetPath = null;
-        let content = null;
-
-        // Determine which file to use
-        try {
-            content = await fs.readFile(jsonPath, 'utf-8');
-            targetPath = jsonPath;
-        } catch {
-            try {
-                content = await fs.readFile(jsoncPath, 'utf-8');
+        // Pick the existing file (.json or .jsonc). If neither exists, write
+        // a fresh characters.json.
+        let result = await safeReadJSON(jsonPath, { allowComments: true });
+        let targetPath = jsonPath;
+        if (result.kind === 'absent') {
+            const jsoncResult = await safeReadJSON(jsoncPath, { allowComments: true });
+            if (jsoncResult.kind !== 'absent') {
+                result = jsoncResult;
                 targetPath = jsoncPath;
-            } catch {
-                // Neither exists, create characters.json
-                targetPath = jsonPath;
-                content = '[]';
             }
         }
 
+        if (result.kind === 'broken') {
+            // Don't overwrite a file we can't parse — that would silently
+            // destroy the entire character list.
+            console.error('Refusing to add character to broken file', targetPath, result.error);
+            dialog.showErrorBox(
+                'Characters file is invalid',
+                `Couldn't parse ${targetPath}\n\n${result.error?.message || 'unknown error'}\n\n` +
+                `Refusing to overwrite. Fix the file manually, then try again.`
+            );
+            return false;
+        }
+
+        const chars = result.kind === 'ok' && Array.isArray(result.data) ? result.data : [];
+
+        if (chars.find(c => c.ID === characterId)) return true;
+        chars.push({ ID: characterId, Actor: "" });
+
         try {
-
-            let chars = [];
-            try {
-                // clean for parsing
-                const cleanContent = content.replace(/\/\/.*(?:\r?\n|$)/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-                chars = JSON.parse(cleanContent);
-                if (!Array.isArray(chars)) chars = [];
-            } catch {
-                chars = [];
-            }
-
-            // Check if ID exists
-            if (chars.find(c => c.ID === characterId)) return true;
-
-            chars.push({ ID: characterId, Actor: "" });
-
             vcWriteText(targetPath, JSON.stringify(chars, null, 4));
             return true;
-
         } catch (e) {
             console.error('Failed to add character to project', e);
             dialog.showErrorBox('Failed to add character', e.message);

@@ -1,6 +1,7 @@
 import { dialog } from 'electron'
 import path from 'path'
 import fs from 'fs/promises'
+import { modify as jsoncModify, applyEdits as jsoncApplyEdits } from 'jsonc-parser'
 import { addToRecentProjects, getProjectSetting, removeFromRecentProjects, setProjectSetting } from './config'
 import { safeSend } from './utils'
 import { vcWriteText, vcDelete, vcRename } from './vc'
@@ -8,6 +9,20 @@ import { vcWriteText, vcDelete, vcRename } from './vc'
 let currentDinkProject = null;
 let currentInkRoot = null;
 let rebuildMenuCallback = null;
+
+// Monotonic revision counter for the ink-file structure. Every structural
+// change (load, switch, rename, add include, remove include, etc.) bumps this
+// when its 'root-ink-loaded' event is emitted. Sidebar-only refreshes
+// (window focus, post-save refresh) carry the rev they were *captured* at,
+// so the renderer can drop refreshes that have been overtaken by a more
+// recent structural change — avoiding the race where a stale focus refresh
+// deletes a file that was just renamed.
+let _inkRootRev = 0;
+function sendRootInkLoaded(win, files) {
+    _inkRootRev++;
+    safeSend(win, 'root-ink-loaded', files, _inkRootRev);
+}
+function getInkRootRev() { return _inkRootRev; }
 
 function setMenuRebuildCallback(fn) {
     rebuildMenuCallback = fn;
@@ -41,8 +56,35 @@ async function updateProjectConfig(key, value) {
         obj[keys[keys.length - 1]] = value;
     }
 
-    // Write to disk
-    vcWriteText(currentDinkProject.path, JSON.stringify(currentDinkProject.content, null, 2));
+    // Write to disk preserving the existing file's comments and formatting.
+    // Previously we did JSON.stringify(currentDinkProject.content) which would
+    // silently destroy any // or /* */ comments the user had in their
+    // .dinkproj. jsonc-parser surgically updates just the key path.
+    let rawText = null;
+    try {
+        rawText = await fs.readFile(currentDinkProject.path, 'utf-8');
+    } catch {
+        // File doesn't exist yet — fall through to a full write.
+    }
+
+    let outputText;
+    if (rawText !== null) {
+        try {
+            const edits = jsoncModify(rawText, keys, value, {
+                formattingOptions: { tabSize: 2, insertSpaces: true, eol: '\n' }
+            });
+            outputText = jsoncApplyEdits(rawText, edits);
+        } catch (e) {
+            // jsonc-parser couldn't produce an edit (very malformed source) —
+            // refuse to write rather than fall back to a destructive overwrite.
+            console.error('updateProjectConfig: jsonc-parser failed for', currentDinkProject.path, e);
+            throw new Error(`Could not surgically update ${path.basename(currentDinkProject.path)}: ${e.message}`);
+        }
+    } else {
+        outputText = JSON.stringify(currentDinkProject.content, null, 2);
+    }
+
+    vcWriteText(currentDinkProject.path, outputText);
 }
 
 // Helper to recursively load ink files
@@ -76,15 +118,10 @@ async function loadRootInk(rootFilePath) {
                 }
             }
         } catch (error) {
-            console.error('Error loading ink file:', currentPath, error);
-            // Still add it to list if possible? No, we can't get content.
-            // Maybe add a placeholder?
-            files.push({
-                absolutePath: currentPath,
-                relativePath: path.relative(rootDir, currentPath) || path.basename(currentPath),
-                content: `// Error reading file: ${error.message}`,
-                error: true
-            });
+            // File can't be read (deleted, permission, etc.) — drop it from the
+            // list so the sidebar reflects what actually exists on disk. The
+            // broken INCLUDE statement will surface as an Ink compile error.
+            console.warn('Skipping unreadable ink file:', currentPath, error.message);
         }
     }
 
@@ -143,7 +180,7 @@ async function loadProject(win, filePath) {
         if (inkFileToLoad) {
             currentInkRoot = inkFileToLoad;
             const files = await loadRootInk(inkFileToLoad);
-            safeSend(win, 'root-ink-loaded', files);
+            sendRootInkLoaded(win, files);
             safeSend(win, 'project-loaded', { hasRoot: true });
         } else {
             safeSend(win, 'project-loaded', { hasRoot: false });
@@ -184,7 +221,7 @@ async function loadAdhocInkProject(win, inkFilePath) {
         // We don't add adhoc `.ink` files to recent projects in the same way as .dinkproj 
         currentInkRoot = inkFilePath;
         const files = await loadRootInk(inkFilePath);
-        safeSend(win, 'root-ink-loaded', files);
+        sendRootInkLoaded(win, files);
 
         // We say hasRoot is true because we specifically loaded a root
         safeSend(win, 'project-loaded', { hasRoot: true, isAdhoc: true });
@@ -211,7 +248,7 @@ async function switchToInkRoot(win, inkFilePath) {
         // Load it
         currentInkRoot = inkFilePath;
         const files = await loadRootInk(inkFilePath);
-        safeSend(win, 'root-ink-loaded', files);
+        sendRootInkLoaded(win, files);
         safeSend(win, 'project-loaded', { hasRoot: true });
 
         return true;
@@ -230,6 +267,22 @@ async function createNewProject(win, name, parentPath) {
 
     try {
         await fs.mkdir(projectDir, { recursive: true });
+
+        // Refuse to clobber an existing project. mkdir({recursive:true}) above
+        // is happy to re-use an existing dir, so without this check we'd blow
+        // away any real .dinkproj/main.ink already sitting there.
+        const collisions = [];
+        try { await fs.access(projectFile); collisions.push(path.basename(projectFile)); } catch {}
+        try { await fs.access(inkFile); collisions.push(path.basename(inkFile)); } catch {}
+        if (collisions.length > 0) {
+            dialog.showErrorBox(
+                'Project already exists',
+                `Cannot create a new project at:\n\n${projectDir}\n\n` +
+                `The following file(s) already exist there:\n${collisions.join('\n')}\n\n` +
+                `Pick a different name or location.`
+            );
+            return false;
+        }
 
         // Load template from build directory
         const templatePath = path.join(__dirname, '../build/template.dinkproj');
@@ -273,6 +326,20 @@ async function createNewInclude(win, name, folderPath) {
     const fileName = name.endsWith('.ink') ? name : `${name}.ink`;
     const fullIncludePath = path.join(folderPath, fileName);
 
+    // Refuse to clobber an existing .ink file. `createNewInkRoot` / `createInkRoot`
+    // do this check already; this brings the include path in line.
+    try {
+        await fs.access(fullIncludePath);
+        dialog.showErrorBox(
+            'Include already exists',
+            `A file named "${fileName}" already exists in:\n\n${folderPath}\n\n` +
+            `Pick a different name, or use "Add existing include" to reference the existing file.`
+        );
+        return false;
+    } catch {
+        // ENOENT — good, path is free
+    }
+
     try {
         // Create file with valid Ink comment
         vcWriteText(fullIncludePath, '// Type Ink here');
@@ -290,7 +357,7 @@ async function createNewInclude(win, name, folderPath) {
         vcWriteText(currentInkRoot, newContent);
 
         const files = await loadRootInk(currentInkRoot);
-        safeSend(win, 'root-ink-loaded', files);
+        sendRootInkLoaded(win, files);
 
         return true;
     } catch (e) {
@@ -312,7 +379,7 @@ async function openInkRootUI(win) {
     })
     if (!canceled && filePaths.length > 0) {
         const files = await loadRootInk(filePaths[0])
-        safeSend(win, 'root-ink-loaded', files)
+        sendRootInkLoaded(win, files);
         safeSend(win, 'project-loaded', { hasRoot: true });
 
         // Save as preference if a project is open
@@ -370,7 +437,7 @@ async function createInkRoot(win) {
         // Load it
         const files = await loadRootInk(inkFile);
         currentInkRoot = inkFile;
-        safeSend(win, 'root-ink-loaded', files);
+        sendRootInkLoaded(win, files);
         safeSend(win, 'project-loaded', { hasRoot: true });
 
         return true;
@@ -431,7 +498,7 @@ async function renameInkRoot(win, newName) {
 
         // Reload
         const files = await loadRootInk(currentInkRoot);
-        safeSend(win, 'root-ink-loaded', files);
+        sendRootInkLoaded(win, files);
 
         return true;
     } catch (e) {
@@ -478,7 +545,7 @@ async function createNewInkRoot(win, name, folderPath) {
         // Load it
         currentInkRoot = inkFile;
         const files = await loadRootInk(inkFile);
-        safeSend(win, 'root-ink-loaded', files);
+        sendRootInkLoaded(win, files);
         safeSend(win, 'project-loaded', { hasRoot: true });
 
         return true;
@@ -508,6 +575,7 @@ export {
     getCurrentProject,
     setMenuRebuildCallback,
     getCurrentInkRoot,
+    getInkRootRev,
     updateProjectConfig,
     createNewInclude,
     openNewIncludeUI,
@@ -566,7 +634,7 @@ async function chooseExistingInclude(win) {
         vcWriteText(currentInkRoot, newContent);
 
         const files = await loadRootInk(currentInkRoot);
-        safeSend(win, 'root-ink-loaded', files);
+        sendRootInkLoaded(win, files);
 
         return true;
 
@@ -635,7 +703,7 @@ async function removeInclude(win, filePathToDelete) {
         }
 
         const files = await loadRootInk(currentInkRoot);
-        safeSend(win, 'root-ink-loaded', files);
+        sendRootInkLoaded(win, files);
 
         return true;
 
@@ -699,7 +767,7 @@ async function renameInclude(win, oldPath, newName) {
 
         // Reload project
         const files = await loadRootInk(currentInkRoot);
-        safeSend(win, 'root-ink-loaded', files);
+        sendRootInkLoaded(win, files);
 
         return true;
 

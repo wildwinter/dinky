@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeTheme, ipcMain } from 'electron'
+import { BrowserWindow, nativeTheme, ipcMain, dialog } from 'electron'
 import path from 'path'
 import { getWindowState, saveWindowState } from './config'
 import { safeSend, setupThemeListener } from './utils'
@@ -99,7 +99,32 @@ ipcMain.handle('get-project-config', async (event) => {
 // Keys that affect menu state and require a menu rebuild when changed
 const menuAffectingKeys = ['outputRecordingScript', 'outputLocalization', 'outputStats'];
 
-ipcMain.handle('set-project-config', async (event, key, value) => {
+ipcMain.handle('set-project-config', async (event, key, value, expectedProjectPath) => {
+    // If the caller pinned this write to a specific project (the project-
+    // settings window does, see project-settings-renderer.js), refuse the
+    // write if the main window has switched projects since the window was
+    // opened. Otherwise the edit lands on the *new* current project silently.
+    const project = getCurrentProject();
+    if (expectedProjectPath && (!project || project.path !== expectedProjectPath)) {
+        console.warn('Refusing set-project-config: project switched since window opened.', {
+            expected: expectedProjectPath,
+            current: project?.path || '(none)'
+        });
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (win && !win.isDestroyed()) {
+            dialog.showMessageBox(win, {
+                type: 'warning',
+                message: 'Project changed',
+                detail: `This Project Settings window was opened for:\n\n${path.basename(expectedProjectPath)}\n\n` +
+                    `but the main window is now showing a different project. ` +
+                    `Your change was NOT saved. Close this window and reopen ` +
+                    `Project Settings to edit the current project.`,
+                buttons: ['OK']
+            }).catch(() => {});
+        }
+        return false;
+    }
+
     try {
         await updateProjectConfig(key, value);
 

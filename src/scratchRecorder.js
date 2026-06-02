@@ -66,6 +66,11 @@ export async function loadScratchAudioConfig() {
         scratchAudioFolder = (config && config.dinky && config.dinky.scratchAudioFolder) || '';
         scratchAudioFormat = (config && config.dinky && config.dinky.scratchAudioFormat) || 'wav';
     } catch (e) {
+        // Don't silently fall back to "disabled" — the user could plausibly
+        // think they turned the feature off. Log loudly so the cause is at
+        // least findable in dev tools. (Surfacing in the UI would need a
+        // banner mechanism we don't have yet.)
+        console.error('[scratchRecorder] Failed to load project config — scratch audio disabled this session:', e?.message || e);
         scratchAudioEnabled = false;
         scratchAudioFolder = '';
         scratchAudioFormat = 'wav';
