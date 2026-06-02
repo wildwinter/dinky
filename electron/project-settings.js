@@ -2,15 +2,63 @@ import { BrowserWindow, nativeTheme, ipcMain, dialog } from 'electron'
 import path from 'path'
 import { getWindowState, saveWindowState } from './config'
 import { safeSend, setupThemeListener } from './utils'
-import { getCurrentProject, updateProjectConfig } from './project-manager'
+import { getCurrentProject, updateProjectConfig, adoptDinkprojForAdhoc } from './project-manager'
 
 let projectSettingsWindow = null;
+
+// Prompt the user to create a .dinkproj for an adhoc-opened Ink file.
+// Defaults the filename to `<inkbasename>.dinkproj` next to the Ink file,
+// but the user can rename or relocate via the save dialog.
+// Returns true if a project file was created and adopted, false otherwise.
+export async function offerToCreateDinkprojForAdhoc(parentWindow, adhocProject) {
+    const inkPath = adhocProject.path; // adhoc uses ink path as the anchor
+    const inkDir = path.dirname(inkPath);
+    const inkBase = path.basename(inkPath, '.ink');
+    const suggestedName = `${inkBase}.dinkproj`;
+
+    const { canceled, filePath } = await dialog.showSaveDialog(parentWindow, {
+        title: 'Create Project File',
+        message: 'Project Settings needs a project file (.dinkproj). ' +
+            'Dinky will create one for this Ink file:',
+        defaultPath: path.join(inkDir, suggestedName),
+        filters: [{ name: 'Dink Project', extensions: ['dinkproj'] }],
+        buttonLabel: 'Create',
+        // Don't show "Replace?" — adoptDinkprojForAdhoc refuses overwrites,
+        // and we want a clean error rather than a silent replace.
+        properties: ['createDirectory', 'showOverwriteConfirmation']
+    });
+
+    if (canceled || !filePath) return false;
+
+    // Enforce .dinkproj extension if the user typed something else.
+    const finalPath = filePath.endsWith('.dinkproj') ? filePath : filePath + '.dinkproj';
+
+    return await adoptDinkprojForAdhoc(parentWindow, finalPath);
+}
 
 export async function openProjectSettingsWindow(parentWindow) {
     if (projectSettingsWindow && !projectSettingsWindow.isDestroyed()) {
         projectSettingsWindow.show();
         projectSettingsWindow.focus();
         return;
+    }
+
+    // Project Settings needs a real .dinkproj on disk — updateProjectConfig
+    // throws if the project is adhoc, so the settings window would silently
+    // fail to persist any change. Offer to create a .dinkproj next to the
+    // user's Ink file instead.
+    const project = getCurrentProject();
+    if (!project) {
+        dialog.showErrorBox(
+            'No project open',
+            'Open or create a project before changing project settings.'
+        );
+        return;
+    }
+    if (project.isAdhoc) {
+        const created = await offerToCreateDinkprojForAdhoc(parentWindow, project);
+        if (!created) return;
+        // currentDinkProject has been upgraded in place; continue to open the window.
     }
 
     const windowState = await getWindowState('project-settings');

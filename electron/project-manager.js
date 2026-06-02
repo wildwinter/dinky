@@ -36,6 +36,87 @@ function getCurrentInkRoot() {
     return currentInkRoot;
 }
 
+// When the user opens an Ink file directly (no .dinkproj), we create an
+// "adhoc" project. Most project-scoped features (Project Settings, exports,
+// recording scripts) need a real .dinkproj — this helper writes one for the
+// current adhoc session in place, without reloading the editor, so the user
+// keeps any unsaved edits.
+async function adoptDinkprojForAdhoc(win, dinkprojPath) {
+    if (!currentDinkProject || !currentDinkProject.isAdhoc) {
+        throw new Error('No adhoc project to upgrade');
+    }
+    if (!currentInkRoot) {
+        throw new Error('No ink file currently loaded');
+    }
+
+    // Refuse to overwrite an existing .dinkproj — pickAnotherName / "Open
+    // Project" is the right path if one already exists.
+    try {
+        await fs.access(dinkprojPath);
+        dialog.showErrorBox(
+            'Project file already exists',
+            `A project file already exists at:\n${dinkprojPath}\n\nPick a different name, or use "Open Project" to open it instead.`
+        );
+        return false;
+    } catch {
+        // Good — doesn't exist
+    }
+
+    const inkPath = currentInkRoot;
+
+    // Try the template first, fall back to a minimal default.
+    const templatePath = path.join(__dirname, '../build/template.dinkproj');
+    let projectContent;
+    try {
+        const templateData = await fs.readFile(templatePath, 'utf-8');
+        const jsonContent = templateData.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        projectContent = JSON.parse(jsonContent);
+    } catch {
+        projectContent = { destFolder: 'output' };
+    }
+
+    // Point `source` at the current ink file, relative to the .dinkproj dir
+    // (handles the case where the user picks a different folder for the
+    // project file). Forward slashes for cross-platform consistency.
+    projectContent.source = path.relative(path.dirname(dinkprojPath), inkPath).replace(/\\/g, '/');
+
+    try {
+        vcWriteText(dinkprojPath, JSON.stringify(projectContent, null, 2));
+    } catch (e) {
+        dialog.showErrorBox('Failed to create project file', e.message);
+        return false;
+    }
+
+    // Pin the current ink file as this project's preferred root so subsequent
+    // opens of the .dinkproj go straight to it.
+    await setProjectSetting(dinkprojPath, 'lastInkRoot', inkPath);
+    await addToRecentProjects(dinkprojPath);
+
+    // Adopt in place — DON'T reload files. The editor still has the same
+    // ink open; we're just upgrading the project metadata around it.
+    currentDinkProject = {
+        path: dinkprojPath,
+        content: projectContent,
+        isAdhoc: false
+    };
+
+    if (win && !win.isDestroyed()) {
+        const projectName = path.basename(dinkprojPath, '.dinkproj');
+        const fileName = path.basename(inkPath, '.ink');
+        win.setTitle(`Dinky - ${projectName} - ${fileName}`);
+    }
+
+    // Renderer: the project state went adhoc → real. No file reload needed;
+    // this is purely for UI elements that gate on isAdhoc.
+    safeSend(win, 'project-loaded', { hasRoot: true, isAdhoc: false });
+
+    // Rebuild menu so previously-disabled items (Export, Recording Script,
+    // Localization, Stats) become enabled.
+    if (rebuildMenuCallback) await rebuildMenuCallback(win);
+
+    return true;
+}
+
 async function updateProjectConfig(key, value) {
     if (!currentDinkProject || currentDinkProject.isAdhoc) {
         throw new Error('No project loaded or project is adhoc');
@@ -577,6 +658,7 @@ export {
     getCurrentInkRoot,
     getInkRootRev,
     updateProjectConfig,
+    adoptDinkprojForAdhoc,
     createNewInclude,
     openNewIncludeUI,
     openInkRootUI,

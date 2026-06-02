@@ -4,7 +4,7 @@ import { getRecentProjects, saveSettings, loadSettings } from './config'
 import { loadProject, openNewIncludeUI, openNewInkRootUI, openInkRootUI, getCurrentProject, getCurrentInkRoot } from './project-manager'
 import { openSearchWindow } from './search'
 import { openSettingsWindow } from './settings'
-import { openProjectSettingsWindow } from './project-settings'
+import { openProjectSettingsWindow, offerToCreateDinkprojForAdhoc } from './project-settings'
 import { safeSend } from './utils'
 import { manualCheckForUpdates } from './updater'
 
@@ -15,6 +15,36 @@ let recordingMode = false;
  * @param {object} project - The current project object
  * @param {string} suffix - The file suffix (e.g., '-recording.xlsx', '-loc.xlsx', '-stats.xlsx')
  */
+/**
+ * Click-handler shared by the "Open Recording Script / Localization / Stats"
+ * menu items. Promotes adhoc → real project if needed, then either opens the
+ * configured output file or — if the user hasn't enabled this output yet —
+ * directs them to Project Settings. Returns true on a successful open or a
+ * clean abort; false isn't currently meaningful but keeps the API uniform.
+ */
+async function openConfiguredOutput(win, configKey, label, suffix) {
+    if (!await requireNonAdhocProject(win)) return false;
+    // Re-read project state — requireNonAdhocProject may have promoted it.
+    const project = getCurrentProject();
+    if (!project) return false;
+
+    if (!project.content?.[configKey]) {
+        const { response } = await dialog.showMessageBox(win, {
+            type: 'info',
+            buttons: ['Open Project Settings', 'Cancel'],
+            defaultId: 0,
+            cancelId: 1,
+            message: `${label} output isn't enabled for this project.`,
+            detail: `Open Project Settings to enable it, then compile to generate the file.`
+        });
+        if (response === 0) await openProjectSettingsWindow(win);
+        return true;
+    }
+
+    await openOutputFile(project, suffix);
+    return true;
+}
+
 async function openOutputFile(project, suffix) {
     if (!project || !project.content) return;
 
@@ -38,12 +68,31 @@ async function openOutputFile(project, suffix) {
     }
 }
 
+/**
+ * Guard used by menu items that need a real .dinkproj on disk. When the
+ * current project is adhoc (Ink file opened directly, no .dinkproj), prompts
+ * the user to create one — same flow as Project Settings. Returns true if
+ * the project is now non-adhoc and the caller should proceed; false on
+ * cancel/no-project.
+ */
+async function requireNonAdhocProject(win) {
+    const project = getCurrentProject();
+    if (!project) {
+        dialog.showErrorBox(
+            'No project open',
+            'Open or create a project before using this feature.'
+        );
+        return false;
+    }
+    if (!project.isAdhoc) return true;
+    return await offerToCreateDinkprojForAdhoc(win, project);
+}
+
 async function buildMenu(win) {
     const recentProjects = await getRecentProjects();
     const settings = await loadSettings();
     const currentLocale = settings.spellCheckerLocale || 'en-GB';
     const currentProject = getCurrentProject();
-    const hasNonAdhocProject = currentProject && !currentProject.isAdhoc;
 
     const isMac = process.platform === 'darwin'
 
@@ -141,22 +190,25 @@ async function buildMenu(win) {
                     submenu: [
                         {
                             label: 'Export Interactive HTML',
-                            enabled: hasNonAdhocProject,
-                            click: () => {
+                            enabled: !!currentProject,
+                            click: async () => {
+                                if (!await requireNonAdhocProject(win)) return;
                                 safeSend(win, 'show-export-html-modal');
                             }
                         },
                         {
                             label: 'Export Word',
-                            enabled: hasNonAdhocProject,
-                            click: () => {
+                            enabled: !!currentProject,
+                            click: async () => {
+                                if (!await requireNonAdhocProject(win)) return;
                                 safeSend(win, 'show-export-word-modal');
                             }
                         },
                         {
                             label: 'Export PDF',
-                            enabled: hasNonAdhocProject,
-                            click: () => {
+                            enabled: !!currentProject,
+                            click: async () => {
+                                if (!await requireNonAdhocProject(win)) return;
                                 safeSend(win, 'show-export-pdf-modal');
                             }
                         }
@@ -259,7 +311,10 @@ async function buildMenu(win) {
                 {
                     label: 'Project Settings...',
                     accelerator: 'CmdOrCtrl+Shift+,',
-                    enabled: hasNonAdhocProject,
+                    // Enabled for any open project, including adhoc — opening
+                    // it on an adhoc project prompts the user to create a
+                    // .dinkproj first.
+                    enabled: !!currentProject,
                     click: () => {
                         openProjectSettingsWindow(win);
                     }
@@ -267,23 +322,27 @@ async function buildMenu(win) {
                 { type: 'separator' },
                 {
                     label: 'Open Recording Script...',
-                    enabled: hasNonAdhocProject && !!currentProject?.content?.outputRecordingScript,
-                    click: () => {
-                        openOutputFile(currentProject, '-recording.xlsx');
+                    // Enabled if there's an output configured OR the project is
+                    // adhoc (offer the create-dinkproj flow on click). A real
+                    // project without the output enabled stays disabled — the
+                    // greyed-out state tells the user to enable it in Settings.
+                    enabled: !!currentProject && (currentProject.isAdhoc || !!currentProject.content?.outputRecordingScript),
+                    click: async () => {
+                        if (!await openConfiguredOutput(win, 'outputRecordingScript', 'Recording Script', '-recording.xlsx')) return;
                     }
                 },
                 {
                     label: 'Open Localization Spreadsheet...',
-                    enabled: hasNonAdhocProject && !!currentProject?.content?.outputLocalization,
-                    click: () => {
-                        openOutputFile(currentProject, '-loc.xlsx');
+                    enabled: !!currentProject && (currentProject.isAdhoc || !!currentProject.content?.outputLocalization),
+                    click: async () => {
+                        if (!await openConfiguredOutput(win, 'outputLocalization', 'Localization', '-loc.xlsx')) return;
                     }
                 },
                 {
                     label: 'Open Statistics...',
-                    enabled: hasNonAdhocProject && !!currentProject?.content?.outputStats,
-                    click: () => {
-                        openOutputFile(currentProject, '-stats.xlsx');
+                    enabled: !!currentProject && (currentProject.isAdhoc || !!currentProject.content?.outputStats),
+                    click: async () => {
+                        if (!await openConfiguredOutput(win, 'outputStats', 'Statistics', '-stats.xlsx')) return;
                     }
                 }
             ]
