@@ -47,9 +47,8 @@ async function init() {
     // project while this settings window is still open, the main process will
     // refuse the write — without this guard the edits would silently land on
     // the *new* current project.
-    const _originalSetProjectConfig = window.electronAPI.setProjectConfig;
-    window.electronAPI.setProjectConfig = (key, value) =>
-        _originalSetProjectConfig(key, value, projectPath);
+    const setProjectConfig = (key, value) =>
+        setProjectConfig(key, value, projectPath);
 
     // Helper function to convert relative path to absolute
     const resolveRelativePath = (relativePath) => {
@@ -117,7 +116,7 @@ async function init() {
                 const relativePath = makeRelativePath(selectedPath);
                 projectConfig.destFolder = relativePath;
 
-                const success = await window.electronAPI.setProjectConfig('destFolder', relativePath);
+                const success = await setProjectConfig('destFolder', relativePath);
 
                 if (success) {
                     updateOutputFolderDisplay();
@@ -139,7 +138,7 @@ async function init() {
             if (!projectConfig.dinky) projectConfig.dinky = {};
             projectConfig.dinky.spellCheckerLocale = newLocale;
 
-            const success = await window.electronAPI.setProjectConfig('dinky.spellCheckerLocale', newLocale);
+            const success = await setProjectConfig('dinky.spellCheckerLocale', newLocale);
 
             if (success) {
                 // Broadcast to all windows including main which handles the actual spellchecker switch
@@ -195,7 +194,7 @@ async function init() {
 
             // Save valid value
             if (value !== projectConfig.defaultLocaleCode) {
-                const success = await window.electronAPI.setProjectConfig('defaultLocaleCode', value);
+                const success = await setProjectConfig('defaultLocaleCode', value);
 
                 if (success) {
                     projectConfig.defaultLocaleCode = value;
@@ -301,7 +300,7 @@ async function init() {
                     obj[field.configPath[field.configPath.length - 1]] = arrayValue;
 
                     // Save to project config
-                    const success = await window.electronAPI.setProjectConfig(field.configPath[0], projectConfig[field.configPath[0]]);
+                    const success = await setProjectConfig(field.configPath[0], projectConfig[field.configPath[0]]);
 
                     if (success) {
                         // Update display value
@@ -378,7 +377,7 @@ async function init() {
             googleTTSOutputStatusSelect.selectedIndex = 0;
             if (!projectConfig.googleTTS) projectConfig.googleTTS = {};
             projectConfig.googleTTS.outputFolder = audioStatuses[0].folder || '';
-            window.electronAPI.setProjectConfig('googleTTS', projectConfig.googleTTS);
+            setProjectConfig('googleTTS', projectConfig.googleTTS);
         }
     };
 
@@ -401,7 +400,7 @@ async function init() {
                 }
                 projectConfig.googleTTS.authentication = relativePath;
 
-                const success = await window.electronAPI.setProjectConfig('googleTTS', projectConfig.googleTTS);
+                const success = await setProjectConfig('googleTTS', projectConfig.googleTTS);
 
                 if (success) {
                     updateGoogleTTSKeyFileDisplay();
@@ -420,7 +419,7 @@ async function init() {
             }
             projectConfig.googleTTS.outputFolder = selectedFolder;
 
-            const success = await window.electronAPI.setProjectConfig('googleTTS', projectConfig.googleTTS);
+            const success = await setProjectConfig('googleTTS', projectConfig.googleTTS);
             if (!success) {
                 console.error('Failed to update Google TTS output folder');
             }
@@ -472,7 +471,7 @@ async function init() {
             scratchAudioOutputStatusSelect.selectedIndex = 0;
             if (!projectConfig.dinky) projectConfig.dinky = {};
             projectConfig.dinky.scratchAudioFolder = audioStatuses[0].folder || '';
-            window.electronAPI.setProjectConfig('dinky', projectConfig.dinky);
+            setProjectConfig('dinky', projectConfig.dinky);
         }
     };
 
@@ -497,7 +496,7 @@ async function init() {
             }
             projectConfig.dinky.scratchAudioEnabled = newValue;
             updateScratchAudioPaneState();
-            const success = await window.electronAPI.setProjectConfig('dinky', projectConfig.dinky);
+            const success = await setProjectConfig('dinky', projectConfig.dinky);
             if (!success) {
                 console.error('Failed to update dinky.scratchAudioEnabled');
                 e.target.checked = !newValue;
@@ -515,7 +514,7 @@ async function init() {
                 projectConfig.dinky = {};
             }
             projectConfig.dinky.scratchAudioFolder = selectedFolder;
-            const success = await window.electronAPI.setProjectConfig('dinky', projectConfig.dinky);
+            const success = await setProjectConfig('dinky', projectConfig.dinky);
             if (!success) {
                 console.error('Failed to update dinky.scratchAudioFolder');
             }
@@ -530,7 +529,7 @@ async function init() {
                 projectConfig.dinky = {};
             }
             projectConfig.dinky.scratchAudioFormat = selectedFormat;
-            const success = await window.electronAPI.setProjectConfig('dinky', projectConfig.dinky);
+            const success = await setProjectConfig('dinky', projectConfig.dinky);
             if (!success) {
                 console.error('Failed to update dinky.scratchAudioFormat');
             }
@@ -566,7 +565,7 @@ async function init() {
                 const relativePath = makeRelativePath(selectedPath);
                 projectConfig.poDir = relativePath;
 
-                const success = await window.electronAPI.setProjectConfig('poDir', relativePath);
+                const success = await setProjectConfig('poDir', relativePath);
 
                 if (success) {
                     updatePoDirDisplay();
@@ -615,7 +614,7 @@ async function init() {
             if (changed) {
                 projectConfig.poLangs = arrayValue;
 
-                const success = await window.electronAPI.setProjectConfig('poLangs', arrayValue);
+                const success = await setProjectConfig('poLangs', arrayValue);
 
                 if (success) {
                     e.target.value = arrayToCSV(arrayValue);
@@ -648,7 +647,7 @@ async function init() {
             // Add change listener
             checkbox.addEventListener('change', async (e) => {
                 const newValue = e.target.checked;
-                const success = await window.electronAPI.setProjectConfig(key, newValue);
+                const success = await setProjectConfig(key, newValue);
 
                 if (!success) {
                     console.error(`Failed to update ${key}`);
@@ -686,7 +685,7 @@ async function init() {
             projectConfig.googleTTS.generate = newValue;
             updateGoogleTTSPaneState();
 
-            const success = await window.electronAPI.setProjectConfig('googleTTS', projectConfig.googleTTS);
+            const success = await setProjectConfig('googleTTS', projectConfig.googleTTS);
 
             if (!success) {
                 console.error('Failed to update googleTTS.generate');
@@ -985,7 +984,7 @@ async function init() {
         if (index >= 0 && index < projectConfig.writingStatus.length) {
             projectConfig.writingStatus[index][field] = value;
 
-            const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
+            const success = await setProjectConfig('writingStatus', projectConfig.writingStatus);
 
             if (!success) {
                 console.error('Failed to update writing status');
@@ -1004,7 +1003,7 @@ async function init() {
 
         projectConfig.writingStatus.splice(index, 1);
 
-        const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
+        const success = await setProjectConfig('writingStatus', projectConfig.writingStatus);
 
         if (success) {
             renderWritingStatusList();
@@ -1020,7 +1019,7 @@ async function init() {
         [projectConfig.writingStatus[index - 1], projectConfig.writingStatus[index]] =
             [projectConfig.writingStatus[index], projectConfig.writingStatus[index - 1]];
 
-        const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
+        const success = await setProjectConfig('writingStatus', projectConfig.writingStatus);
 
         if (success) {
             renderWritingStatusList();
@@ -1036,7 +1035,7 @@ async function init() {
         [projectConfig.writingStatus[index], projectConfig.writingStatus[index + 1]] =
             [projectConfig.writingStatus[index + 1], projectConfig.writingStatus[index]];
 
-        const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
+        const success = await setProjectConfig('writingStatus', projectConfig.writingStatus);
 
         if (success) {
             renderWritingStatusList();
@@ -1069,7 +1068,7 @@ async function init() {
 
         projectConfig.writingStatus.push(newStatus);
 
-        const success = await window.electronAPI.setProjectConfig('writingStatus', projectConfig.writingStatus);
+        const success = await setProjectConfig('writingStatus', projectConfig.writingStatus);
 
         if (success) {
             renderWritingStatusList();
@@ -1257,7 +1256,7 @@ async function init() {
         if (index >= 0 && index < projectConfig.audioStatus.length) {
             projectConfig.audioStatus[index][field] = value;
 
-            const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
+            const success = await setProjectConfig('audioStatus', projectConfig.audioStatus);
 
             if (!success) {
                 console.error('Failed to update audio status');
@@ -1275,7 +1274,7 @@ async function init() {
 
         projectConfig.audioStatus.splice(index, 1);
 
-        const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
+        const success = await setProjectConfig('audioStatus', projectConfig.audioStatus);
 
         if (success) {
             renderAudioStatusList();
@@ -1291,7 +1290,7 @@ async function init() {
         [projectConfig.audioStatus[index - 1], projectConfig.audioStatus[index]] =
             [projectConfig.audioStatus[index], projectConfig.audioStatus[index - 1]];
 
-        const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
+        const success = await setProjectConfig('audioStatus', projectConfig.audioStatus);
 
         if (success) {
             renderAudioStatusList();
@@ -1307,7 +1306,7 @@ async function init() {
         [projectConfig.audioStatus[index], projectConfig.audioStatus[index + 1]] =
             [projectConfig.audioStatus[index + 1], projectConfig.audioStatus[index]];
 
-        const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
+        const success = await setProjectConfig('audioStatus', projectConfig.audioStatus);
 
         if (success) {
             renderAudioStatusList();
@@ -1339,7 +1338,7 @@ async function init() {
 
         projectConfig.audioStatus.push(newStatus);
 
-        const success = await window.electronAPI.setProjectConfig('audioStatus', projectConfig.audioStatus);
+        const success = await setProjectConfig('audioStatus', projectConfig.audioStatus);
 
         if (success) {
             renderAudioStatusList();
@@ -1492,7 +1491,7 @@ async function init() {
         if (index >= 0 && index < projectConfig.estimates.length) {
             projectConfig.estimates[index][field] = value;
 
-            const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
+            const success = await setProjectConfig('estimates', projectConfig.estimates);
 
             if (!success) {
                 console.error('Failed to update estimate');
@@ -1510,7 +1509,7 @@ async function init() {
 
         projectConfig.estimates.splice(index, 1);
 
-        const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
+        const success = await setProjectConfig('estimates', projectConfig.estimates);
 
         if (success) {
             renderEstimatesList();
@@ -1526,7 +1525,7 @@ async function init() {
         [projectConfig.estimates[index - 1], projectConfig.estimates[index]] =
             [projectConfig.estimates[index], projectConfig.estimates[index - 1]];
 
-        const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
+        const success = await setProjectConfig('estimates', projectConfig.estimates);
 
         if (success) {
             renderEstimatesList();
@@ -1542,7 +1541,7 @@ async function init() {
         [projectConfig.estimates[index], projectConfig.estimates[index + 1]] =
             [projectConfig.estimates[index + 1], projectConfig.estimates[index]];
 
-        const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
+        const success = await setProjectConfig('estimates', projectConfig.estimates);
 
         if (success) {
             renderEstimatesList();
@@ -1572,7 +1571,7 @@ async function init() {
 
         projectConfig.estimates.push(newEstimate);
 
-        const success = await window.electronAPI.setProjectConfig('estimates', projectConfig.estimates);
+        const success = await setProjectConfig('estimates', projectConfig.estimates);
 
         if (success) {
             renderEstimatesList();

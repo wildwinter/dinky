@@ -33,7 +33,7 @@ export default defineConfig({
                     },
                     build: {
                         rollupOptions: {
-                            external: ['inkjs', 'inkjs/full', 'electron-updater'],
+                            external: ['inkjs', 'inkjs/full', 'electron-updater', 'jsonc-parser'],
                         },
                     },
                 },
