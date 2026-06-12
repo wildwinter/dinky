@@ -1817,18 +1817,25 @@ async function _doSaveAllFiles() {
     const savedPaths = new Set(result?.savedPaths || []);
     const savedContentByPath = new Map(filesToSave.map(f => [f.path, f.content]));
 
-    // Update originalContent only for files that actually saved. The
-    // representation has to match `file.content` or the dirty marker stays
-    // stuck on after every save:
-    //  - current file: file.content is the CLEAN editor value; use the clean
-    //    snapshot we captured at save start. If the user typed during the
-    //    save, file.content (kept current by the keystroke handler) will
-    //    have diverged from the snapshot, and the asterisk correctly stays.
-    //  - other files: file.content is the ID-rich version we just wrote;
-    //    use savedContentByPath.
+    // Update originalContent only for files that actually saved.
+    //
+    // The representation has to match `file.content` or the dirty marker
+    // stays stuck on after every save. Two important nuances:
+    //
+    //   - current file: file.content is supposed to be the CLEAN editor
+    //     value, but the keystroke handler only sets it after the user
+    //     types. Before any keystroke (e.g. just-opened file, save-before-
+    //     compile with no edits), file.content is still the ID-rich initial
+    //     load value — so we explicitly sync it to editor.getValue() here.
+    //     We use editor.getValue() (latest), not currentCleanSnapshot, so
+    //     that mid-save typing is reflected and the asterisk correctly
+    //     stays on in that case.
+    //   - other files: file.content is the ID-rich version we just wrote;
+    //     use savedContentByPath.
     for (const [filePath, file] of loadedInkFiles) {
         if (!savedPaths.has(filePath)) continue; // failed/refused — leave dirty
         if (filePath === currentFilePath) {
+            file.content = editor.getValue();
             file.originalContent = currentCleanSnapshot;
         } else {
             file.originalContent = savedContentByPath.get(filePath);
