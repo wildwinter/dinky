@@ -1737,12 +1737,20 @@ async function saveAllFiles() {
 async function _doSaveAllFiles() {
     const filesToSave = [];
 
+    // Snapshot the current file's CLEAN editor value at save start. We use
+    // this for the post-save asterisk-clearing check: `file.content` for the
+    // current file is also "clean" (kept that way by the keystroke handler),
+    // and we need `file.originalContent` to share that representation so the
+    // dirty marker clears correctly. The reconstructed-with-IDs version goes
+    // to disk; the clean version is the in-memory baseline.
+    const currentCleanSnapshot = currentFilePath ? editor.getValue() : null;
+
     // Prepare project files map for the tagger
     const projectFilesContent = {};
     for (const [path, file] of loadedInkFiles) {
         // Use current editor content if this is the active file
         if (path === currentFilePath) {
-            projectFilesContent[path] = idManager.reconstructContent(editor.getValue());
+            projectFilesContent[path] = idManager.reconstructContent(currentCleanSnapshot);
         } else {
             projectFilesContent[path] = file.content;
         }
@@ -1809,20 +1817,22 @@ async function _doSaveAllFiles() {
     const savedPaths = new Set(result?.savedPaths || []);
     const savedContentByPath = new Map(filesToSave.map(f => [f.path, f.content]));
 
-    // Update originalContent only for files that actually saved. For the
-    // current file, file.content may have diverged from what we wrote (the
-    // user typed during the save) — set originalContent to what's actually on
-    // disk so the asterisk re-appears if and only if the user has unsaved
-    // edits relative to disk.
+    // Update originalContent only for files that actually saved. The
+    // representation has to match `file.content` or the dirty marker stays
+    // stuck on after every save:
+    //  - current file: file.content is the CLEAN editor value; use the clean
+    //    snapshot we captured at save start. If the user typed during the
+    //    save, file.content (kept current by the keystroke handler) will
+    //    have diverged from the snapshot, and the asterisk correctly stays.
+    //  - other files: file.content is the ID-rich version we just wrote;
+    //    use savedContentByPath.
     for (const [filePath, file] of loadedInkFiles) {
         if (!savedPaths.has(filePath)) continue; // failed/refused — leave dirty
-        const onDisk = savedContentByPath.get(filePath);
-        file.originalContent = onDisk;
-        // For non-current files, content didn't change during save, so this is
-        // a no-op equality. For the current file, if the user kept typing
-        // during the save, file.content already has the latest editor value
-        // (via the keystroke handler) — leave it alone; the asterisk reflects
-        // the divergence.
+        if (filePath === currentFilePath) {
+            file.originalContent = currentCleanSnapshot;
+        } else {
+            file.originalContent = savedContentByPath.get(filePath);
+        }
         if (file.listItem) {
             const isModified = file.content !== file.originalContent;
             file.listItem.textContent = file.relativePath + (isModified ? '*' : '');

@@ -321,6 +321,46 @@ export class IdPreservationManager {
     }
 
     /**
+     * Returns a Set of 0-based line indices that are continuations of a
+     * multi-line declaration (VAR / CONST / LIST / EXTERNAL / INCLUDE).
+     *
+     * Heuristic: a declaration that ends with `,` continues onto the next
+     * non-blank line; a continuation that ends with `,` continues further;
+     * a blank line or a non-comma terminator ends the block.
+     *
+     * Used to catch the case where a user accidentally split a LIST across
+     * lines (forgot a comma), got an auto-generated ID on what looked like
+     * a dialogue line, then fixed the comma — leaving a now-illegal ID
+     * baked into a list-item line.
+     */
+    _findDeclarationContinuationLines(lines) {
+        const result = new Set();
+        let inDeclaration = false;
+
+        for (let i = 0; i < lines.length; i++) {
+            const commentIdx = lines[i].indexOf('//');
+            const codePart = commentIdx === -1 ? lines[i] : lines[i].substring(0, commentIdx);
+            const trimmed = codePart.trim();
+
+            if (!trimmed) {
+                inDeclaration = false;
+                continue;
+            }
+
+            if (/^(VAR|CONST|LIST|EXTERNAL|INCLUDE)\s/i.test(trimmed)) {
+                inDeclaration = trimmed.endsWith(',');
+                continue;
+            }
+
+            if (inDeclaration) {
+                result.add(i);
+                inDeclaration = trimmed.endsWith(',');
+            }
+        }
+        return result;
+    }
+
+    /**
      * Reconstruct the content by injecting IDs back into the text.
      */
     reconstructContent(currentContent) {
@@ -328,6 +368,7 @@ export class IdPreservationManager {
         if (!model) return currentContent;
 
         const lines = currentContent.split(/\r?\n/);
+        const declarationContinuations = this._findDeclarationContinuationLines(lines);
         const resultLines = [...lines];
         const decorationsToRemove = [];
 
@@ -350,9 +391,11 @@ export class IdPreservationManager {
 
             const lineIndex = range.startLineNumber - 1; // 0-based
             if (lineIndex >= 0 && lineIndex < resultLines.length) {
-                // If the line is no longer eligible for an ID (e.g. it became a knot header),
-                // drop the decoration so the ID is not written back to the file.
-                if (!this._isLineEligibleForId(resultLines[lineIndex])) {
+                // If the line is no longer eligible for an ID (e.g. it became
+                // a knot header, declaration, logic line, OR a continuation
+                // of a multi-line declaration like LIST), drop the decoration
+                // so the ID is stripped from the file on save.
+                if (!this._isLineEligibleForId(resultLines[lineIndex]) || declarationContinuations.has(lineIndex)) {
                     decorationsToRemove.push(decId);
                     continue;
                 }
