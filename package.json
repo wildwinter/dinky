@@ -2,7 +2,7 @@
     "name": "dinky",
     "productName": "Dinky",
     "version": "0.2.5",
-    "dinkVersion": "0.1.0",
+    "dinkVersion": "0.1.1",
     "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
@@ -71,7 +71,6 @@
         "win": {
             "target": "nsis",
             "icon": "build/DinkyApp.ico",
-            "publisherName": "Ian Thomas",
             "extraResources": [
                 {
                     "from": "resources/compiler/DinkCompiler.exe",
