@@ -2,7 +2,7 @@
     "name": "dinky",
     "productName": "Dinky",
     "version": "0.2.7",
-    "dinkVersion": "0.1.1",
+    "dinkVersion": "0.1.2",
     "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
@@ -106,7 +106,7 @@
     "license": "MIT",
     "description": "Ink-script editor",
     "dependencies": {
-        "@wildwinter/simple-vc-lib": "^0.1.0",
+        "@wildwinter/simple-vc-lib": "^0.2.0",
         "electron-updater": "^6.8.3",
         "inkjs": "^2.3.2",
         "jsonc-parser": "^3.3.1",
