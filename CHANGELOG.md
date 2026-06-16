@@ -1,0 +1,80 @@
+# Changelog
+
+All notable changes to Dinky will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+Entries before 0.2.2 are not documented here — see the [git history](https://github.com/wildwinter/dinky/commits/main) for details.
+
+## [Unreleased]
+
+### Fixed
+- Windows: Start menu shortcut and taskbar-pin association now reliably re-created on auto-update. The default electron-builder NSIS install can skip shortcut creation during silent auto-updates, leaving the new exe in place but with no Start menu entry. A `customInstall` macro now explicitly re-creates the shortcut on every install.
+
+### Changed
+- Windows: NSIS installer now sets `shortcutName` and `uninstallDisplayName` explicitly, and the package now has a non-empty `description` — both improve how Windows Search and Add/Remove Programs identify the app.
+
+## [0.2.6] — 2026-06-12
+
+### Fixed
+- Dirty-marker asterisk now clears correctly after save. The post-save originalContent tracking compared a clean (no inline IDs) editor value against the ID-rich version written to disk, so the asterisk got stuck after every save — which also produced spurious "unsaved changes" warnings on quit. Saves to disk were correct throughout; only the UI state was wrong.
+
+### Changed
+- Updated bundled Dink compiler binaries.
+
+## [0.2.5] — 2026-06-12
+
+### Fixed
+- IDs no longer get stuck on lines that have become LIST continuations. If you typed an item on the wrong line, the auto-tagger added an `#id:` thinking it was dialogue; fixing the missing comma later left an invisible, illegal ID on the list item. The save-time ID reconstruction now detects multi-line declaration continuations and strips IDs from them automatically.
+- Localisation runtime-strings JSON now properly escapes quotes in source text. The lowest-level writer was building JSON via string interpolation, leaving any `"` in a line unescaped. Switched to `JsonSerializer` for correct escaping. (Fix lives in the `dink` repo.)
+
+## [0.2.4] — 2026-06-10
+
+### Fixed
+- Follow-up fixes to project-settings handling for adhoc Ink files.
+
+## [0.2.3] — 2026-06-10
+
+### Changed
+- Bumped `@wildwinter/simple-vc-lib` to pick up Perforce-handling fixes.
+
+## [0.2.2] — 2026-06-02
+
+The big audit & hardening pass. Several silent data-loss bugs in the same shape — an error path producing a fallback "default" value that then got written to disk — were closed, plus a series of save-flow and state-sync improvements.
+
+### Fixed (data-loss bugs)
+- `loadRootInk` no longer inserts `// Error reading file: ENOENT…` placeholder content for unreadable files. The placeholder could be silently written to disk on the next save, replacing the user's real file content.
+- `save-files` IPC refuses to write content that looks like the legacy error placeholder, and refuses to overwrite a non-empty file with empty content.
+- `loadSettings` refuses to overwrite the config file when it failed to parse — corrupt config no longer wipes recent projects, window state, and per-project preferences.
+- `add-project-character`, `add-to-project-dictionary`, `save-characters`, and the character-file loaders now refuse to overwrite when the on-disk source can't be parsed or read.
+- New `safeReadJSON` / `safeReadText` helpers distinguish "file absent" (defaulting OK) from "file broken" (don't overwrite).
+
+### Fixed (save flow)
+- `saveAllFiles` now has a re-entrancy guard — concurrent save triggers no longer interleave and corrupt state.
+- Mid-save typing is no longer silently dropped; the editor's current value is preserved separately from the tagger-merged snapshot we write to disk.
+- `save-files` returns per-file outcome; refused/errored files stay marked dirty instead of being treated as saved.
+- Find/Replace on the current file preserves existing IDs; an empty query is rejected rather than matching every position.
+
+### Fixed (state sync)
+- Sidebar now updates when files are deleted from disk (via window-focus refresh) or when `INCLUDE` lines are removed from the root file (via post-save refresh).
+- New revision counter on structural changes — stale "refresh" events that arrive after a rename can no longer delete the renamed file from the sidebar.
+- Spell-check decorations no longer drift after multi-line edits — the marker cache is invalidated whenever line counts change.
+- Project Settings window writes are now pinned to the project they were opened for. Switching the main window to a different project no longer causes Settings saves to land on the wrong project.
+
+### Fixed (other)
+- `autoUpdater.quitAndInstall` ("Restart Now" from update prompt) now goes through an unsaved-edits dialog with Save / Discard / Cancel — no longer silently loses unsaved work.
+- `compileStory` distinguishes warnings from real errors and throws on errors; the Test window no longer runs a story the compiler flagged.
+- `audio-lookup` distinguishes ENOENT ("user hasn't recorded yet" — silent) from real IO errors (logged once per session).
+- Numerous smaller error-surfacing improvements (`set-setting`, `parseInk`, `scratchRecorder`, updater background errors).
+
+### Added
+- Ad-hoc mode: opening an `.ink` file directly (no `.dinkproj`) and invoking any project-scoped feature (Project Settings, Export, Recording Script, Localization, Statistics) now offers to create a `.dinkproj` next to the Ink file with a suggested name.
+- `jsonc-parser` dependency — `.dinkproj` writes now surgically update individual keys, preserving user comments and formatting.
+- `characters.jsonc` save warns before stripping comments.
+- "Check for Updates…" menu entry (Mac app menu / Win-Linux Help menu).
+- Draggable sidebar resizer with persisted width.
+
+### Changed
+- `createNewProject` / `createNewInclude` refuse to overwrite existing files (now consistent with the other create helpers).
+- Auto-updater background errors surfaced in the next manual "Check for Updates" dialog.
