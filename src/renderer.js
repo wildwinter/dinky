@@ -1059,6 +1059,21 @@ window.electronAPI.onCompileComplete(({ code, destFolder, destFile, exportType }
 
     // Auto-scroll to bottom
     container.scrollTop = container.scrollHeight;
+
+    // A successful compile may have generated or refreshed TTS audio
+    // files on disk. Re-query audio status so:
+    //   - refreshAudioGlyphs: the line-ID chips reflect new "has audio"
+    //     state
+    //   - updateTestAudioButton: the bottom status-bar "Audio is out of
+    //     date" hint and the top "!! TTS !!" label clear once the disk
+    //     hash matches the current line's text again
+    // Both are idempotent and cheap, safe to run for any successful
+    // operation (exports won't have produced audio, but the no-op cost
+    // is small).
+    if (code === 0) {
+        refreshAudioGlyphs();
+        updateTestAudioButton();
+    }
 });
 
 // Export modal handlers
