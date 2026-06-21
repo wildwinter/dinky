@@ -1,7 +1,13 @@
 import nspell from 'nspell';
 
 const IGNORED_TOKEN_TYPES = ['code', 'keyword', 'comment', 'annotation', 'type', 'delimiter', 'function', 'dinky.name', 'dinky.qualifier', 'dinky.direction'];
-const WORD_REGEX = /[a-zA-Z']+/g;
+const WORD_REGEX = /[a-zA-Z'‘’]+/g;
+
+// Hunspell dictionaries store apostrophes as the straight ASCII ' (don't, I'll), but authored prose often
+// carries the typographic curly ' (U+2019) - and an unmodified curly word never matches. Fold every
+// apostrophe variant to the straight form before any lookup.
+const APOSTROPHES = /[‘’ʼ′`]/g;
+const straighten = (word) => word.replace(APOSTROPHES, "'");
 
 export class DinkySpellChecker {
     constructor() {
@@ -83,6 +89,23 @@ export class DinkySpellChecker {
         }
     }
 
+    // True when the word is correct, with apostrophe-tolerance: try it as-is, then with apostrophes
+    // straightened, then - for possessives / contractions the dictionary lacks (Eldoria's, what'll) - the
+    // stem before the first apostrophe. The stem fallback only forgives a word whose root is itself a real
+    // word, so "teh's" still flags.
+    correctWord(word) {
+        if (!this.spell) return true;
+        if (this.spell.correct(word)) return true;
+        const flat = straighten(word);
+        if (flat !== word && this.spell.correct(flat)) return true;
+        const apos = flat.indexOf("'");
+        if (apos > 0) {
+            const stem = flat.slice(0, apos);
+            if (stem.length >= 2 && this.spell.correct(stem)) return true;
+        }
+        return false;
+    }
+
     checkModel(model, monaco) {
         if (!this.spell || !this.dictionariesLoaded) return [];
 
@@ -124,7 +147,7 @@ export class DinkySpellChecker {
 
                 if (isIgnored) continue;
 
-                if (!this.spell.correct(word)) {
+                if (!this.correctWord(word)) {
                     markers.push({
                         message: `Misspelled: ${word}`,
                         severity: 2, // monaco.MarkerSeverity.Info = 2
@@ -178,7 +201,7 @@ export class DinkySpellChecker {
                 const isIgnored = IGNORED_TOKEN_TYPES.some(t => tokenType.indexOf(t) !== -1);
                 if (isIgnored) continue;
 
-                if (!this.spell.correct(word)) {
+                if (!this.correctWord(word)) {
                     markers.push({
                         message: `Misspelled: ${word}`,
                         severity: 2,
@@ -197,6 +220,6 @@ export class DinkySpellChecker {
 
     getSuggestions(word) {
         if (!this.spell) return [];
-        return this.spell.suggest(word);
+        return this.spell.suggest(straighten(word));
     }
 }
