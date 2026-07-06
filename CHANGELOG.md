@@ -11,6 +11,7 @@ Entries before 0.2.2 are not documented here — see the [git history](https://g
 
 ### Fixed
 - Windows: Start menu shortcut and taskbar-pin association now reliably re-created on auto-update. The default electron-builder NSIS install can skip shortcut creation during silent auto-updates, leaving the new exe in place but with no Start menu entry. A `customInstall` macro now explicitly re-creates the shortcut on every install.
+- Fixed project settings failing to save
 
 ### Changed
 - Windows: NSIS installer now sets `shortcutName` and `uninstallDisplayName` explicitly, and the package now has a non-empty `description` — both improve how Windows Search and Add/Remove Programs identify the app.

@@ -47,8 +47,14 @@ async function init() {
     // project while this settings window is still open, the main process will
     // refuse the write — without this guard the edits would silently land on
     // the *new* current project.
+    //
+    // NB: the RHS explicitly references the electronAPI method, NOT the local
+    // `setProjectConfig` we're defining — otherwise this becomes a self-
+    // referential recursion that overflows the stack on every call. Every
+    // caller in this file uses the bare `setProjectConfig(key, value)` form,
+    // so they all hit this shim and get the projectPath appended for free.
     const setProjectConfig = (key, value) =>
-        setProjectConfig(key, value, projectPath);
+        window.electronAPI.setProjectConfig(key, value, projectPath);
 
     // Helper function to convert relative path to absolute
     const resolveRelativePath = (relativePath) => {
