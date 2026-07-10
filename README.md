@@ -30,6 +30,7 @@ In a complex game production, you need to know:
   * [Character Management](#character-management)
   * [Audio & Scratch Recording](#audio--scratch-recording)
   * [Testing](#testing)
+  * [Command-Line Usage](#command-line-usage)
 * [The Dink Pipeline & Compiler Artefacts](#the-dink-pipeline--compiler-artefacts)
   * [Runtime Files](#runtime-files)
   * [Production Files](#production-files)
@@ -106,6 +107,15 @@ Dinky validates character names in real-time against your project's `characters.
 * **Quick Fix**: If you type an unknown name, Dinky highlights it. Click the lightbulb to add it to your project or fix a typo.
 ![Add Character](doc/AddChar.png)
 
+Each character is stored in `characters.json` (beside your `.dinkproj`) with:
+
+| Field | Purpose |
+| --- | --- |
+| **Script Name** | The `ID` used in Ink files to identify the speaker. |
+| **Actor** | The real name, used in recording statistics and the recording script. |
+| **Grammatical Gender** | Male, Female, Neuter, or Non-specified. Tells translators which grammatical forms to use for the speaker. Exported as a narrow `M`/`F`/`N` column in the localisation spreadsheet, and as a `#. Grammatical gender: Female` comment in POT/PO files. Blank/omitted when Non-specified. |
+| **Notes** | Free text for your own reference. Not exported. |
+
 ### Audio & Scratch Recording
 
 Dinky integrates audio directly into the writing process.
@@ -124,6 +134,28 @@ Use the integrated **Test Runner** to play through your script.
 
 * **Test from Knot**: Jump straight to a knot, skipping the intro.
 ![Testing](doc/Testing.png)
+
+### Command-Line Usage
+
+Dinky can be launched from a terminal or script, opening a project and jumping straight to a line:
+
+```sh
+# Jump to a line by its ID
+dinky TheTavern.dinkproj --goto TheTavern_Line_AbCd
+
+# Jump to a knot, or a stitch within a knot
+dinky TheTavern.dinkproj --goto theTavern
+dinky TheTavern.dinkproj --goto theTavern.greeting
+
+# Omit the project: applies to your most recent one
+dinky --goto theTavern.greeting
+```
+
+`--goto` takes either a [line ID](#the-id-system) (without the `#id:` prefix) or a knot/stitch path — Dinky works out which. If Dinky is already running, the open window is focused and jumps in place rather than reloading.
+
+Because the IDs in your localisation spreadsheets, recording scripts, and audio filenames are the same IDs Dinky understands, any tool that knows an ID can deep-link into the script.
+
+See [Command-Line Usage](doc/command-line.md) for the full reference, including how to invoke the binary on each platform.
 
 ---
 

@@ -75,7 +75,7 @@
 
         .character-item {
             display: grid;
-            grid-template-columns: 1fr 1fr 30px 30px 40px;
+            grid-template-columns: 1.1fr 1fr 1.1fr 1.6fr 30px 30px 40px;
             gap: 8px;
             align-items: center;
             padding: 6px 10px;
@@ -91,7 +91,8 @@
             background-color: var(--hover-bg);
         }
 
-        .character-item input[type="text"] {
+        .character-item input[type="text"],
+        .character-item select {
             background-color: var(--sidebar-bg);
             color: var(--text-color);
             border: 1px solid var(--sidebar-border);
@@ -102,7 +103,16 @@
             transition: border-color 0.2s ease;
         }
 
-        .character-item input[type="text"]:focus {
+        .character-item select {
+            /* Match the input box model: inputs don't include padding in their
+               width by default here, and a bare select would render taller. */
+            box-sizing: border-box;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .character-item input[type="text"]:focus,
+        .character-item select:focus {
             border-color: var(--text-color);
         }
 
@@ -180,7 +190,7 @@
 
         .character-header {
             display: grid;
-            grid-template-columns: 1fr 1fr 30px 30px 40px;
+            grid-template-columns: 1.1fr 1fr 1.1fr 1.6fr 30px 30px 40px;
             gap: 8px;
             padding: 6px 10px;
             font-size: 11px;
@@ -207,10 +217,15 @@
             <div class="section-description">
                 Define characters used in your dialogue. The Script Name is used in Ink files to identify the speaker, and the Actor is the real name used in recording statistics.
             </div>
+            <div class="section-description">
+                <strong>Grammatical Gender</strong> tells translators which grammatical forms to use for the speaker. It is exported as a narrow <code>M</code>&nbsp;/&nbsp;<code>F</code>&nbsp;/&nbsp;<code>N</code> column in the localisation spreadsheet, and as a comment in POT/PO files. Non-specified is left blank. <strong>Notes</strong> are for your own reference and are not exported.
+            </div>
 
             <div class="character-header">
                 <div>Script Name</div>
                 <div>Actor</div>
+                <div>Grammatical Gender</div>
+                <div>Notes</div>
                 <div></div>
                 <div></div>
                 <div></div>

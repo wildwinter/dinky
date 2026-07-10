@@ -56,6 +56,12 @@ let rootInkPath = null;
 let isUpdatingContent = false;
 let lastTestKnot = null;
 
+// A CLI --goto request can arrive before the project has finished loading,
+// so it's held here until loadedInkFiles is populated. Declared up here so
+// tryResolvePendingGoto() (called from onRootInkLoaded, defined further
+// down) can never hit a temporal-dead-zone error.
+let pendingGotoTarget = null;
+
 // Spell check optimization - track changed lines
 let lastSpellCheckedFilePath = null;
 let spellCheckMarkersByLine = new Map(); // filePath -> markers array
@@ -681,6 +687,9 @@ window.electronAPI.onRootInkLoaded(async (files, rev) => {
         checkSpelling();
         updateNavigationDropdown();
     }
+
+    // Files are now loaded — service any --goto request that arrived early.
+    tryResolvePendingGoto();
 });
 
 // Sidebar-only reconcile: fired by main on window focus and after save.
@@ -862,6 +871,105 @@ document.getElementById('btn-switch-ink-root').addEventListener('click', () => {
 
 
 // -- Find ID Logic --
+/**
+ * Reveal, focus and highlight a line in the currently-open editor model.
+ */
+function revealAndHighlightLine(lineNum) {
+    editor.revealLineInCenter(lineNum);
+    editor.setPosition({ lineNumber: lineNum, column: 1 });
+    editor.focus();
+
+    jumpHighlightCollection.set([{
+        range: new monaco.Range(lineNum, 1, lineNum, 1),
+        options: {
+            isWholeLine: true,
+            className: 'jump-highlight-line'
+        }
+    }]);
+}
+
+/**
+ * Find a line by its #id: tag across all loaded files, switch to that file
+ * and jump to the line. Returns true if found.
+ */
+function jumpToLineId(idToFind) {
+    if (!idToFind) return false;
+
+    for (const [path, file] of loadedInkFiles) {
+        let content = file.content;
+        if (path === currentFilePath) {
+            // Reconstruct IDs from editor content since they are stripped for display
+            content = idManager.reconstructContent(editor.getValue());
+        }
+
+        // extractIds is stateless for extraction. Stripping the tag doesn't
+        // remove lines, so lineIndex stays valid after the file is opened.
+        const { extractedIds } = idManager.extractIds(content);
+        const match = extractedIds.find(item => item.id === idToFind);
+        if (!match) continue;
+
+        if (path !== currentFilePath && file.listItem) {
+            file.listItem.click();
+        }
+        revealAndHighlightLine(match.lineIndex + 1);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Find a knot ("myKnot") or stitch ("myKnot.myStitch") by name across all
+ * loaded files, switch to that file and jump to its declaration line.
+ * Exact match wins; falls back to a case-insensitive match. Returns true if found.
+ */
+function jumpToKnotPath(target) {
+    if (!target) return false;
+
+    const structure = navigationSystem.parseNavigationStructure();
+    const isNavigable = (e) => e.type === 'knot' || e.type === 'stitch';
+
+    let entry = structure.find(e => isNavigable(e) && e.name === target);
+    if (!entry) {
+        const lowered = target.toLowerCase();
+        entry = structure.find(e => isNavigable(e) && e.name.toLowerCase() === lowered);
+    }
+    if (!entry) return false;
+
+    const file = loadedInkFiles.get(entry.filePath);
+    if (file && entry.filePath !== currentFilePath && file.listItem) {
+        file.listItem.click();
+    }
+    revealAndHighlightLine(entry.line);
+    return true;
+}
+
+/**
+ * Resolve a CLI --goto target. Tries line ID first, then knot/stitch path —
+ * a knot named exactly like an ID (e.g. "foo_A1B2") resolves as the ID.
+ */
+function resolveGotoTarget(target) {
+    if (!target) return;
+    if (jumpToLineId(target)) return;
+    if (jumpToKnotPath(target)) return;
+    window.electronAPI.gotoNotFound(target);
+}
+
+function tryResolvePendingGoto() {
+    if (!pendingGotoTarget) return;
+    if (loadedInkFiles.size === 0) return; // not loaded yet — stay queued
+
+    const target = pendingGotoTarget;
+    pendingGotoTarget = null;
+    // Defer a frame: onRootInkLoaded schedules an editor.layout() on the next
+    // frame, and revealLineInCenter before that would mis-centre the view.
+    requestAnimationFrame(() => resolveGotoTarget(target));
+}
+
+window.electronAPI.onGotoTarget((target) => {
+    pendingGotoTarget = target;
+    tryResolvePendingGoto();
+});
+
 const findIdModal = new ModalHelper({
     overlayId: 'modal-find-id-overlay',
     confirmBtnId: 'btn-confirm-find-id',
@@ -878,58 +986,10 @@ const findIdModal = new ModalHelper({
 
         if (!idToFind) return false;
 
-        // Search through loaded files
-        let found = false;
-
-        for (const [path, file] of loadedInkFiles) {
-            let content = file.content;
-            if (path === currentFilePath) {
-                // Reconstruct IDs from editor content since they are stripped for display
-                content = idManager.reconstructContent(editor.getValue());
-            }
-
-            // Extract IDs from this content
-            // We use extractIds from idManager, which is stateless for extraction
-            const { extractedIds } = idManager.extractIds(content);
-
-            const match = extractedIds.find(item => item.id === idToFind);
-
-            if (match) {
-                found = true;
-
-                // Switch to the file containing the ID if needed
-                if (path !== currentFilePath) {
-                    if (file.listItem) {
-                        file.listItem.click();
-                    }
-                }
-
-                // Focus the line containing the ID (convert from 0-based to 1-based)
-                const lineNum = match.lineIndex + 1;
-
-                // Reveal and select
-                editor.revealLineInCenter(lineNum);
-                editor.setPosition({ lineNumber: lineNum, column: 1 });
-                editor.focus();
-
-                // Highlight the line
-                jumpHighlightCollection.set([{
-                    range: new monaco.Range(lineNum, 1, lineNum, 1),
-                    options: {
-                        isWholeLine: true,
-                        className: 'jump-highlight-line'
-                    }
-                }]);
-
-                break;
-            }
-        }
-
-        if (!found) {
+        if (!jumpToLineId(idToFind)) {
             errorEl.textContent = 'ID not found';
             return false; // Keep modal open
         }
-
         return true; // Close modal
     }
 });

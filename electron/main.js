@@ -16,6 +16,7 @@ import './audio-lookup' // Import to register IPC handlers
 import { safeSend, setupThemeListener } from './utils'
 import { vcWriteText } from './vc'
 import { safeReadText, safeReadJSON } from './safe-read'
+import { parseGotoTarget } from './cli-args'
 import pkg from '../package.json'
 import { startBackgroundUpdateCheck } from './updater'
 
@@ -38,7 +39,19 @@ setMenuRebuildCallback(buildMenu);
 let mainWindow = null;
 let fileToOpen = null; // Store file path to open on startup
 let inkFileToOpen = null; // Optional .ink file to activate after loading a project
-let pendingAction = null; // { type: 'close' } or { type: 'load', path: '...', inkPath: '...' }
+let pendingAction = null; // { type: 'close' } or { type: 'load', path: '...', inkPath: '...', goto: '...' }
+let gotoTarget = null; // Optional --goto target (line ID or Knot/Knot.Stitch) from the command line
+
+/**
+ * Tell the renderer to jump to a --goto target, once. Safe to call when no
+ * target is pending. The renderer queues the request if the project hasn't
+ * finished loading yet.
+ */
+function dispatchGoto(win) {
+    if (!gotoTarget) return;
+    safeSend(win, 'goto-target', gotoTarget);
+    gotoTarget = null;
+}
 
 // Handle file association on macOS
 app.on('open-file', (event, filePath) => {
@@ -70,12 +83,16 @@ if (!gotTheLock) {
             // Extract file paths from command line arguments
             const filePath = commandLine.find(arg => arg.endsWith('.dinkproj'));
             const inkPath = commandLine.find(arg => arg.endsWith('.ink'));
+            const goto = parseGotoTarget(commandLine);
             if (filePath) {
-                pendingAction = { type: 'load', path: filePath, inkPath: inkPath || null };
+                pendingAction = { type: 'load', path: filePath, inkPath: inkPath || null, goto };
                 safeSend(mainWindow, 'check-unsaved');
             } else if (inkPath) {
-                pendingAction = { type: 'load', path: inkPath };
+                pendingAction = { type: 'load', path: inkPath, goto };
                 safeSend(mainWindow, 'check-unsaved');
+            } else if (goto) {
+                // No file to load — jump within the currently-open project.
+                safeSend(mainWindow, 'goto-target', goto);
             }
         }
     });
@@ -138,6 +155,11 @@ if (!gotTheLock) {
                 }
             }
 
+            // --goto <lineID|Knot|Knot.Stitch>. Applies to whichever project
+            // ends up loaded below — an explicitly-passed one, or the
+            // auto-loaded most-recent project.
+            gotoTarget = parseGotoTarget(process.argv);
+
             if (fileToOpen) {
                 console.log('Opening file from association:', fileToOpen);
 
@@ -152,6 +174,7 @@ if (!gotTheLock) {
 
                 fileToOpen = null;
                 inkFileToOpen = null;
+                dispatchGoto(win);
                 return;
             }
 
@@ -184,6 +207,10 @@ if (!gotTheLock) {
                     await buildMenu(win);
                 }
             }
+
+            // `dinky --goto <target>` with no path: resolve against the
+            // auto-loaded project. No-op if --goto wasn't passed.
+            dispatchGoto(win);
         })
 
         if (process.env.VITE_DEV_SERVER_URL) {
@@ -275,25 +302,53 @@ if (!gotTheLock) {
     async function performPendingAction(win) {
         if (!pendingAction) return;
 
-        if (pendingAction.type === 'close') {
+        // Capture and clear up-front: the load path below awaits, and leaving
+        // pendingAction set across those awaits allows a second trigger to
+        // run the same action concurrently.
+        const action = pendingAction;
+        pendingAction = null;
+
+        if (action.type === 'close') {
             win.forceClose = true;
             win.close();
-        } else if (pendingAction.type === 'load') {
-            if (pendingAction.path.endsWith('.dinkproj')) {
-                const loaded = await loadProject(win, pendingAction.path);
-                if (loaded && pendingAction.inkPath) {
-                    await switchToInkRoot(win, pendingAction.inkPath);
+            return;
+        }
+
+        if (action.type === 'load') {
+            if (action.path.endsWith('.dinkproj')) {
+                const loaded = await loadProject(win, action.path);
+                if (loaded && action.inkPath) {
+                    await switchToInkRoot(win, action.inkPath);
                 }
-            } else if (pendingAction.path.endsWith('.ink')) {
-                await openInkFile(win, pendingAction.path);
+            } else if (action.path.endsWith('.ink')) {
+                await openInkFile(win, action.path);
+            }
+
+            // Jump only after the project has actually loaded, so the renderer
+            // resolves the target against the new file set.
+            if (action.goto) {
+                safeSend(win, 'goto-target', action.goto);
             }
         }
-        pendingAction = null;
     }
 
     // Renderer logging
     ipcMain.on('renderer-log', (event, ...args) => {
         console.log('[Renderer]', ...args)
+    })
+
+    // The renderer couldn't resolve a --goto target against the loaded project.
+    // Surface it: a CLI user who typo'd an ID needs to know it silently missed.
+    ipcMain.on('goto-not-found', (event, target) => {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        console.warn('goto target not found:', target);
+        dialog.showMessageBox(win, {
+            type: 'warning',
+            title: 'Target not found',
+            message: `Could not find "${target}" in this project.`,
+            detail: 'Expected a line ID (e.g. myfile_A1B2) or a knot/stitch path (e.g. myKnot or myKnot.myStitch).',
+            buttons: ['OK']
+        }).catch(() => { });
     })
 
     // Compile handling
@@ -1053,7 +1108,7 @@ if (!gotTheLock) {
         const chars = result.kind === 'ok' && Array.isArray(result.data) ? result.data : [];
 
         if (chars.find(c => c.ID === characterId)) return true;
-        chars.push({ ID: characterId, Actor: "" });
+        chars.push({ ID: characterId, Actor: "", Gender: "", Notes: "" });
 
         try {
             vcWriteText(targetPath, JSON.stringify(chars, null, 4));

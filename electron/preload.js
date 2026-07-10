@@ -6,6 +6,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadSettings: () => ipcRenderer.invoke('load-settings'),
     onUpdateSpellLocale: (callback) => ipcRenderer.on('update-spell-locale', (_event, value) => callback(value)),
     onRootInkLoaded: (callback) => ipcRenderer.on('root-ink-loaded', (_event, value, rev) => callback(value, rev)),
+
+    // CLI --goto <lineID|Knot|Knot.Stitch>
+    onGotoTarget: (callback) => ipcRenderer.on('goto-target', (_event, target) => callback(target)),
+    gotoNotFound: (target) => ipcRenderer.send('goto-not-found', target),
     onInkFilesRefreshed: (callback) => ipcRenderer.on('ink-files-refreshed', (_event, value, rev) => callback(value, rev)),
     refreshInkRoot: () => ipcRenderer.invoke('refresh-ink-root'),
     onProjectLoaded: (callback) => ipcRenderer.on('project-loaded', (_event, value) => callback(value)),

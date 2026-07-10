@@ -5,6 +5,7 @@ import { setupThemeListener, safeSend } from './utils'
 import { getCurrentProject } from './project-manager'
 import { vcWriteText } from './vc'
 import { safeReadJSON } from './safe-read'
+import { createScanner, SyntaxKind } from 'jsonc-parser'
 
 let charactersWindow = null;
 
@@ -19,9 +20,11 @@ export async function openCharactersWindow(parentWindow) {
 
     charactersWindow = new BrowserWindow({
         title: 'Characters',
-        width: windowState?.width || 600,
+        width: windowState?.width || 820,
         height: windowState?.height || 450,
-        minWidth: 400,
+        // Seven columns (name, actor, gender, notes, and three buttons) need
+        // more room than the old two-column layout.
+        minWidth: 640,
         minHeight: 300,
         x: windowState?.x,
         y: windowState?.y,
@@ -196,12 +199,19 @@ ipcMain.handle('save-characters', async (event, characters) => {
     }
 });
 
-// Cheap check for the presence of JSONC-style comments. Doesn't try to be
-// perfect — it'll false-positive on strings containing "//" inside the data
-// (e.g. a URL field). That's fine: a false positive just makes the user
-// confirm an extra time; a false negative would silently strip comments.
+// Detect real JSONC comments, using the scanner so that "//" or "/*" appearing
+// *inside string values* (a Notes field containing a URL, say) isn't mistaken
+// for a comment. A regex here would nag on every save of a character whose
+// notes mention "http://...".
 function hasJsoncComments(text) {
-    return /\/\/|\/\*/.test(text);
+    const scanner = createScanner(text, /* ignoreTrivia */ false);
+    let kind;
+    while ((kind = scanner.scan()) !== SyntaxKind.EOF) {
+        if (kind === SyntaxKind.LineCommentTrivia || kind === SyntaxKind.BlockCommentTrivia) {
+            return true;
+        }
+    }
+    return false;
 }
 
 ipcMain.on('open-characters', (event) => {

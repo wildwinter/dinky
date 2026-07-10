@@ -1,5 +1,16 @@
 let characters = [];
 
+// Grammatical gender, used by translators to pick the right grammatical forms
+// for a speaker. Stored as these exact strings in characters.json; the Dink
+// compiler maps them to the M/F/N column in the localisation spreadsheet.
+// "" (Non-specified) exports as blank.
+const GRAMMATICAL_GENDERS = [
+    { value: '', label: 'Non-specified' },
+    { value: 'Male', label: 'Male' },
+    { value: 'Female', label: 'Female' },
+    { value: 'Neuter', label: 'Neuter' }
+];
+
 async function init() {
     // Add platform-specific CSS class
     if (window.electronAPI.platform === 'win32') {
@@ -84,6 +95,37 @@ async function init() {
             await updateCharacterField(index, 'Actor', e.target.value);
         });
 
+        // Grammatical gender. Constrained to the set the localisation export
+        // understands — it becomes an M/F/N column in the loc spreadsheet.
+        // Non-specified is stored as "" and exports as blank.
+        const genderInput = document.createElement('select');
+        genderInput.title = 'Grammatical gender, exported to the localisation spreadsheet';
+        for (const { value, label } of GRAMMATICAL_GENDERS) {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = label;
+            genderInput.appendChild(option);
+        }
+        // Any unrecognised value from a hand-edited file falls back to
+        // Non-specified rather than being silently coerced on load.
+        const storedGender = character.Gender || '';
+        genderInput.value = GRAMMATICAL_GENDERS.some(g => g.value === storedGender) ? storedGender : '';
+        genderInput.addEventListener('change', async (e) => {
+            await updateCharacterField(index, 'Gender', e.target.value);
+        });
+
+        // Notes input (can be empty)
+        const notesInput = document.createElement('input');
+        notesInput.type = 'text';
+        notesInput.value = character.Notes || '';
+        notesInput.placeholder = 'Notes';
+        notesInput.title = character.Notes || '';
+        notesInput.addEventListener('change', async (e) => {
+            // Keep the tooltip in sync so long notes are readable on hover.
+            e.target.title = e.target.value;
+            await updateCharacterField(index, 'Notes', e.target.value);
+        });
+
         // Move up button
         const moveUpBtn = document.createElement('button');
         moveUpBtn.className = 'move-btn';
@@ -115,6 +157,8 @@ async function init() {
 
         div.appendChild(idInput);
         div.appendChild(actorInput);
+        div.appendChild(genderInput);
+        div.appendChild(notesInput);
         div.appendChild(moveUpBtn);
         div.appendChild(moveDownBtn);
         div.appendChild(deleteBtn);
@@ -187,7 +231,9 @@ async function init() {
     async function addCharacter() {
         const newCharacter = {
             ID: 'NEW_CHARACTER',
-            Actor: ''
+            Actor: '',
+            Gender: '',
+            Notes: ''
         };
 
         // Ensure NEW_CHARACTER is unique, append number if needed
