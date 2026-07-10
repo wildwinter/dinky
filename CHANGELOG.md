@@ -9,6 +9,9 @@ Entries before 0.2.2 are not documented here — see the [git history](https://g
 
 ## [Unreleased]
 
+### Changed
+- The bundled Dink compiler/viewer binaries are no longer stored in git. They are synced from `../dink` at build time (as they always were) and bundled by electron-builder, but each is ~80MB and was bloating the repository by ~320MB per Dink release. Packaging now verifies the binaries are present (`scripts/check-compiler-binaries.mjs`) and fails with a clear message if `../dink` hasn't been built, rather than shipping an app with no compiler. No effect on end users; only the build/release workflow.
+
 ## [0.3.0] — 2026-07-10
 
 ### Added
