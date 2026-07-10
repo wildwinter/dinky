@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here — see the [git history](https://g
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-07-10
+
 ### Added
 - **Grammatical Gender** and **Notes** fields on characters, editable in the Characters window and stored in `characters.json` / `characters.jsonc` alongside `Actor`. Grammatical Gender is a fixed choice of Male / Female / Neuter / Non-specified, so translators know which grammatical forms to use for each speaker. It reaches localisers two ways: a narrow `M` / `F` / `N` column in the localisation spreadsheet, and a `#. Grammatical gender: Female` extracted comment in POT/PO files. Both are blank/omitted when Non-specified. Notes are free text, for your own reference, and are not exported. (Both exports require the matching `dink` compiler update.)
 - Command-line `--goto <target>` argument. Launch Dinky pointing at a specific line: `dinky MyProject.dinkproj --goto TheTavern_Line_AbCd`. The target may be a line ID or a knot/stitch path (`theTavern`, `theTavern.greeting`) — Dinky resolves which. Works with no project path (applies to the most recent project) and against an already-running instance (focuses and jumps in place). Unresolvable targets raise a warning dialog rather than failing silently. See [doc/command-line.md](doc/command-line.md).
