@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-13
+
 ### Added
 - **Re-record flags.** A recorded line can be flagged to be re-recorded in the next session via a **Re-record** checkbox in the audio toolbar (enabled only when the current line's audio status counts as recorded). Flags are stored in `rerecord.json` next to the `.dinkproj` - a plain, hand-editable list of line IDs, written through the version-control library. The dink compiler reads it and marks those lines `Re-record` in the recording script and stats: a new **Re-record** column in the per-actor Cast Summary, and a Re-record column in the per-line and per-scene stats sheets. Re-record lines are excluded from the Recorded / Ready / Draft tallies. Requires the matching `dink` compiler update. See [doc/rerecord.md](doc/rerecord.md).
 
