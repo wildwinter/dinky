@@ -23,7 +23,7 @@ export async function offerToCreateDinkprojForAdhoc(parentWindow, adhocProject) 
         defaultPath: path.join(inkDir, suggestedName),
         filters: [{ name: 'Dink Project', extensions: ['dinkproj'] }],
         buttonLabel: 'Create',
-        // Don't show "Replace?" — adoptDinkprojForAdhoc refuses overwrites,
+        // Don't show "Replace?" - adoptDinkprojForAdhoc refuses overwrites,
         // and we want a clean error rather than a silent replace.
         properties: ['createDirectory', 'showOverwriteConfirmation']
     });
@@ -43,7 +43,7 @@ export async function openProjectSettingsWindow(parentWindow) {
         return;
     }
 
-    // Project Settings needs a real .dinkproj on disk — updateProjectConfig
+    // Project Settings needs a real .dinkproj on disk - updateProjectConfig
     // throws if the project is adhoc, so the settings window would silently
     // fail to persist any change. Offer to create a .dinkproj next to the
     // user's Ink file instead.

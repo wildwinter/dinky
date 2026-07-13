@@ -15,7 +15,7 @@ let rebuildMenuCallback = null;
 // when its 'root-ink-loaded' event is emitted. Sidebar-only refreshes
 // (window focus, post-save refresh) carry the rev they were *captured* at,
 // so the renderer can drop refreshes that have been overtaken by a more
-// recent structural change — avoiding the race where a stale focus refresh
+// recent structural change - avoiding the race where a stale focus refresh
 // deletes a file that was just renamed.
 let _inkRootRev = 0;
 function sendRootInkLoaded(win, files) {
@@ -38,7 +38,7 @@ function getCurrentInkRoot() {
 
 // When the user opens an Ink file directly (no .dinkproj), we create an
 // "adhoc" project. Most project-scoped features (Project Settings, exports,
-// recording scripts) need a real .dinkproj — this helper writes one for the
+// recording scripts) need a real .dinkproj - this helper writes one for the
 // current adhoc session in place, without reloading the editor, so the user
 // keeps any unsaved edits.
 async function adoptDinkprojForAdhoc(win, dinkprojPath) {
@@ -49,7 +49,7 @@ async function adoptDinkprojForAdhoc(win, dinkprojPath) {
         throw new Error('No ink file currently loaded');
     }
 
-    // Refuse to overwrite an existing .dinkproj — pickAnotherName / "Open
+    // Refuse to overwrite an existing .dinkproj - pickAnotherName / "Open
     // Project" is the right path if one already exists.
     try {
         await fs.access(dinkprojPath);
@@ -59,7 +59,7 @@ async function adoptDinkprojForAdhoc(win, dinkprojPath) {
         );
         return false;
     } catch {
-        // Good — doesn't exist
+        // Good - doesn't exist
     }
 
     const inkPath = currentInkRoot;
@@ -92,7 +92,7 @@ async function adoptDinkprojForAdhoc(win, dinkprojPath) {
     await setProjectSetting(dinkprojPath, 'lastInkRoot', inkPath);
     await addToRecentProjects(dinkprojPath);
 
-    // Adopt in place — DON'T reload files. The editor still has the same
+    // Adopt in place - DON'T reload files. The editor still has the same
     // ink open; we're just upgrading the project metadata around it.
     currentDinkProject = {
         path: dinkprojPath,
@@ -145,7 +145,7 @@ async function updateProjectConfig(key, value) {
     try {
         rawText = await fs.readFile(currentDinkProject.path, 'utf-8');
     } catch {
-        // File doesn't exist yet — fall through to a full write.
+        // File doesn't exist yet - fall through to a full write.
     }
 
     let outputText;
@@ -156,7 +156,7 @@ async function updateProjectConfig(key, value) {
             });
             outputText = jsoncApplyEdits(rawText, edits);
         } catch (e) {
-            // jsonc-parser couldn't produce an edit (very malformed source) —
+            // jsonc-parser couldn't produce an edit (very malformed source) -
             // refuse to write rather than fall back to a destructive overwrite.
             console.error('updateProjectConfig: jsonc-parser failed for', currentDinkProject.path, e);
             throw new Error(`Could not surgically update ${path.basename(currentDinkProject.path)}: ${e.message}`);
@@ -199,7 +199,7 @@ async function loadRootInk(rootFilePath) {
                 }
             }
         } catch (error) {
-            // File can't be read (deleted, permission, etc.) — drop it from the
+            // File can't be read (deleted, permission, etc.) - drop it from the
             // list so the sidebar reflects what actually exists on disk. The
             // broken INCLUDE statement will surface as an Ink compile error.
             console.warn('Skipping unreadable ink file:', currentPath, error.message);
@@ -418,7 +418,7 @@ async function createNewInclude(win, name, folderPath) {
         );
         return false;
     } catch {
-        // ENOENT — good, path is free
+        // ENOENT - good, path is free
     }
 
     try {

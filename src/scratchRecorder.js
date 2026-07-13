@@ -24,7 +24,7 @@ let updateTestAudioButton;
 let playTestAudio;
 let getLoadedInkFiles;  // () => Map<path, fileObj>
 let getCurrentFilePath; // () => string
-let onRecordingComplete; // () => void — called after a successful scratch recording
+let onRecordingComplete; // () => void - called after a successful scratch recording
 
 /**
  * Initialise the scratch recorder module.
@@ -66,11 +66,11 @@ export async function loadScratchAudioConfig() {
         scratchAudioFolder = (config && config.dinky && config.dinky.scratchAudioFolder) || '';
         scratchAudioFormat = (config && config.dinky && config.dinky.scratchAudioFormat) || 'wav';
     } catch (e) {
-        // Don't silently fall back to "disabled" — the user could plausibly
+        // Don't silently fall back to "disabled" - the user could plausibly
         // think they turned the feature off. Log loudly so the cause is at
         // least findable in dev tools. (Surfacing in the UI would need a
         // banner mechanism we don't have yet.)
-        console.error('[scratchRecorder] Failed to load project config — scratch audio disabled this session:', e?.message || e);
+        console.error('[scratchRecorder] Failed to load project config - scratch audio disabled this session:', e?.message || e);
         scratchAudioEnabled = false;
         scratchAudioFolder = '';
         scratchAudioFormat = 'wav';
@@ -159,7 +159,7 @@ const idTagRegex = /(\s?)#id:([a-zA-Z0-9_-]+_[a-zA-Z0-9]{4})\b/;
  *   - Has no scratch audio at all
  *   - Has scratch audio with an out-of-date hash
  * Lines with better audio (in betterAudioSet) are skipped.
- * Hash checks are lazy — only done for lines that have a scratch audio file.
+ * Hash checks are lazy - only done for lines that have a scratch audio file.
  * Returns array of { lineNumber, type } (1-based). type is 'missing' or 'outdated'.
  */
 async function findLinesNeedingScratchWork(rawContent, scratchFiles, betterAudioSet) {
@@ -186,12 +186,12 @@ async function findLinesNeedingScratchWork(rawContent, scratchFiles, betterAudio
 
         const audioFilePath = scratchFiles[lineId];
         if (!audioFilePath) {
-            // No scratch audio at all — needs recording
+            // No scratch audio at all - needs recording
             results.push({ lineNumber: i + 1, type: 'missing' });
             continue;
         }
 
-        // Has scratch audio — lazily check if hash is out of date
+        // Has scratch audio - lazily check if hash is out of date
         const currentHash = generateHashFromText(dialogueText);
         const fileHash = await window.electronAPI.readAudioHash(audioFilePath);
         if (fileHash !== null && fileHash !== currentHash) {

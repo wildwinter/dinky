@@ -246,7 +246,7 @@ async function compileStory(content, filePath, projectFiles = {}) {
     const compiler = prepareCompiler(content, filePath, projectFiles, errorHandler);
     const story = compiler.Compile()
 
-    // Distinguish warnings from real errors — Ink's compiler prefixes message
+    // Distinguish warnings from real errors - Ink's compiler prefixes message
     // strings with "WARNING:" / "ERROR:" / "TODO:". Warnings and TODOs are
     // safe to ignore; running the test window with a story the compiler
     // flagged as ERROR is not. Previously we logged + continued for both,
@@ -276,7 +276,7 @@ function parseInk(content, filePath, projectFiles = {}) {
     content = removeBOM(content);
 
     // Capture errors instead of silently dropping them. parseInk is called
-    // frequently (autotag pipeline on every save), so we don't pop dialogs —
+    // frequently (autotag pipeline on every save), so we don't pop dialogs -
     // but we DO log a warning when a parse fails AND _parsedStory is missing,
     // so the user has a breadcrumb in dev tools if auto-tagging mysteriously
     // stops working.

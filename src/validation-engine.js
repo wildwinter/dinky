@@ -32,7 +32,7 @@ function contrastingBackground(r, g, b) {
         else h = ((rn - gn) / d + 4) / 6;
     }
 
-    // Perceived luminance — determines whether to use a dark or light background
+    // Perceived luminance - determines whether to use a dark or light background
     const luminance = 0.2126 * rn + 0.7152 * gn + 0.0722 * bn;
     const isLight = luminance > 0.5;
 

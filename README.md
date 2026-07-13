@@ -1,6 +1,6 @@
 # Dinky
 
-**Dinky** is a specialized IDE for creating and editing **Dink** scripts—a narrative design-focused flavour of Inkle's [Ink](https://www.inklestudios.com/ink/) language.
+**Dinky** is a specialized IDE for creating and editing **Dink** scripts: a narrative design-focused flavour of Inkle's [Ink](https://www.inklestudios.com/ink/) language.
 
 This doc assumes you are familiar with basic Ink syntax. It focuses on the unique features of Dinky and the **Dink Pipeline** - a set of tools designed to solve the production headaches of modern narrative games: voice recording, localisation, and asset tracking.
 
@@ -151,7 +151,7 @@ dinky TheTavern.dinkproj --goto theTavern.greeting
 dinky --goto theTavern.greeting
 ```
 
-`--goto` takes either a [line ID](#the-id-system) (without the `#id:` prefix) or a knot/stitch path — Dinky works out which. If Dinky is already running, the open window is focused and jumps in place rather than reloading.
+`--goto` takes either a [line ID](#the-id-system) (without the `#id:` prefix) or a knot/stitch path - Dinky works out which. If Dinky is already running, the open window is focused and jumps in place rather than reloading.
 
 Because the IDs in your localisation spreadsheets, recording scripts, and audio filenames are the same IDs Dinky understands, any tool that knows an ID can deep-link into the script.
 
@@ -233,6 +233,10 @@ Dink tracks your audio asset pipeline by checking folders defined in your settin
 * If missing, status is **Missing**.
 
 This feeds directly into the **Stats** file, so you instantly see "We have recorded 45% of the Barkeep's lines."
+
+### Re-recording
+
+A line that's already recorded but needs redoing (a bad take, a delivery note) can be flagged for re-recording with the **Re-record** checkbox in the audio toolbar - no change to the Ink source. Flagged IDs are stored in `rerecord.json` next to your project and picked up by the compiler, which marks them `Re-record` in the recording script and stats instead of `Recorded`. See [Re-record flags](doc/rerecord.md).
 
 ## Advanced Project Settings
 

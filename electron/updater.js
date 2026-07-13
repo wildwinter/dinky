@@ -7,7 +7,7 @@ const { autoUpdater } = electronUpdater
 let updateDownloaded = null
 // Remember the last background error so the manual "Check for Updates"
 // dialog can show it. Otherwise a broken update feed (network policy,
-// expired cert, GitHub outage) stays invisible — user has no idea why
+// expired cert, GitHub outage) stays invisible - user has no idea why
 // updates aren't arriving.
 let lastBackgroundError = null
 
@@ -21,7 +21,7 @@ autoUpdater.on('error', (err) => {
 
 // Ask the renderer (one-shot, timeout-guarded) whether the project has unsaved
 // edits. Returns false on any error/timeout so we err on the side of letting
-// the install proceed — the renderer's own dirty tracking is the only source
+// the install proceed - the renderer's own dirty tracking is the only source
 // of truth here.
 function askRendererIsDirty(win) {
     return new Promise((resolve) => {
@@ -67,7 +67,7 @@ function triggerRendererSave(win) {
 }
 
 // Wraps autoUpdater.quitAndInstall with an unsaved-edits check. Without this,
-// "Restart Now" silently bypasses the window-close save prompt — clicking it
+// "Restart Now" silently bypasses the window-close save prompt - clicking it
 // while editing would lose work. autoInstallOnAppQuit (the install-on-next-
 // normal-quit path) routes through win.on('close') already, so it's safe.
 async function quitAndInstallSafely() {
@@ -90,12 +90,12 @@ async function quitAndInstallSafely() {
         detail: `Save them before restarting to install Dinky ${updateDownloaded?.version || ''}?`
     })
 
-    if (response === 2) return // Cancel — abort the install
+    if (response === 2) return // Cancel - abort the install
 
     if (response === 0) {
         const result = await triggerRendererSave(win)
         if (!result.ok) {
-            // Save failed or timed out — don't proceed; the user can retry.
+            // Save failed or timed out - don't proceed; the user can retry.
             await dialog.showMessageBox(win, {
                 type: 'error',
                 message: 'Save failed',

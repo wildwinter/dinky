@@ -12,7 +12,7 @@
  *   --goto some_A1B2
  *   --goto=myKnot.myStitch
  *
- * The target is deliberately untyped here — disambiguating "line ID" from
+ * The target is deliberately untyped here - disambiguating "line ID" from
  * "knot/stitch path" needs the loaded project, so that happens in the
  * renderer. See resolveGotoTarget() in src/renderer.js.
  *

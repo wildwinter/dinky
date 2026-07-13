@@ -62,6 +62,12 @@ let lastTestKnot = null;
 // down) can never hit a temporal-dead-zone error.
 let pendingGotoTarget = null;
 
+// Line IDs flagged for re-recording (rerecord.json). Loaded per-project.
+// reRecordListBroken is set when the file exists but can't be parsed - the
+// feature is disabled until it's fixed, to avoid clobbering it on save.
+let reRecordIds = new Set();
+let reRecordListBroken = false;
+
 // Spell check optimization - track changed lines
 let lastSpellCheckedFilePath = null;
 let spellCheckMarkersByLine = new Map(); // filePath -> markers array
@@ -70,7 +76,7 @@ let spellCheckMarkersByLine = new Map(); // filePath -> markers array
 let currentErrors = []; // Array of all current errors (compilation errors + spell check)
 let errorBannerIndex = 0; // Current error being displayed in the banner
 let previousErrorsCount = 0; // Track previous error count to detect changes
-let hasInkCompileErrors = false; // True when the Ink compiler reports errors — blocks auto-tagging
+let hasInkCompileErrors = false; // True when the Ink compiler reports errors - blocks auto-tagging
 let inkErrorFiles = new Set();   // Paths of files that currently have Ink compile errors
 
 
@@ -402,7 +408,7 @@ function findFileByPath(errorPath) {
 
     // No basename fallback: when two .ink files share a name in different
     // folders, matching by basename routes error markers to whichever match
-    // is iterated first — i.e. silently wrong. Better to return null and let
+    // is iterated first - i.e. silently wrong. Better to return null and let
     // the caller treat it as "unknown file" than to mislead.
     return null;
 }
@@ -590,7 +596,7 @@ document.getElementById('error-banner-record').addEventListener('click', () => {
         }
     }
 
-    // Same file — just move cursor and record
+    // Same file - just move cursor and record
     if (editor && editor.getModel()) {
         editor.revealLineInCenter(line);
         editor.setPosition({ lineNumber: line, column: 1 });
@@ -688,7 +694,10 @@ window.electronAPI.onRootInkLoaded(async (files, rev) => {
         updateNavigationDropdown();
     }
 
-    // Files are now loaded — service any --goto request that arrived early.
+    // Load the re-record flags for the (possibly new) project.
+    loadReRecordList();
+
+    // Files are now loaded - service any --goto request that arrived early.
     tryResolvePendingGoto();
 });
 
@@ -699,7 +708,7 @@ window.electronAPI.onRootInkLoaded(async (files, rev) => {
 window.electronAPI.onInkFilesRefreshed((files, rev) => {
     if (!Array.isArray(files) || files.length === 0) return;
 
-    // Bail if the project hasn't done its initial full load yet — the add
+    // Bail if the project hasn't done its initial full load yet - the add
     // loop below intentionally skips index 0 (the root file), so processing
     // a refresh against an empty map would populate includes but never the
     // root. Let the imminent 'root-ink-loaded' do the first build.
@@ -717,7 +726,7 @@ window.electronAPI.onInkFilesRefreshed((files, rev) => {
     const fileList = document.getElementById('file-list');
 
     // Remove sidebar entries (and cached state) for files no longer reachable.
-    // Skip files with unsaved edits so the user doesn't silently lose work —
+    // Skip files with unsaved edits so the user doesn't silently lose work -
     // they can save (which writes to the original path) or close the file first.
     const removedPaths = [];
     for (const path of Array.from(loadedInkFiles.keys())) {
@@ -747,7 +756,7 @@ window.electronAPI.onInkFilesRefreshed((files, rev) => {
 
     // Add new INCLUDEs that weren't loaded before.
     files.forEach((file, index) => {
-        if (index === 0) return; // root file — handled by 'root-ink-loaded'
+        if (index === 0) return; // root file - handled by 'root-ink-loaded'
         if (loadedInkFiles.has(file.absolutePath)) return;
 
         file.originalContent = file.content;
@@ -944,7 +953,7 @@ function jumpToKnotPath(target) {
 }
 
 /**
- * Resolve a CLI --goto target. Tries line ID first, then knot/stitch path —
+ * Resolve a CLI --goto target. Tries line ID first, then knot/stitch path -
  * a knot named exactly like an ID (e.g. "foo_A1B2") resolves as the ID.
  */
 function resolveGotoTarget(target) {
@@ -956,7 +965,7 @@ function resolveGotoTarget(target) {
 
 function tryResolvePendingGoto() {
     if (!pendingGotoTarget) return;
-    if (loadedInkFiles.size === 0) return; // not loaded yet — stay queued
+    if (loadedInkFiles.size === 0) return; // not loaded yet - stay queued
 
     const target = pendingGotoTarget;
     pendingGotoTarget = null;
@@ -1408,7 +1417,7 @@ async function checkSyntax() {
             const currentModelText = model.getValue();
 
             for (const [filePath, fileObj] of loadedInkFiles) {
-                // Skip validation for files that have Ink compile errors — they produce false positives
+                // Skip validation for files that have Ink compile errors - they produce false positives
                 if (inkErrorFiles.has(filePath)) continue;
 
                 const isCurrentFile = (filePath === activePath);
@@ -1552,7 +1561,7 @@ const debouncedDinkyModeCheck = debounce(() => {
         const targetLang = isDinky ? 'ink-dinky' : 'ink';
         if (currentLang !== targetLang) {
             monaco.editor.setModelLanguage(model, targetLang);
-            // File just became a Dink file — re-run checks that depend on Dink syntax awareness
+            // File just became a Dink file - re-run checks that depend on Dink syntax awareness
             if (targetLang === 'ink-dinky') {
                 autoTag();
                 checkSpelling();
@@ -1572,7 +1581,7 @@ editor.onDidChangeModelContent((e) => {
 
     // Track which lines changed for incremental spellchecking. If any change
     // alters the line count (insertion/deletion of newlines), the cached
-    // markers' line numbers below the change point become stale — drop the
+    // markers' line numbers below the change point become stale - drop the
     // cache so the next check does a full pass.
     let lineCountChanged = false;
     for (const change of e.changes) {
@@ -1779,7 +1788,7 @@ const COMMENT_TYPE_DESCRIPTIONS = {
                     position.lineNumber, text.length + 1
                 ),
                 contents: [
-                    { value: `**${type}** — ${COMMENT_TYPE_DESCRIPTIONS[type] || ''}` }
+                    { value: `**${type}** - ${COMMENT_TYPE_DESCRIPTIONS[type] || ''}` }
                 ]
             };
         }
@@ -1876,7 +1885,7 @@ async function _doSaveAllFiles() {
         // For non-current files, sync `file.content` to the tagger-merged
         // output so that the next time the user opens this file, the in-memory
         // copy matches what's on disk (including any tagger IDs we just added).
-        // For the CURRENT file, do NOT touch file.content — the keystroke
+        // For the CURRENT file, do NOT touch file.content - the keystroke
         // handler kept it in sync with the editor during the autoTag await,
         // and clobbering it here would lose mid-save edits.
         if (filePath !== currentFilePath && content !== file.content) {
@@ -1901,14 +1910,14 @@ async function _doSaveAllFiles() {
     //     value, but the keystroke handler only sets it after the user
     //     types. Before any keystroke (e.g. just-opened file, save-before-
     //     compile with no edits), file.content is still the ID-rich initial
-    //     load value — so we explicitly sync it to editor.getValue() here.
+    //     load value - so we explicitly sync it to editor.getValue() here.
     //     We use editor.getValue() (latest), not currentCleanSnapshot, so
     //     that mid-save typing is reflected and the asterisk correctly
     //     stays on in that case.
     //   - other files: file.content is the ID-rich version we just wrote;
     //     use savedContentByPath.
     for (const [filePath, file] of loadedInkFiles) {
-        if (!savedPaths.has(filePath)) continue; // failed/refused — leave dirty
+        if (!savedPaths.has(filePath)) continue; // failed/refused - leave dirty
         if (filePath === currentFilePath) {
             file.content = editor.getValue();
             file.originalContent = currentCleanSnapshot;
@@ -2014,8 +2023,62 @@ function navigateForward() {
 const testAudioBtn = document.getElementById('btn-test-audio');
 const recordScratchBtn = document.getElementById('btn-record-scratch');
 const audioStatusLabel = document.getElementById('audio-status-label');
+const reRecordCheckbox = document.getElementById('chk-rerecord');
+const reRecordLabel = document.getElementById('rerecord-label');
 let currentAudioFilePath = null;
 let currentAudioElement = null;
+
+// Fetch the project's re-record list into reRecordIds. Called on project load
+// and when the file changes (our own save, another window, or an external edit).
+async function loadReRecordList() {
+    reRecordListBroken = false;
+    try {
+        const result = await window.electronAPI.getReRecordList();
+        if (result && result.error === 'broken') {
+            reRecordListBroken = true;
+            reRecordIds = new Set();
+        } else {
+            reRecordIds = new Set(Array.isArray(result) ? result : []);
+        }
+    } catch (e) {
+        reRecordIds = new Set();
+    }
+    updateTestAudioButton();
+}
+
+// Enable/check the re-record checkbox for the current line. Enabled only when
+// the line has an ID, its audio status counts as recorded, and the file isn't
+// broken. Stashes the line ID on the element for the change handler.
+function setReRecordCheckbox(lineId, canReRecord) {
+    if (!reRecordCheckbox || !reRecordLabel) return;
+    const enabled = !!lineId && !!canReRecord && !reRecordListBroken;
+    reRecordCheckbox.disabled = !enabled;
+    reRecordCheckbox.checked = enabled && reRecordIds.has(lineId);
+    reRecordCheckbox.dataset.lineId = enabled ? lineId : '';
+    reRecordLabel.style.opacity = enabled ? '0.85' : '0.4';
+    reRecordLabel.style.cursor = enabled ? 'pointer' : 'not-allowed';
+    reRecordLabel.style.pointerEvents = enabled ? 'auto' : 'none';
+}
+
+if (reRecordCheckbox) {
+    reRecordCheckbox.addEventListener('change', async () => {
+        const lineId = reRecordCheckbox.dataset.lineId;
+        if (!lineId) return;
+        if (reRecordCheckbox.checked) reRecordIds.add(lineId);
+        else reRecordIds.delete(lineId);
+        // Reflect the change in the status label immediately.
+        updateTestAudioButton();
+        const ok = await window.electronAPI.saveReRecordList([...reRecordIds]);
+        if (!ok) {
+            // Save refused/failed - reload the authoritative on-disk state.
+            await loadReRecordList();
+        }
+    });
+}
+
+window.electronAPI.onReRecordUpdated(() => {
+    loadReRecordList();
+});
 
 // Wire up glyph click-to-play audio
 idManager.playAudioForLine = async (audioFilePath) => {
@@ -2112,7 +2175,7 @@ function updateStatusBar(hasAudio, isOutOfDate) {
             hint.style.color = '';
             hint.style.backgroundColor = '';
         } else if (isOutOfDate) {
-            hint.textContent = 'Shift+Space to play audio — Audio is out of date';
+            hint.textContent = 'Shift+Space to play audio - Audio is out of date';
             hint.style.color = '#ff9800';
             hint.style.backgroundColor = 'rgba(255, 152, 0, 0.15)';
         } else {
@@ -2130,6 +2193,7 @@ async function updateTestAudioButton() {
         setTestAudioEnabled(false);
         updateAudioStatusLabel(null);
         updateStatusBar(false);
+        setReRecordCheckbox(null, false);
         return;
     }
 
@@ -2139,6 +2203,7 @@ async function updateTestAudioButton() {
         setTestAudioEnabled(false);
         updateAudioStatusLabel(null);
         updateStatusBar(false);
+        setReRecordCheckbox(null, false);
         return;
     }
 
@@ -2149,6 +2214,7 @@ async function updateTestAudioButton() {
 
         // Check if audio hash matches current dialogue text
         let statusText = result.status || '';
+        let colorHex = result.color;
         let isOutOfDate = false;
         const model = editor.getModel();
         if (model) {
@@ -2164,13 +2230,23 @@ async function updateTestAudioButton() {
             }
         }
 
-        updateAudioStatusLabel(statusText, result.color);
+        // A recorded line flagged for re-record shows "Re-record" (orange),
+        // overriding the normal status - mirrors what dink will emit.
+        const flagged = result.recorded && reRecordIds.has(lineId);
+        if (flagged) {
+            statusText = 'Re-record';
+            colorHex = 'FF8C00';
+        }
+
+        updateAudioStatusLabel(statusText, colorHex);
         updateStatusBar(true, isOutOfDate);
+        setReRecordCheckbox(lineId, result.recorded);
     } else {
         currentAudioFilePath = null;
         setTestAudioEnabled(false);
         updateAudioStatusLabel(null);
         updateStatusBar(false);
+        setReRecordCheckbox(null, false);
     }
 }
 

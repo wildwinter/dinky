@@ -37,7 +37,7 @@ function initGitRepo(dir) {
 }
 
 // ---------------------------------------------------------------------------
-// FilesystemProvider — core vc.js wrapper behaviour
+// FilesystemProvider - core vc.js wrapper behaviour
 // ---------------------------------------------------------------------------
 
 describe('vcWriteText (FilesystemProvider)', () => {
@@ -166,7 +166,7 @@ describe('vcRename (FilesystemProvider)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// GitProvider — VC-aware behaviour for the operations Dinky uses
+// GitProvider - VC-aware behaviour for the operations Dinky uses
 // ---------------------------------------------------------------------------
 
 describe('vcWriteText (GitProvider)', function () {

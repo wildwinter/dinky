@@ -7,7 +7,7 @@
 !macro checkAppRunning
   ; Double check and kill again using native Windows command
   ; (NB: 'checkAppRunning' isn't a standard electron-builder hook name,
-  ;  so this macro currently isn't invoked from anywhere — left in case
+  ;  so this macro currently isn't invoked from anywhere - left in case
   ;  a future hook references it.)
   DetailPrint "Ensuring application is closed..."
   ExecWait "taskkill /F /IM Dinky.exe"
@@ -23,7 +23,7 @@
   ; the Start menu shortcut and clears the AUMID registration that
   ; pinned-taskbar items reference). The new installer should re-create
   ; the shortcut, but with perMachine=true that step can be skipped if
-  ; elevation isn't applied to the silent run — leaving Dinky.exe in
+  ; elevation isn't applied to the silent run - leaving Dinky.exe in
   ; place but with no Start menu entry and broken pinned items.
   ;
   ; CreateShortCut overwrites any existing .lnk, so calling this on a

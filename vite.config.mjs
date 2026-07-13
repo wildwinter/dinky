@@ -17,8 +17,7 @@ export default defineConfig({
                 test: 'test-window.html',
                 search: 'search.html',
                 settings: 'settings.html',
-                projectSettings: 'project-settings.html',
-                characters: 'characters.html'
+                projectSettings: 'project-settings.html'
             }
         }
     },

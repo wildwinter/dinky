@@ -114,8 +114,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Characters API
     getCharacters: () => ipcRenderer.invoke('get-characters'),
     saveCharacters: (characters) => ipcRenderer.invoke('save-characters', characters),
-    openCharacters: () => ipcRenderer.send('open-characters'),
     onCharactersUpdated: (callback) => ipcRenderer.on('characters-updated', (_event) => callback()),
+
+    // Re-record list API
+    getReRecordList: () => ipcRenderer.invoke('get-rerecord-list'),
+    saveReRecordList: (ids) => ipcRenderer.invoke('save-rerecord-list', ids),
+    onReRecordUpdated: (callback) => ipcRenderer.on('rerecord-updated', (_event) => callback()),
 
     // Audio lookup API
     findAudioFile: (lineId) => ipcRenderer.invoke('find-audio-file', lineId),

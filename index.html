@@ -180,6 +180,12 @@
                     </svg>
                     <span>Play</span>
                 </div>
+                <!-- Re-record flag: enabled only when the current line's audio status counts as recorded -->
+                <label id="rerecord-label" data-tooltip="Flag this recorded line to be re-recorded next session"
+                    style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-color); opacity: 0.4; margin-left: 8px; cursor: not-allowed; pointer-events: none;">
+                    <input type="checkbox" id="chk-rerecord" style="margin: 0;" disabled>
+                    Re-record
+                </label>
                 <!-- Scratch Audio Section (hidden when scratch audio is disabled in project settings) -->
                 <div id="scratch-audio-section" style="display: none; align-items: center;">
                     <!-- Separator -->

@@ -8,7 +8,7 @@ const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg
 
 // Log audio-folder IO failures once per (operation, folder) per session.
 // ENOENT is treated as legitimate "user hasn't recorded yet" and stays silent
-// — anything else (EACCES, ENOTDIR, EIO, network-mount blips) gets a loud
+// - anything else (EACCES, ENOTDIR, EIO, network-mount blips) gets a loud
 // console.error so the cause is at least visible in dev tools instead of
 // silently flooding the UI with "Missing scratch audio" markers.
 const _audioErrorsSurfaced = new Set();
@@ -70,7 +70,10 @@ ipcMain.handle('find-audio-file', async (event, lineId) => {
         if (result) return {
             path: result,
             status: status.status || '',
-            color: status.color || null
+            color: status.color || null,
+            // Whether this status counts as "recorded" - drives the re-record
+            // checkbox (only a recorded line can be flagged for re-recording).
+            recorded: !!status.recorded
         };
     }
 
@@ -248,7 +251,7 @@ async function listLineIdsInFolder(folderPath) {
 /**
  * Get navigation context for scratch audio prev/next.
  * Returns { scratchFiles: { lineId: filePath }, betterAudioLineIds: string[] }
- * All via lightweight directory listings — no file content reading.
+ * All via lightweight directory listings - no file content reading.
  */
 ipcMain.handle('get-scratch-nav-context', async (event, scratchFolder) => {
     const project = getCurrentProject();
@@ -270,7 +273,7 @@ ipcMain.handle('get-scratch-nav-context', async (event, scratchFolder) => {
             break; // Don't scan folders after scratch
         }
 
-        // Folder before scratch — collect lineIds that have better audio
+        // Folder before scratch - collect lineIds that have better audio
         const lineIds = await listLineIdsInFolder(folderPath);
         for (const lineId of Object.keys(lineIds)) {
             betterAudioLineIds.add(lineId);
@@ -299,7 +302,7 @@ ipcMain.handle('find-scratch-audio-status', async (event, lineId, scratchFolder)
         const result = await findAudioInFolder(folderPath, lineId);
 
         if (folderPath === scratchFolderResolved) {
-            // This is the scratch folder — return what we found (or null)
+            // This is the scratch folder - return what we found (or null)
             return { hasBetterAudio: false, scratchFile: result };
         }
 
@@ -357,7 +360,7 @@ function updateWavHash(fileData, newHash) {
         if (chunkId === 'LIST' && pos + 4 <= fileData.length) {
             const listType = fileData.toString('ascii', pos, pos + 4);
             if (listType === 'INFO') {
-                // Found LIST/INFO — rebuild everything before this chunk + new LIST/INFO/DINK + everything after
+                // Found LIST/INFO - rebuild everything before this chunk + new LIST/INFO/DINK + everything after
                 const beforeList = fileData.subarray(0, chunkStart);
                 const afterList = fileData.subarray(chunkStart + 8 + chunkSize + (chunkSize % 2 !== 0 ? 1 : 0));
 
@@ -395,7 +398,7 @@ function updateOggHash(fileData, newHash) {
 
     for (let i = fileData.length - 9; i >= tailStart; i--) {
         if (fileData[i] === 0x44 && fileData[i+1] === 0x49 && fileData[i+2] === 0x4E && fileData[i+3] === 0x4B) {
-            // Found DINK marker — everything before it is the OGG data
+            // Found DINK marker - everything before it is the OGG data
             const oggData = fileData.subarray(0, i);
             const hashBytes = Buffer.from(newHash, 'utf8');
             const trailer = Buffer.alloc(8 + hashBytes.length);

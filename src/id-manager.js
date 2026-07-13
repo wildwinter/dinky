@@ -4,9 +4,9 @@ export class IdPreservationManager {
         this.monaco = monaco;
         // Map<DecorationId, InkIdString>
         this.decorationToId = new Map();
-        // Map<InkIdString, { path, status, color }> — audio info per line ID
+        // Map<InkIdString, { path, status, color }> - audio info per line ID
         this.audioStatusMap = {};
-        // Set<lineNumber> — lines that are dialogue lines
+        // Set<lineNumber> - lines that are dialogue lines
         this.dialogueLines = new Set();
         // Callback for playing audio by line ID
         this.playAudioForLine = null;
@@ -330,7 +330,7 @@ export class IdPreservationManager {
      *
      * Used to catch the case where a user accidentally split a LIST across
      * lines (forgot a comma), got an auto-generated ID on what looked like
-     * a dialogue line, then fixed the comma — leaving a now-illegal ID
+     * a dialogue line, then fixed the comma - leaving a now-illegal ID
      * baked into a list-item line.
      */
     _findDeclarationContinuationLines(lines) {
@@ -377,7 +377,7 @@ export class IdPreservationManager {
             const range = model.getDecorationRange(decId);
 
             if (!range) {
-                // Decoration no longer exists — mark for cleanup
+                // Decoration no longer exists - mark for cleanup
                 decorationsToRemove.push(decId);
                 continue;
             }

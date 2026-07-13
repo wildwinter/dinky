@@ -11,8 +11,9 @@ import { generateIdsForUntagged } from './tagger'
 import { loadProject, loadAdhocInkProject, switchToInkRoot, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject, getCurrentInkRoot, loadRootInk, getInkRootRev } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
 import './project-settings' // Import to register IPC handlers
-import './characters-editor' // Import to register IPC handlers
+import './characters-ipc' // Import to register IPC handlers
 import './audio-lookup' // Import to register IPC handlers
+import './rerecord-ipc' // Import to register IPC handlers
 import { safeSend, setupThemeListener } from './utils'
 import { vcWriteText } from './vc'
 import { safeReadText, safeReadJSON } from './safe-read'
@@ -91,7 +92,7 @@ if (!gotTheLock) {
                 pendingAction = { type: 'load', path: inkPath, goto };
                 safeSend(mainWindow, 'check-unsaved');
             } else if (goto) {
-                // No file to load — jump within the currently-open project.
+                // No file to load - jump within the currently-open project.
                 safeSend(mainWindow, 'goto-target', goto);
             }
         }
@@ -156,7 +157,7 @@ if (!gotTheLock) {
             }
 
             // --goto <lineID|Knot|Knot.Stitch>. Applies to whichever project
-            // ends up loaded below — an explicitly-passed one, or the
+            // ends up loaded below - an explicitly-passed one, or the
             // auto-loaded most-recent project.
             gotoTarget = parseGotoTarget(process.argv);
 
@@ -233,7 +234,7 @@ if (!gotTheLock) {
         //
         // We capture the structural revision at the start. The renderer drops
         // refreshes whose rev is older than the most recent 'root-ink-loaded'
-        // it has seen — that's how we avoid the race where a slow focus
+        // it has seen - that's how we avoid the race where a slow focus
         // refresh emits stale file paths after a rename has already happened.
         win.on('focus', async () => {
             const inkRoot = getCurrentInkRoot();
@@ -363,9 +364,9 @@ if (!gotTheLock) {
 
         if (!parsedStory) {
             // parseInk already logs the underlying error. Log here too so the
-            // breadcrumb explicitly says "auto-tag skipped" — otherwise it
+            // breadcrumb explicitly says "auto-tag skipped" - otherwise it
             // looks like auto-tag silently does nothing.
-            console.warn('[auto-tag-ink] parse failed for', filePath, '— skipping auto-tag for this file.');
+            console.warn('[auto-tag-ink] parse failed for', filePath, '- skipping auto-tag for this file.');
             return [];
         }
 
@@ -398,7 +399,7 @@ if (!gotTheLock) {
             // Safety net: refuse to write content that looks like the legacy
             // "// Error reading file: ENOENT…" placeholder from an old codepath.
             // If we ever see this in memory it means the load failed and the
-            // in-memory content is junk — saving it would destroy the real file.
+            // in-memory content is junk - saving it would destroy the real file.
             if (typeof content !== 'string' || /^\/\/ Error reading file:/.test(content)) {
                 console.error('Refusing to save error-placeholder content for', filePath);
                 refused.push({ path: filePath, reason: 'error-placeholder content' });
@@ -408,7 +409,7 @@ if (!gotTheLock) {
             // Belt-and-suspenders: refuse to truncate a non-empty file with an
             // empty string. A legitimate "delete all content" save would have
             // had a non-empty file at some point and the user typed it to ''
-            // — that's a manual action, but if it ever happens via a bug
+            // - that's a manual action, but if it ever happens via a bug
             // (model swap race, init order issue, etc.), we'd silently zero
             // out the file. Compare against on-disk size to allow real empties.
             if (content === '') {
@@ -417,7 +418,7 @@ if (!gotTheLock) {
                     const stat = await fs.stat(filePath);
                     onDiskSize = stat.size;
                 } catch {
-                    // File doesn't exist yet — empty write is fine (legit new file).
+                    // File doesn't exist yet - empty write is fine (legit new file).
                 }
                 if (onDiskSize > 0) {
                     console.error('Refusing to truncate non-empty file with empty content:', filePath, `(disk size ${onDiskSize})`);
@@ -455,7 +456,7 @@ if (!gotTheLock) {
     // Re-traverse INCLUDE statements from disk and notify the renderer.
     // Used after saves and on window focus to keep the sidebar in sync with
     // INCLUDEs that were added/removed (either via the UI or by editing the
-    // root file directly). Emits 'ink-files-refreshed' — the renderer reconciles
+    // root file directly). Emits 'ink-files-refreshed' - the renderer reconciles
     // the sidebar without touching the editor model.
     ipcMain.handle('refresh-ink-root', async (event) => {
         const inkRoot = getCurrentInkRoot();
@@ -998,7 +999,7 @@ if (!gotTheLock) {
 
         const read = await safeReadText(dictPath);
         if (read.kind === 'broken') {
-            // File exists but we can't read it — refuse to overwrite with a
+            // File exists but we can't read it - refuse to overwrite with a
             // one-word file. The user's real dictionary may be recoverable.
             console.error('Refusing to update unreadable dictionary:', read.error);
             dialog.showErrorBox(
@@ -1094,7 +1095,7 @@ if (!gotTheLock) {
         }
 
         if (result.kind === 'broken') {
-            // Don't overwrite a file we can't parse — that would silently
+            // Don't overwrite a file we can't parse - that would silently
             // destroy the entire character list.
             console.error('Refusing to add character to broken file', targetPath, result.error);
             dialog.showErrorBox(

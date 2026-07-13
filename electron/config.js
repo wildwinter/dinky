@@ -15,7 +15,7 @@ let loadPromise = null;
 let saveQueue = Promise.resolve();
 let debounceTimer = null;
 // When the on-disk config exists but couldn't be read/parsed, we fall back to
-// defaults so the app stays usable — but we refuse to write the defaults back
+// defaults so the app stays usable - but we refuse to write the defaults back
 // over the (possibly recoverable) original. Cleared only by a successful read.
 let isCorrupt = false;
 let warnedCorrupt = false;
@@ -31,7 +31,7 @@ async function loadSettings() {
                 settingsCache = result.data;
                 isCorrupt = false;
             } else if (result.kind === 'absent') {
-                // First run — legitimate, OK to write defaults later.
+                // First run - legitimate, OK to write defaults later.
                 settingsCache = DEFAULT_SETTINGS();
                 isCorrupt = false;
             } else {
@@ -113,7 +113,7 @@ async function saveSettings(settings, immediate = false) {
 async function performSave() {
     saveQueue = saveQueue.then(async () => {
         if (isCorrupt) {
-            // Don't write defaults over a config we couldn't read — that's how
+            // Don't write defaults over a config we couldn't read - that's how
             // recent projects / window state / per-project settings get wiped.
             console.warn('Skipping settings save: config is marked corrupt.');
             return { ok: false, reason: 'corrupt' };

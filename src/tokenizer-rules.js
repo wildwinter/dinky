@@ -8,15 +8,15 @@
  */
 export const commonInkStates = {
     codeMode: [
-        // Continuation line (ends with , or =) with trailing comment — stay in codeMode
+        // Continuation line (ends with , or =) with trailing comment - stay in codeMode
         [/([^/*]*[,=]\s*)(\/\/.*)$/, ['code', 'comment']],
-        // Comment-only line — stay in codeMode (we're mid-continuation)
+        // Comment-only line - stay in codeMode (we're mid-continuation)
         [/^\s*\/\/.*$/, 'comment'],
         [/\/\/.*$/, 'comment', '@pop'],
         [/\/\*/, 'comment', '@comment'],
         // Stay in codeMode if line ends with comma or = (multi-line LIST, etc.)
         [/[^/*]*[,=]\s*$/, 'code'],
-        // Blank/whitespace lines between continuation entries — stay in codeMode
+        // Blank/whitespace lines between continuation entries - stay in codeMode
         [/^\s*$/, 'code'],
         [/[^/*]+$/, 'code', '@pop'],
         [/\/(?!\/|\*)$/, 'code', '@pop'],
@@ -192,7 +192,7 @@ export function registerInkLanguage(monaco) {
             knotStart: [
                 // Check for #dink (handles optional leading whitespace)
                 [/\s*#\s*dink(?=\s|$)/, { token: 'annotation', next: '@dinkyMode' }],
-                // Comments with optional leading whitespace — stay in knotStart
+                // Comments with optional leading whitespace - stay in knotStart
                 [/\s*\/\/.*$/, 'comment'],
                 [/\s*\/\*/, 'comment', '@comment'],
                 // Transition to normal on anything else (including whitespace-only lines)

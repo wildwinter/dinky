@@ -1,7 +1,7 @@
 import { assert } from 'chai';
 import { ValidationEngine } from '../src/validation-engine.js';
 
-// Minimal Monaco mock — only the surface the engine touches
+// Minimal Monaco mock - only the surface the engine touches
 const mockMonaco = {
     MarkerSeverity: { Error: 8 },
     Range: class Range {
@@ -19,7 +19,7 @@ function makeEngine({ characters = [], wsTags = [] } = {}) {
     return engine;
 }
 
-// detectDinkyGlobal stub — treats everything as global dinky unless told otherwise
+// detectDinkyGlobal stub - treats everything as global dinky unless told otherwise
 const alwaysDinky = () => true;
 const neverDinky  = () => false;
 

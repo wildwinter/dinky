@@ -50,7 +50,7 @@ function submitFile(filePath, content = 'test content') {
     writeFileSync(filePath, content);
     const addResult = p4(['add', filePath]);
     assert.equal(addResult.status, 0,
-        `p4 add failed for '${filePath}' — is the path mapped in your workspace?\n` +
+        `p4 add failed for '${filePath}' - is the path mapped in your workspace?\n` +
         `stdout: ${addResult.stdout}\nstderr: ${addResult.stderr}`);
 
     const openedResult = p4(['opened', filePath]);

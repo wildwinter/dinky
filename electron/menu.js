@@ -18,13 +18,13 @@ let recordingMode = false;
 /**
  * Click-handler shared by the "Open Recording Script / Localization / Stats"
  * menu items. Promotes adhoc → real project if needed, then either opens the
- * configured output file or — if the user hasn't enabled this output yet —
+ * configured output file or - if the user hasn't enabled this output yet -
  * directs them to Project Settings. Returns true on a successful open or a
  * clean abort; false isn't currently meaningful but keeps the API uniform.
  */
 async function openConfiguredOutput(win, configKey, label, suffix) {
     if (!await requireNonAdhocProject(win)) return false;
-    // Re-read project state — requireNonAdhocProject may have promoted it.
+    // Re-read project state - requireNonAdhocProject may have promoted it.
     const project = getCurrentProject();
     if (!project) return false;
 
@@ -71,7 +71,7 @@ async function openOutputFile(project, suffix) {
 /**
  * Guard used by menu items that need a real .dinkproj on disk. When the
  * current project is adhoc (Ink file opened directly, no .dinkproj), prompts
- * the user to create one — same flow as Project Settings. Returns true if
+ * the user to create one - same flow as Project Settings. Returns true if
  * the project is now non-adhoc and the caller should proceed; false on
  * cancel/no-project.
  */
@@ -311,7 +311,7 @@ async function buildMenu(win) {
                 {
                     label: 'Project Settings...',
                     accelerator: 'CmdOrCtrl+Shift+,',
-                    // Enabled for any open project, including adhoc — opening
+                    // Enabled for any open project, including adhoc - opening
                     // it on an adhoc project prompts the user to create a
                     // .dinkproj first.
                     enabled: !!currentProject,
@@ -324,7 +324,7 @@ async function buildMenu(win) {
                     label: 'Open Recording Script...',
                     // Enabled if there's an output configured OR the project is
                     // adhoc (offer the create-dinkproj flow on click). A real
-                    // project without the output enabled stays disabled — the
+                    // project without the output enabled stays disabled - the
                     // greyed-out state tells the user to enable it in Settings.
                     enabled: !!currentProject && (currentProject.isAdhoc || !!currentProject.content?.outputRecordingScript),
                     click: async () => {

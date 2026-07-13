@@ -18,7 +18,7 @@ All arguments are optional and may appear in any order.
 | `--goto <target>` | Open the file containing `<target>` and jump to its line. |
 
 If no project or Ink file is given, Dinky auto-loads your most recent
-project — and `--goto` still applies to it.
+project - and `--goto` still applies to it.
 
 ## `--goto`
 
@@ -32,18 +32,18 @@ Both forms are accepted:
 `<target>` is either a **line ID** or a **knot/stitch path**. Dinky works
 out which:
 
-1. **Line ID** — matched against the hidden `#id:` tags in your script.
+1. **Line ID** - matched against the hidden `#id:` tags in your script.
    These look like `TheTavern_Line_AbCd` (see
    [The ID System](../README.md#the-id-system)). Write the ID *without*
    the `#id:` prefix.
-2. **Knot or stitch path** — a knot name (`theTavern`) or a stitch within
+2. **Knot or stitch path** - a knot name (`theTavern`) or a stitch within
    a knot (`theTavern.greeting`).
 
 The target is tried as a line ID first, then as a knot/stitch path. If a
 knot happened to be named exactly like a line ID, the ID would win. Knot
 and stitch names are matched exactly first, then case-insensitively.
 
-The jumped-to line is centred, focused, and briefly highlighted — the same
+The jumped-to line is centred, focused, and briefly highlighted - the same
 behaviour as the in-app **Jump to ID** command (`Cmd/Ctrl+J`).
 
 ### If the target isn't found
@@ -73,7 +73,7 @@ dinky TheTavern.dinkproj chapters/act2.ink --goto act2_Opening_Zx19
 ## Running instances
 
 Dinky is single-instance. Invoking it again while it's already running
-focuses the existing window rather than starting a second copy — and any
+focuses the existing window rather than starting a second copy - and any
 `--goto` you pass is applied to that running instance:
 
 ```sh
@@ -88,7 +88,7 @@ loads that project, and *then* jumps.
 
 The `dinky` command above is shorthand. In practice:
 
-**macOS** — the executable lives inside the app bundle:
+**macOS** - the executable lives inside the app bundle:
 
 ```sh
 /Applications/Dinky.app/Contents/MacOS/Dinky --goto theTavern
@@ -103,7 +103,7 @@ A shell alias makes this bearable:
 alias dinky='/Applications/Dinky.app/Contents/MacOS/Dinky'
 ```
 
-**Windows** — the installed executable:
+**Windows** - the installed executable:
 
 ```
 "C:\Program Files\Dinky\Dinky.exe" --goto theTavern
@@ -111,7 +111,7 @@ alias dinky='/Applications/Dinky.app/Contents/MacOS/Dinky'
 
 (Per-user installs live under `%LOCALAPPDATA%\Programs\Dinky\`.)
 
-**Development** — from the repo root:
+**Development** - from the repo root:
 
 ```sh
 npm run preview -- --goto theTavern
@@ -131,5 +131,5 @@ dinky --goto "$(basename path/to/TheTavern_Line_AbCd.wav .wav)"
 ```
 
 Or wiring a "open in Dinky" action into a bug tracker, a spreadsheet
-macro, or a game engine's debug overlay — pass the ID of the offending
+macro, or a game engine's debug overlay - pass the ID of the offending
 line and the writer lands on it.

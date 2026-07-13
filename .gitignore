@@ -143,7 +143,7 @@ google-tts-key.json
 .claude
 .gemini
 
-# Dink compiler/viewer binaries — synced from ../dink at build time by
+# Dink compiler/viewer binaries - synced from ../dink at build time by
 # scripts/sync-dink-builds.mjs, and bundled by electron-builder. Not tracked
 # in git (each is ~80MB and regenerated per Dink release). The directory is
 # kept via .gitkeep so the sync has somewhere to copy to.

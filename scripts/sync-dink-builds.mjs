@@ -2,7 +2,7 @@
 // Sync local dink builds into resources/compiler if they exist.
 // Runs as a prebuild step; never fails the build.
 //
-// The compiler/viewer binaries are NOT stored in git (see .gitignore) — this
+// The compiler/viewer binaries are NOT stored in git (see .gitignore) - this
 // script is the sole source of them. Packaging separately verifies they landed
 // (scripts/check-compiler-binaries.mjs), so a silent skip here doesn't ship a
 // broken app.
@@ -50,10 +50,10 @@ for (const { src, dst } of copies) {
 }
 
 if (copied === 0) {
-    // Not fatal here — plain `npm run build` (renderer/tests) doesn't need the
+    // Not fatal here - plain `npm run build` (renderer/tests) doesn't need the
     // binaries. Packaging (dist/publish) runs check-compiler-binaries.mjs, which
     // WILL fail if they're absent. Warn so the cause is visible either way.
-    console.warn('sync-dink: WARNING — no local dink builds found in ../dink/csharp/dist.');
+    console.warn('sync-dink: WARNING - no local dink builds found in ../dink/csharp/dist.');
     console.warn('sync-dink: packaging will fail until you build Dink (cd ../dink && npm run pack:csharp).');
     process.exit(0);
 }
