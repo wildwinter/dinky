@@ -70,29 +70,50 @@ app.on('open-file', (event, filePath) => {
 });
 
 // Single instance lock for Windows
-const gotTheLock = app.requestSingleInstanceLock();
+// Pass this process's argv to the primary instance via additionalData. On
+// Windows the `commandLine` delivered to the 'second-instance' event can drop
+// or reorder user switches (Chromium owns that array), so additionalData is the
+// reliable channel for forwarding args like --goto to an already-running Dinky.
+const gotTheLock = app.requestSingleInstanceLock({ argv: process.argv });
 
 if (!gotTheLock) {
     app.quit();
 } else {
-    app.on('second-instance', (event, commandLine, workingDirectory) => {
+    app.on('second-instance', (event, commandLine, workingDirectory, additionalData) => {
         // Focus existing window when second instance is launched
         if (mainWindow) {
             if (mainWindow.isMinimized()) mainWindow.restore();
             mainWindow.focus();
 
-            // Extract file paths from command line arguments
-            const filePath = commandLine.find(arg => arg.endsWith('.dinkproj'));
-            const inkPath = commandLine.find(arg => arg.endsWith('.ink'));
-            const goto = parseGotoTarget(commandLine);
-            if (filePath) {
-                pendingAction = { type: 'load', path: filePath, inkPath: inkPath || null, goto };
-                safeSend(mainWindow, 'check-unsaved');
-            } else if (inkPath) {
-                pendingAction = { type: 'load', path: inkPath, goto };
+            // Prefer the argv forwarded via additionalData (reliable on all
+            // platforms); fall back to the raw commandLine array if it's absent
+            // (e.g. an older build launched the second instance).
+            const argv = (additionalData && Array.isArray(additionalData.argv) && additionalData.argv.length)
+                ? additionalData.argv
+                : commandLine;
+
+            // Extract file paths and the --goto target from the arguments.
+            const filePath = argv.find(arg => arg.endsWith('.dinkproj'));
+            const inkPath = argv.find(arg => arg.endsWith('.ink'));
+            const goto = parseGotoTarget(argv);
+
+            // If the requested project is already the open one, do NOT reload it
+            // - a reload resets the editor to the root file and races with the
+            // jump (the classic symptom: window focuses, switches to the master
+            // file, and the goto silently fails). Just dispatch the jump into the
+            // already-loaded project.
+            const samePath = (a, b) => a && b && path.resolve(a) === path.resolve(b);
+            const current = getCurrentProject();
+            const projectAlreadyOpen = filePath && current && !current.isAdhoc && samePath(current.path, filePath);
+            const inkAlreadyOpen = inkPath && samePath(getCurrentInkRoot(), inkPath);
+
+            const needsLoad = (filePath && !projectAlreadyOpen) || (!filePath && inkPath && !inkAlreadyOpen);
+
+            if (needsLoad) {
+                pendingAction = { type: 'load', path: filePath || inkPath, inkPath: filePath ? (inkPath || null) : undefined, goto };
                 safeSend(mainWindow, 'check-unsaved');
             } else if (goto) {
-                // No file to load - jump within the currently-open project.
+                // Already on the requested project (or none was given) - jump in place.
                 safeSend(mainWindow, 'goto-target', goto);
             }
         }
