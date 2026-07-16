@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-16
+
 ### Fixed
 - `--goto` now works against an already-running instance (was failing on Windows). Two causes: (1) the target was forwarded to the running Dinky via the second-instance `commandLine`, which Windows/Chromium can strip or reorder, so args are now passed through `requestSingleInstanceLock`'s `additionalData` channel; and (2) passing the `.dinkproj` alongside `--goto` reloaded the already-open project, which reset the editor to the root file and raced with the jump (this also produced a "Model is disposed" error). Dinky now skips the reload when the requested project is already open and jumps in place. Cold-start `--goto` was unaffected.
 
