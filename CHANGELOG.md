@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-07-19
+
 ### Changed
 - **Grammatical Gender** on characters is now a free-text field instead of a fixed dropdown, so teams working in languages with genders beyond masculine/feminine/neuter (common, animate/inanimate, and so on) can use their own values. **Male**, **Female** and **Neuter** are offered as autocomplete suggestions, and a typed value matching one of them is snapped to that casing (`male` becomes `Male`), so a team using the common values stays consistent rather than drifting between spellings.
 - The compiler now passes any grammatical gender through to the localisation outputs instead of discarding unrecognised ones. The three suggested values still abbreviate to `M`/`F`/`N` in the localisation spreadsheet; anything else is exported as written, in both the spreadsheet column and the POT/PO `#. Grammatical gender:` comment. Blank (and the legacy "Non-specified" label) still mean "no gender set". The spreadsheet column keeps its narrow default but widens to fit longer values. (Requires the matching `dink` compiler update.)
