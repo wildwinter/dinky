@@ -733,8 +733,7 @@
             background-color: var(--hover-bg);
         }
 
-        .character-item input[type="text"],
-        .character-item select {
+        .character-item input[type="text"] {
             background-color: var(--sidebar-bg);
             color: var(--text-color);
             border: 1px solid var(--sidebar-border);
@@ -745,14 +744,7 @@
             transition: border-color 0.2s ease;
         }
 
-        .character-item select {
-            box-sizing: border-box;
-            height: 100%;
-            cursor: pointer;
-        }
-
-        .character-item input[type="text"]:focus,
-        .character-item select:focus {
+        .character-item input[type="text"]:focus {
             border-color: var(--text-color);
         }
 
@@ -1264,8 +1256,15 @@
                     Define characters used in your dialogue. The Script Name is used in Ink files to identify the speaker, and the Actor is the real name used in recording statistics.
                 </div>
                 <div class="section-description">
-                    <strong>Grammatical Gender</strong> tells translators which grammatical forms to use for the speaker. It is exported as a narrow <code>M</code>&nbsp;/&nbsp;<code>F</code>&nbsp;/&nbsp;<code>N</code> column in the localisation spreadsheet, and as a comment in POT/PO files. Non-specified is left blank. <strong>Notes</strong> are for your own reference and are not exported.
+                    <strong>Grammatical Gender</strong> tells translators which grammatical forms to use for the speaker. Any value is accepted and exported to the localisation spreadsheet and POT/PO comments; leave it blank for non-specified. <strong>Male</strong>, <strong>Female</strong> and <strong>Neuter</strong> are offered as suggestions (and abbreviate to <code>M</code>&nbsp;/&nbsp;<code>F</code>&nbsp;/&nbsp;<code>N</code>) so teams using them stay consistent. <strong>Notes</strong> are for your own reference and are not exported.
                 </div>
+
+                <!-- Autocomplete suggestions for the free-text Grammatical Gender field. -->
+                <datalist id="grammatical-gender-options">
+                    <option value="Male"></option>
+                    <option value="Female"></option>
+                    <option value="Neuter"></option>
+                </datalist>
 
                 <div class="character-header">
                     <div>Script Name</div>

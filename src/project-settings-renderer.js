@@ -1,13 +1,18 @@
 // Grammatical gender, used by translators to pick the right grammatical forms
-// for a speaker. Stored as these exact strings in characters.json; the Dink
-// compiler maps them to the M/F/N localisation column. "" (Non-specified)
-// exports as blank. Kept in sync with src/characters-renderer.js.
-const GRAMMATICAL_GENDERS = [
-    { value: '', label: 'Non-specified' },
-    { value: 'Male', label: 'Male' },
-    { value: 'Female', label: 'Female' },
-    { value: 'Neuter', label: 'Neuter' }
-];
+// for a speaker. The field is free text and any value is exported (blank means
+// non-specified). These common values are offered as autocomplete suggestions
+// so a team that uses them stays consistent instead of drifting between
+// spellings.
+const GRAMMATICAL_GENDERS = ['Male', 'Female', 'Neuter'];
+
+// Trim, and snap to the suggested casing when the value matches one of the
+// defaults ("male" -> "Male") - that consistency is the point of the
+// suggestions. Any other value is kept exactly as written.
+function canonicalGender(value) {
+    const trimmed = (value || '').trim();
+    if (!trimmed) return '';
+    return GRAMMATICAL_GENDERS.find(g => g.toLowerCase() === trimmed.toLowerCase()) || trimmed;
+}
 
 async function init() {
     // Add platform-specific CSS class
@@ -1677,23 +1682,20 @@ async function init() {
             await updateCharacterField(index, 'Actor', e.target.value);
         });
 
-        // Grammatical gender. Constrained to the set the localisation export
-        // understands - it becomes an M/F/N column in the loc spreadsheet.
-        // Non-specified is stored as "" and exports as blank.
-        const genderInput = document.createElement('select');
-        genderInput.title = 'Grammatical gender, exported to the localisation spreadsheet';
-        for (const { value, label } of GRAMMATICAL_GENDERS) {
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = label;
-            genderInput.appendChild(option);
-        }
-        // Any unrecognised value from a hand-edited file falls back to
-        // Non-specified rather than being silently coerced on load.
-        const storedGender = character.Gender || '';
-        genderInput.value = GRAMMATICAL_GENDERS.some(g => g.value === storedGender) ? storedGender : '';
+        // Grammatical gender. Free text - any value is accepted and exported -
+        // with the common values offered via the #grammatical-gender-options
+        // datalist (autocomplete + dropdown) so teams using them stay consistent.
+        const genderInput = document.createElement('input');
+        genderInput.type = 'text';
+        genderInput.setAttribute('list', 'grammatical-gender-options');
+        genderInput.placeholder = 'Non-specified';
+        genderInput.title = 'Grammatical gender. Any value is exported to the localisation spreadsheet and PO comments.';
+        // Show whatever is stored verbatim - never silently drop a hand-edited value.
+        genderInput.value = character.Gender || '';
         genderInput.addEventListener('change', async (e) => {
-            await updateCharacterField(index, 'Gender', e.target.value);
+            const canonical = canonicalGender(e.target.value);
+            e.target.value = canonical;
+            await updateCharacterField(index, 'Gender', canonical);
         });
 
         // Notes input (can be empty)

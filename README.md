@@ -113,7 +113,7 @@ Each character is stored in `characters.json` (beside your `.dinkproj`) with:
 | --- | --- |
 | **Script Name** | The `ID` used in Ink files to identify the speaker. |
 | **Actor** | The real name, used in recording statistics and the recording script. |
-| **Grammatical Gender** | Male, Female, Neuter, or Non-specified. Tells translators which grammatical forms to use for the speaker. Exported as a narrow `M`/`F`/`N` column in the localisation spreadsheet, and as a `#. Grammatical gender: Female` comment in POT/PO files. Blank/omitted when Non-specified. |
+| **Grammatical Gender** | Tells translators which grammatical forms to use for the speaker. Free text: any value is accepted and exported, to the localisation spreadsheet and as a `#. Grammatical gender: Female` comment in POT/PO files. Leave blank for non-specified. **Male**, **Female** and **Neuter** are offered as autocomplete suggestions (and snapped to that casing if you type them) so a team using them stays consistent; those three abbreviate to `M`/`F`/`N` in the spreadsheet, and anything else is exported as written. |
 | **Notes** | Free text for your own reference. Not exported. |
 
 ### Audio & Scratch Recording
