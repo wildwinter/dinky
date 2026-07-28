@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-07-28
+
 ### Added
 - **Strict Localisation** toggle in Project Settings (Localisation tab), on by default. A line split into multiple pieces by inline logic (for example `Test {value} Again`) can't be given a single localisation ID, and previously failed the whole compile. With Strict Localisation turned off, such lines are warned about and skipped instead: they stay in the Ink and the project still compiles, but they aren't localised. Useful while a script is still in development. The setting is stored as `strict` in the `.dinkproj` and read by the compiler; the Dink CLI has matching `--lenient` / `--strict` flags. (Requires the matching `dink` compiler update, which in turn needs a new `wildwinter.LocaliserLib` package.)
 
