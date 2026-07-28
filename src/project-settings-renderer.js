@@ -680,6 +680,22 @@ async function init() {
         }
     });
 
+    // "Strict Localisation" is wired separately from the generic list because it
+    // defaults to ON: an absent `strict` key (existing projects) means strict,
+    // so the checkbox is ticked unless the config explicitly says false.
+    const strictCheckbox = document.getElementById('strict');
+    if (strictCheckbox) {
+        strictCheckbox.checked = projectConfig.strict !== false;
+        strictCheckbox.addEventListener('change', async (e) => {
+            const newValue = e.target.checked;
+            const success = await setProjectConfig('strict', newValue);
+            if (!success) {
+                console.error('Failed to update strict');
+                e.target.checked = !newValue;
+            }
+        });
+    }
+
     // Set up Google TTS Generate checkbox
     const googleTTSGenerateCheckbox = document.getElementById('googleTTSGenerate');
 

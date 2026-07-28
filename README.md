@@ -267,6 +267,7 @@ Define the cast of your game.
 ### Localization
 
 * **Output Localization Spreadsheet**: Generates an Excel file for translation.
+* **Strict Localisation** (on by default): A line split by inline logic (e.g. `Test {value} Again`) can't be given a single localisation ID. When strict, this fails the compile. Turn it off to warn about and skip such lines instead: they stay in the Ink and compile, but aren't localised. Handy while a script is still in development. (CLI equivalent: `--lenient` / `--strict`.)
 * **Default Locale Code**: The code for your source language (e.g. `en-GB`).
 * **Localize Actions**: If checked, "Action" lines (stage directions) are included in the export.
 * **PO/POT Export**:

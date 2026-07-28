@@ -965,6 +965,22 @@
                 </div>
             </div>
             <div class="section">
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="strict" name="strict">
+                        <div class="checkbox-content">
+                            <label for="strict">Strict Localisation</label>
+                            <div class="checkbox-description">
+                                On by default. A line split by inline logic (for example <code>Test {value} Again</code>)
+                                can't be given a single localisation ID, so compiling fails. Turn this off to warn about
+                                and skip such lines instead: they stay in the Ink and compile, but aren't localised.
+                                Useful while a script is still in development.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="section">
                 <div class="text-setting-item">
                     <label for="defaultLocaleCode">Default Locale Code</label>
                     <input type="text" id="defaultLocaleCode" name="defaultLocaleCode" maxlength="7"
