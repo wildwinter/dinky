@@ -2,7 +2,7 @@
     "name": "dinky",
     "productName": "Dinky",
     "version": "0.4.3",
-    "dinkVersion": "0.1.6",
+    "dinkVersion": "0.1.7",
     "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
