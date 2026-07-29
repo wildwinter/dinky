@@ -18,6 +18,11 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
   differential download is disabled in favour of one full stream, updater activity is logged to
   `updater.log` in the app's data folder, and Check for Updates shows how far along a running
   download is.
+- The auto-tagger no longer adds IDs to lines it shouldn't. A line split into multiple text chunks
+  by inline logic (for example `Test {value} Again`) can't be given a single localisation ID, so
+  Dinky now skips it during ID generation, matching the localiser's one-chunk-per-line rule. Lines
+  that merely end with (or start with) an inline `{variable}` still get tagged, since their single
+  text chunk is localisable.
 
 ## [0.4.3] - 2026-07-28
 

@@ -156,6 +156,25 @@ function generateIdsForUntagged(parsedStory, filePrefix = "") {
     // Start scanning from root
     traverse(parsedStory, null, []);
 
+    // Identify lines split into multiple text chunks - e.g. a line broken up by
+    // an inline {variable} like "Test {value} Again", which the parser yields as
+    // separate Text nodes ("Test " and " Again") sharing a source line. The
+    // localiser can't give such a line a single ID (it errors, or skips it in
+    // lenient mode), so we must NOT auto-tag them either. Count the valid text
+    // chunks per source line; any line with more than one is "split".
+    const chunksPerLine = new Map();
+    for (const item of validTextObjects) {
+        const dm = item.node.debugMetadata;
+        if (!dm) continue;
+        const key = `${dm.fileName}:${dm.startLineNumber}`;
+        chunksPerLine.set(key, (chunksPerLine.get(key) || 0) + 1);
+    }
+    const isSplitLine = (node) => {
+        const dm = node.debugMetadata;
+        if (!dm) return false;
+        return (chunksPerLine.get(`${dm.fileName}:${dm.startLineNumber}`) || 0) > 1;
+    };
+
     // Detect Existing IDs
     // We must identify all currently used IDs to prevent collisions.
     validTextObjects.forEach(item => {
@@ -169,6 +188,10 @@ function generateIdsForUntagged(parsedStory, filePrefix = "") {
     // Generate New IDs
     validTextObjects.forEach(item => {
         if (item.hasId) return;
+
+        // Skip lines split by inline logic - they can't be localised, so
+        // shouldn't be tagged (matches the localiser's one-chunk-per-line rule).
+        if (isSplitLine(item.node)) return;
 
         let currentFilePrefix = filePrefix;
         if (item.node.debugMetadata && item.node.debugMetadata.fileName) {
