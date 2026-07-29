@@ -9,6 +9,16 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+### Fixed
+- An update download that stalls is now noticed, killed, and retried instead of sitting
+  "downloading in the background" forever (up to 3 attempts per check; a hung download previously
+  emitted neither progress nor an error, so only restarting Dinky would clear it). Ported from
+  Patterpad, where a Windows user hit exactly this (patterkit/patter#33). Also: updates are now
+  re-checked every 6 hours while the app stays open (previously only at launch), the fragile
+  differential download is disabled in favour of one full stream, updater activity is logged to
+  `updater.log` in the app's data folder, and Check for Updates shows how far along a running
+  download is.
+
 ## [0.4.3] - 2026-07-28
 
 ### Added

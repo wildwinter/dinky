@@ -1,8 +1,10 @@
 import { app, dialog, BrowserWindow, ipcMain } from 'electron'
+import { appendFileSync } from 'node:fs'
+import { join } from 'node:path'
 import electronUpdater from 'electron-updater'
 import { safeSend } from './utils'
 
-const { autoUpdater } = electronUpdater
+const { autoUpdater, CancellationToken } = electronUpdater
 
 let updateDownloaded = null
 // Remember the last background error so the manual "Check for Updates"
@@ -11,12 +13,107 @@ let updateDownloaded = null
 // updates aren't arriving.
 let lastBackgroundError = null
 
-autoUpdater.autoDownload = true
+// Persistent updater log (userData/updater.log). electron-updater is silent by
+// default; a Windows download that stalls without emitting `error` (seen in
+// Patterpad, patterkit/patter#33) leaves nothing to diagnose without one.
+const logPath = join(app.getPath('userData'), 'updater.log')
+const writeLog = (level, args) => {
+    try {
+        appendFileSync(logPath, `${new Date().toISOString()} [${level}] ${args.map((a) => (a instanceof Error ? a.stack || a.message : String(a))).join(' ')}\n`)
+    } catch { /* logging must never throw */ }
+}
+autoUpdater.logger = {
+    info: (...a) => writeLog('info', a),
+    warn: (...a) => writeLog('warn', a),
+    error: (...a) => writeLog('error', a),
+    debug: (...a) => writeLog('debug', a)
+}
+
+// Downloads are driven by the download manager below, NOT autoDownload: holding
+// the CancellationToken ourselves is what lets the stall watchdog kill and retry
+// a download that hangs without ever erroring (patterkit/patter#33 - a hung
+// stream emits neither progress nor `error`, so nothing event-driven recovers it).
+autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
+// Full download instead of the block-by-block differential: the differential path
+// has stalled silently on Windows, and across an Electron bump it downloads nearly
+// everything anyway. No-op on macOS (Squirrel.Mac always fetches the whole zip).
+autoUpdater.disableDifferentialDownload = true
 
 autoUpdater.on('error', (err) => {
     console.error('AutoUpdater error:', err?.message || err)
     lastBackgroundError = err?.message || String(err)
+})
+
+// ---------------------------------------------------------------------------
+// Download manager: start, watch, retry. Ported from Patterpad's updater
+// (patterkit/patter, updater.ts) - platform-agnostic, it rides electron-updater's
+// shared events (NSIS / zip / AppImage alike).
+// ---------------------------------------------------------------------------
+
+const STALL_MS = 3 * 60 * 1000    // no progress event for this long = the download is hung
+const WATCH_EVERY_MS = 30 * 1000  // how often the watchdog looks at the clock
+const RETRY_DELAY_MS = 15 * 1000  // pause before re-attempting a killed/failed download
+const MAX_ATTEMPTS = 3            // per check cycle; the next check starts a fresh cycle
+
+let download = null      // { info, token, attempts, lastProgressAt, cancelledByWatchdog, watchdog }
+let lastProgress = null  // latest ProgressInfo, for the manual dialog's snapshot
+
+function clearDownload() {
+    if (download) clearInterval(download.watchdog)
+    download = null
+    lastProgress = null
+}
+
+// Begin (or re-attempt) downloading `info`.
+function beginDownload(info, attempts) {
+    clearDownload()
+    const token = new CancellationToken()
+    const state = {
+        info,
+        token,
+        attempts: attempts + 1,
+        lastProgressAt: Date.now(),
+        cancelledByWatchdog: false,
+        watchdog: setInterval(() => {
+            if (download !== state) return
+            const quiet = Date.now() - state.lastProgressAt
+            if (quiet < STALL_MS) return
+            // Hung: no progress and no error for STALL_MS. Kill it; the download promise's catch retries.
+            writeLog('warn', [`watchdog: no download progress for ${Math.round(quiet / 1000)}s - cancelling (attempt ${state.attempts}/${MAX_ATTEMPTS})`])
+            state.cancelledByWatchdog = true
+            state.token.cancel()
+        }, WATCH_EVERY_MS)
+    }
+    download = state
+    writeLog('info', [`download: starting ${info.version} (attempt ${state.attempts}/${MAX_ATTEMPTS})`])
+
+    autoUpdater.downloadUpdate(token).then(() => {
+        // Success is reported via the update-downloaded event; it clears the state.
+    }).catch((err) => {
+        if (download !== state) return // superseded by a newer attempt/cycle
+        const why = state.cancelledByWatchdog ? 'stalled (killed by the watchdog)' : (err?.message || String(err))
+        clearDownload()
+        if (state.attempts < MAX_ATTEMPTS) {
+            writeLog('warn', [`download: attempt ${state.attempts} failed - ${why}; retrying in ${RETRY_DELAY_MS / 1000}s`])
+            setTimeout(() => { if (!download && !updateDownloaded) beginDownload(info, state.attempts) }, RETRY_DELAY_MS)
+        } else {
+            // Out of attempts for this cycle. Surface it in the manual check; the next
+            // background check (or Check for Updates) starts a fresh cycle.
+            lastBackgroundError = `Downloading ${info.version} failed ${MAX_ATTEMPTS} times (last: ${why}). Will retry on the next check.`
+            writeLog('error', [`download: giving up on ${info.version} this cycle - ${why}`])
+        }
+    })
+}
+
+autoUpdater.on('update-available', (info) => {
+    if (download || updateDownloaded) return // already downloading it, or already have it
+    beginDownload(info, 0)
+})
+
+autoUpdater.on('download-progress', (p) => {
+    if (download) download.lastProgressAt = Date.now()
+    lastProgress = p
 })
 
 // Ask the renderer (one-shot, timeout-guarded) whether the project has unsaved
@@ -111,7 +208,10 @@ async function quitAndInstallSafely() {
 }
 
 autoUpdater.on('update-downloaded', (info) => {
+    clearDownload()
     updateDownloaded = info
+    lastBackgroundError = null // it got here in the end; stale retry noise would only mislead
+    writeLog('info', [`download: ${info.version} downloaded and ready to install`])
     const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
     if (!win) return
     dialog.showMessageBox(win, {
@@ -126,11 +226,17 @@ autoUpdater.on('update-downloaded', (info) => {
     }).catch(() => {})
 })
 
+let periodicCheck = null
+
 export function startBackgroundUpdateCheck() {
     if (!app.isPackaged) return
-    autoUpdater.checkForUpdates().catch((err) => {
+    const check = () => autoUpdater.checkForUpdates().catch((err) => {
         console.error('AutoUpdater background check failed:', err?.message || err)
     })
+    check()
+    // Re-check every 6 hours (Patterpad's cadence): an app left running for days
+    // used to check once at launch and never again.
+    if (!periodicCheck) periodicCheck = setInterval(check, 6 * 60 * 60 * 1000)
 }
 
 export async function manualCheckForUpdates(win) {
@@ -159,16 +265,44 @@ export async function manualCheckForUpdates(win) {
         return
     }
 
+    if (download) {
+        // A download is already in flight: show where it's got to (a snapshot; native
+        // message boxes can't live-update).
+        const pct = lastProgress ? ` (${lastProgress.percent.toFixed(0)}% downloaded so far)` : ''
+        await dialog.showMessageBox(parent, {
+            type: 'info',
+            message: 'Update available',
+            detail: `Dinky ${download.info.version} is downloading${pct}. You'll be prompted to restart when it's ready.`,
+            buttons: ['OK']
+        })
+        return
+    }
+
     try {
-        const result = await autoUpdater.checkForUpdates()
-        if (result?.downloadPromise) {
+        // A manual check starts a fresh retry cycle: if the last one gave up, this is the user asking again.
+        await autoUpdater.checkForUpdates()
+        // With autoDownload off, `update-available` (fired during the await) starts the managed
+        // download, so by here `download` is set iff the feed had something newer.
+        if (download) {
+            const pct = lastProgress ? ` (${lastProgress.percent.toFixed(0)}% downloaded so far)` : ''
             await dialog.showMessageBox(parent, {
                 type: 'info',
                 message: 'Update available',
-                detail: `Dinky ${result.updateInfo.version} is downloading in the background. You'll be prompted to restart when it's ready.`,
+                detail: `Dinky ${download.info.version} is downloading${pct}. You'll be prompted to restart when it's ready.`,
                 buttons: ['OK']
             })
             lastBackgroundError = null
+        } else if (updateDownloaded) {
+            // The check completed a download between our earlier guard and now (tiny window).
+            const { response } = await dialog.showMessageBox(parent, {
+                type: 'info',
+                buttons: ['Restart Now', 'Later'],
+                defaultId: 0,
+                cancelId: 1,
+                message: 'Update ready to install',
+                detail: `Dinky ${updateDownloaded.version} has been downloaded. Restart now to apply.`
+            })
+            if (response === 0) await quitAndInstallSafely()
         } else if (lastBackgroundError) {
             // A previous background check failed (probably at startup). The
             // manual check just succeeded enough to return a result, but
