@@ -9,6 +9,10 @@ import { safeSend } from './utils'
 import { manualCheckForUpdates } from './updater'
 
 let recordingMode = false;
+// "Show IDs" (View menu) reveals the hidden #id: tags inline in the editor for
+// manual repair. Session-only and deliberately NOT persisted to settings, so it
+// always starts off. Mirrors the recordingMode toggle pattern below.
+let showIdsEnabled = false;
 
 /**
  * Opens an output file (xlsx) from the project's destFolder using the platform's default application
@@ -92,6 +96,8 @@ async function buildMenu(win) {
     const recentProjects = await getRecentProjects();
     const settings = await loadSettings();
     const currentLocale = settings.spellCheckerLocale || 'en-GB';
+    // Word wrap is on by default; only an explicit false turns it off.
+    const wordWrap = settings.wordWrap !== false;
     const currentProject = getCurrentProject();
 
     const isMac = process.platform === 'darwin'
@@ -240,6 +246,23 @@ async function buildMenu(win) {
                 { label: 'Jump to ID', accelerator: 'CmdOrCtrl+J', click: (menuItem, browserWindow) => { safeSend(browserWindow, 'menu-find-id'); } },
                 { type: 'separator' },
                 {
+                    label: 'Word Wrap',
+                    type: 'checkbox',
+                    accelerator: 'Alt+Z',
+                    checked: wordWrap,
+                    click: async () => {
+                        const newValue = !wordWrap;
+                        await saveSettings({ wordWrap: newValue });
+                        BrowserWindow.getAllWindows().forEach(w => {
+                            if (!w.isDestroyed()) {
+                                safeSend(w, 'settings-updated', { wordWrap: newValue });
+                            }
+                        });
+                        await buildMenu(win);
+                    }
+                },
+                { type: 'separator' },
+                {
                     label: 'Spelling',
                     submenu: [
                         {
@@ -294,7 +317,21 @@ async function buildMenu(win) {
                 { role: 'zoomIn' },
                 { role: 'zoomOut' },
                 { type: 'separator' },
-                { role: 'togglefullscreen' }
+                { role: 'togglefullscreen' },
+                { type: 'separator' },
+                {
+                    // Belt-and-braces repair aid: reveal the normally-hidden
+                    // #id: tags inline so they can be edited/deleted by hand.
+                    // Not persisted - always starts off.
+                    label: 'Show IDs',
+                    type: 'checkbox',
+                    checked: showIdsEnabled,
+                    click: async (menuItem) => {
+                        showIdsEnabled = menuItem.checked;
+                        safeSend(win, 'set-show-ids', showIdsEnabled);
+                        await buildMenu(win);
+                    }
+                }
             ]
         },
         {
@@ -436,6 +473,15 @@ function disableMenuItems(items) {
 // IPC handler for recording mode toggle
 ipcMain.on('set-recording-mode', async (event, enabled) => {
     recordingMode = !!enabled;
+    const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+    if (win) await buildMenu(win);
+});
+
+// The renderer can turn "Show IDs" off itself (e.g. when saving or switching
+// files it materialises the inline IDs back to hidden decorations). Keep the
+// View-menu checkbox in sync when that happens.
+ipcMain.on('show-ids-changed', async (event, enabled) => {
+    showIdsEnabled = !!enabled;
     const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
     if (win) await buildMenu(win);
 });

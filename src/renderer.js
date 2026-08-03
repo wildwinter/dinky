@@ -55,6 +55,10 @@ let currentFilePath = null;
 let rootInkPath = null;
 let isUpdatingContent = false;
 let lastTestKnot = null;
+// "Show IDs" (View menu): when true the editor text carries the #id: tags
+// inline for manual inspection/repair instead of hiding them as decorations.
+// Session-only, not persisted; defaults off. See enterShowIds/exitShowIds.
+let idsVisible = false;
 
 // A CLI --goto request can arrive before the project has finished loading,
 // so it's held here until loadedInkFiles is populated. Declared up here so
@@ -112,7 +116,15 @@ window.electronAPI.loadSettings().then(async settings => {
     // Restore check-scratch preference
     checkScratchEnabled = !!settings.checkScratch;
     if (checkScratchCheckbox) checkScratchCheckbox.checked = checkScratchEnabled;
+
+    // Restore word-wrap preference (defaults on; only "false" turns it off).
+    applyWordWrap(settings.wordWrap !== false);
 });
+
+// Apply the word-wrap setting to the main editor.
+function applyWordWrap(enabled) {
+    editor.updateOptions({ wordWrap: enabled ? 'on' : 'off' });
+}
 
 window.electronAPI.onSettingsUpdated(async (newSettings) => {
     if (newSettings.spellCheckerLocale) {
@@ -125,6 +137,9 @@ window.electronAPI.onSettingsUpdated(async (newSettings) => {
     if (newSettings.checkScratch !== undefined) {
         checkScratchEnabled = !!newSettings.checkScratch;
         if (checkScratchCheckbox) checkScratchCheckbox.checked = checkScratchEnabled;
+    }
+    if (newSettings.wordWrap !== undefined) {
+        applyWordWrap(!!newSettings.wordWrap);
     }
 });
 
@@ -1233,6 +1248,11 @@ function loadFileToEditor(file, element, forceRefresh = false) {
 
     if (!forceRefresh && currentFilePath === file.absolutePath) return;
 
+    // Leaving this file - if IDs were shown inline for repair, fold them back
+    // into decorations first so the switch-away reconstruct below sees the
+    // normal representation (and the checkbox resets).
+    forceExitShowIds();
+
     window.electronAPI.updateWindowTitle({ fileName: file.relativePath });
 
     isUpdatingContent = true;
@@ -1552,6 +1572,15 @@ async function autoTag() {
 const debouncedCheck = debounce(checkSyntax, 1000);
 const debouncedCheckSpelling = debounce(checkSpelling, 400);
 const debouncedAutoTag = debounce(autoTag, 2000);
+// Once typing settles, heal the ID badges: drop any that drifted onto a
+// structural line (e.g. an ID left behind on "{testVar: -> knot1}" while the
+// line was mid-edit) and collapse any badge that ended up spanning or
+// duplicated on a line. Skipped while IDs are shown inline for manual editing,
+// since decorations are intentionally absent then.
+const debouncedIdSweep = debounce(() => {
+    if (idsVisible) return;
+    idManager.sweepIdDecorations();
+}, 1500);
 const debouncedDinkyModeCheck = debounce(() => {
     const text = editor.getValue();
     const isDinky = detectDinkyGlobal(text);
@@ -1569,6 +1598,55 @@ const debouncedDinkyModeCheck = debounce(() => {
         }
     }
 }, 500);
+
+// --- "Show IDs" mode -------------------------------------------------------
+// Normally the editor holds CLEAN text and the #id: tags live only as hidden
+// decorations. "Show IDs" (View menu) temporarily reveals them inline so the
+// user can inspect and hand-fix quirks (e.g. an ID stranded on a structural
+// line). Session-only, never persisted; always starts off.
+
+function enterShowIds() {
+    if (idsVisible) return;
+    // reconstructContent also strips IDs off any now-ineligible lines and drops
+    // their decorations, so what we reveal is already the cleaned-up set - i.e.
+    // exactly what a save would write.
+    const withIds = idManager.reconstructContent(editor.getValue());
+    isUpdatingContent = true;
+    editor.setValue(withIds);
+    isUpdatingContent = false;
+    idManager.clear(); // IDs are inline text now, not decorations
+    idsVisible = true;
+}
+
+function exitShowIds() {
+    if (!idsVisible) return;
+    // Re-extract the (possibly hand-edited) inline IDs back into decorations.
+    const { cleanContent, extractedIds } = idManager.extractIds(editor.getValue());
+    isUpdatingContent = true;
+    editor.setValue(cleanContent);
+    isUpdatingContent = false;
+    idManager.setupDecorations(extractedIds);
+    idsVisible = false;
+    // Restore the clean in-memory baseline so dirty tracking stays consistent.
+    if (currentFilePath && loadedInkFiles.has(currentFilePath)) {
+        loadedInkFiles.get(currentFilePath).content = editor.getValue();
+    }
+    refreshAudioGlyphs();
+}
+
+// Fold Show IDs back into the normal hidden-ID representation before machinery
+// that assumes clean editor content runs (save, file switch), and keep the
+// View-menu checkbox in sync.
+function forceExitShowIds() {
+    if (!idsVisible) return;
+    exitShowIds();
+    window.electronAPI.notifyShowIds(false);
+}
+
+window.electronAPI.onSetShowIds((enabled) => {
+    if (enabled) enterShowIds();
+    else exitShowIds();
+});
 
 // Track dirty line ranges for incremental spellchecking
 let spellCheckDirtyLines = new Set();
@@ -1607,11 +1685,16 @@ editor.onDidChangeModelContent((e) => {
     // Clear jump highlight on edit
     jumpHighlightCollection.clear();
 
-    // Keep the file model in sync with editor content immediately
-    // Note: We sync the CLEAN content here. IDs are only reconstructed on save/switch.
+    // Keep the file model in sync with editor content immediately.
+    // Note: We keep the CLEAN content here (IDs are only reconstructed on
+    // save/switch). While "Show IDs" is on the editor text carries inline IDs,
+    // so we strip them back out for the in-memory baseline - that keeps the
+    // dirty marker and the save path on the same clean representation as normal.
     if (currentFilePath && loadedInkFiles.has(currentFilePath)) {
         const file = loadedInkFiles.get(currentFilePath);
-        file.content = editor.getValue();
+        file.content = idsVisible
+            ? idManager.extractIds(editor.getValue()).cleanContent
+            : editor.getValue();
 
         if (file.listItem) {
             const isModified = file.content !== file.originalContent;
@@ -1624,7 +1707,13 @@ editor.onDidChangeModelContent((e) => {
 
     debouncedCheck();
     debouncedCheckSpelling();
-    debouncedAutoTag();
+    // Don't auto-generate IDs while they're shown inline for manual editing -
+    // the user is managing IDs by hand, and new decorations would collide with
+    // the inline tags. The sweep is skipped for the same reason.
+    if (!idsVisible) {
+        debouncedAutoTag();
+        debouncedIdSweep();
+    }
 
     // Update writing status tag highlighting
     highlightWritingStatusTags(model);
@@ -1819,6 +1908,12 @@ async function saveAllFiles() {
 }
 
 async function _doSaveAllFiles() {
+    // If IDs are being shown inline for manual repair, fold them back into the
+    // normal hidden-decoration representation first, so everything below runs
+    // on the clean editor content it expects (and the user's ID edits are
+    // captured as decorations that reconstructContent will write out).
+    forceExitShowIds();
+
     const filesToSave = [];
 
     // Snapshot the current file's CLEAN editor value at save start. We use
@@ -2081,6 +2176,15 @@ window.electronAPI.onReRecordUpdated(() => {
 });
 
 // Wire up glyph click-to-play audio
+// Live path resolver for the play badge: same lookup the toolbar's test-audio
+// button uses (findAudioFile), so clicking a line's badge plays the current
+// file on disk rather than a path cached from the last glyph refresh.
+idManager.getAudioPathForId = async (inkId) => {
+    if (!inkId) return null;
+    const result = await window.electronAPI.findAudioFile(inkId);
+    return result ? result.path : null;
+};
+
 idManager.playAudioForLine = async (audioFilePath) => {
     if (!audioFilePath) return;
     if (currentAudioElement) {

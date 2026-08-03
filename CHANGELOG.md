@@ -9,6 +9,16 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+### Added
+- **Word Wrap** toggle in the Edit menu (`Alt+Z`), on by default for the editor. The choice is remembered between sessions.
+- **Show IDs** toggle in the View menu: reveals the normally-hidden `#id:` tags inline so they can be inspected and hand-fixed. Session-only (not remembered), off by default; saving or switching files folds the IDs back to hidden.
+
+### Fixed
+- Line-ID badges no longer double up on a line (previously an ID's whole-line marker could grow to span two lines after splitting a tagged line, showing two IDs on one line).
+- Structural Ink lines can no longer keep a stray `#id:` tag. Pure diverts/threads (`-> knot`, `<- thread`), inline conditionals (`{testVar: -> knot1}`) and closing `}` lines are now recognised as ineligible, so an ID that drifts onto one while typing is stripped instead of being written to the file.
+- Once editing settles, ID badges are swept to heal these quirks live rather than only on the next save.
+- The per-line play badge now resolves the audio file live when clicked (the same lookup the toolbar uses), so replacing a line's audio on disk (e.g. dropping a new wav over an old TTS take) no longer plays the stale take from the badge.
+
 ## [0.4.4] - 2026-07-29
 
 ### Fixed
