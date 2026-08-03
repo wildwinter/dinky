@@ -63,6 +63,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onMenuReplace: (callback) => ipcRenderer.on('menu-replace', (_event) => callback()),
     onMenuFindInFiles: (callback) => ipcRenderer.on('menu-find-in-files', (_event) => callback()),
     onMenuReplaceInFiles: (callback) => ipcRenderer.on('menu-replace-in-files', (_event) => callback()),
+    // "Show IDs" View-menu toggle (session-only, not persisted).
+    onSetShowIds: (callback) => ipcRenderer.on('set-show-ids', (_event, enabled) => callback(enabled)),
+    notifyShowIds: (enabled) => ipcRenderer.send('show-ids-changed', enabled),
 
     // Search window API
     performSearch: (query) => ipcRenderer.invoke('perform-search', query),

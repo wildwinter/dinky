@@ -69,7 +69,10 @@ export function createEditor(containerId, initialTheme) {
         theme: initialTheme,
         automaticLayout: true,
         readOnly: true,
-        glyphMargin: true
+        glyphMargin: true,
+        // Word wrap defaults on; the persisted user setting is applied once
+        // settings load (see the loadSettings handler in renderer.js).
+        wordWrap: 'on'
     });
 
     return editor;

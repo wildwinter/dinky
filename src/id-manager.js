@@ -8,8 +8,14 @@ export class IdPreservationManager {
         this.audioStatusMap = {};
         // Set<lineNumber> - lines that are dialogue lines
         this.dialogueLines = new Set();
-        // Callback for playing audio by line ID
+        // Callback for playing audio by file path
         this.playAudioForLine = null;
+        // Callback resolving the CURRENT audio path for a line ID (same lookup
+        // the toolbar uses). Set by the renderer. Lets the play badge resolve
+        // its file live at click time instead of trusting the audioStatusMap
+        // snapshot, which only refreshes on file load / compile and can point
+        // at a stale file after audio changes on disk.
+        this.getAudioPathForId = null;
         // We use a specific decoration key to track our IDs
         this.decorationCollection = editor.createDecorationsCollection();
 
@@ -29,7 +35,7 @@ export class IdPreservationManager {
                         // If this line has audio, play it and move cursor to this line
                         if (this.audioStatusMap[inkId] && this.playAudioForLine) {
                             this.editor.setPosition({ lineNumber, column: 1 });
-                            this.playAudioForLine(this.audioStatusMap[inkId].path);
+                            this._playAudioForId(inkId);
                             return;
                         }
                         return;
@@ -69,6 +75,26 @@ export class IdPreservationManager {
         if (this._tooltipClickHandler) {
             document.removeEventListener('click', this._tooltipClickHandler);
         }
+    }
+
+    /**
+     * Play the audio for a line ID from the play badge. Resolves the file path
+     * live (via getAudioPathForId) so it always plays the same take the toolbar
+     * would, even if the audio changed on disk since the glyphs were last
+     * refreshed. Falls back to the cached snapshot path only when no live
+     * resolver is wired up.
+     */
+    async _playAudioForId(inkId) {
+        if (!this.playAudioForLine) return;
+        let audioPath;
+        if (this.getAudioPathForId) {
+            // Authoritative live lookup - a null result means the file is gone,
+            // so we deliberately don't fall back to the (stale) cached path.
+            audioPath = await this.getAudioPathForId(inkId);
+        } else {
+            audioPath = this.audioStatusMap[inkId]?.path || null;
+        }
+        if (audioPath) this.playAudioForLine(audioPath);
     }
 
     /**
@@ -143,14 +169,10 @@ export class IdPreservationManager {
         this.decorationToId.clear();
 
         for (const item of extractedIds) {
-            // Create a decoration for the entire line
-
-
-            const lineContent = model.getLineContent(item.lineIndex + 1);
-            const maxCol = lineContent.length + 1;
-
+            // Minimal single-line range (see _singleLineRange) so the badge can't
+            // later drift onto an adjacent line when this line is split.
             newDecorations.push({
-                range: new this.monaco.Range(item.lineIndex + 1, 1, item.lineIndex + 1, maxCol),
+                range: this._singleLineRange(model, item.lineIndex + 1),
                 options: this._getDecorationOptions(item.id),
                 // Custom payload not supported directly in options, need to map via ID
                 metadata: { inkId: item.id }
@@ -179,20 +201,28 @@ export class IdPreservationManager {
         if (!model) return;
 
         // Collect current decoration data (ranges may have shifted due to edits)
-        // Iterate only over our tracked decorations instead of ALL model decorations
+        // Iterate only over our tracked decorations instead of ALL model decorations.
+        // Normalise each range back to a single line at its start and keep at most
+        // one badge per line, so a decoration that drifted to span two lines (or a
+        // stray duplicate) is healed rather than re-baked into the collection.
         const newDecorations = [];
         const idList = [];
+        const seenLines = new Set();
 
         for (const [decId, inkId] of this.decorationToId) {
             const currentRange = model.getDecorationRange(decId);
             if (!currentRange) continue;
 
-            const isDialogue = this.dialogueLines.has(currentRange.startLineNumber);
+            const line = currentRange.startLineNumber;
+            if (seenLines.has(line)) continue;
+            seenLines.add(line);
+
+            const isDialogue = this.dialogueLines.has(line);
             const audioInfo = this.audioStatusMap[inkId];
             const hasAudio = isDialogue && !!audioInfo;
 
             newDecorations.push({
-                range: currentRange,
+                range: this._singleLineRange(model, line),
                 options: this._getDecorationOptions(inkId, hasAudio)
             });
             idList.push(inkId);
@@ -270,30 +300,29 @@ export class IdPreservationManager {
         const model = this.editor.getModel();
         if (!model) return;
 
-        // Collect current decorations, preserving their shifted ranges
-        const currentDecorations = [];
-        const currentIds = [];
-
+        // Collect current decorations, normalised to a single line at their start
+        // and keyed by line so we keep one badge per line. The line being tagged
+        // is dropped from the carry-over set first, so the freshly-generated ID
+        // wins on that line (the tagger only tags lines it saw as untagged, so any
+        // pre-existing decoration there is a drifted stale one).
+        const idByLine = new Map();
         for (const [decId, inkId] of this.decorationToId) {
             const range = model.getDecorationRange(decId);
             if (range && !range.isEmpty()) {
-                currentDecorations.push({
-                    range: range,
-                    options: this._getDecorationOptions(inkId)
-                });
-                currentIds.push(inkId);
+                idByLine.set(range.startLineNumber, inkId);
             }
         }
+        idByLine.set(lineNumber, idStr);
 
-        // Append the new decoration (use a non-empty range so subsequent addId calls
-        // don't mistake it for a deleted-line decoration when iterating ranges)
-        const lineContent = model.getLineContent(lineNumber);
-        const maxCol = lineContent.length + 1;
-        currentDecorations.push({
-            range: new this.monaco.Range(lineNumber, 1, lineNumber, maxCol),
-            options: this._getDecorationOptions(idStr)
-        });
-        currentIds.push(idStr);
+        const currentDecorations = [];
+        const currentIds = [];
+        for (const [line, inkId] of idByLine) {
+            currentDecorations.push({
+                range: this._singleLineRange(model, line),
+                options: this._getDecorationOptions(inkId)
+            });
+            currentIds.push(inkId);
+        }
 
         // Atomically replace the entire collection
         this.decorationToId.clear();
@@ -301,6 +330,81 @@ export class IdPreservationManager {
         for (let i = 0; i < decorationIds.length; i++) {
             this.decorationToId.set(decorationIds[i], currentIds[i]);
         }
+    }
+
+    /**
+     * Heal the live ID decorations once editing has settled. This mirrors the
+     * cleanup that reconstructContent() applies on save, but runs on the live
+     * decorations so quirks are corrected (and become visible) during editing
+     * rather than only on the next save:
+     *
+     *   - drops IDs that drifted onto structural / ineligible lines (knots,
+     *     diverts, inline conditionals, declarations, list continuations) which
+     *     can never carry an #id:. This is exactly the set reconstructContent
+     *     would strip on save, so nothing localisable is lost;
+     *   - collapses a decoration that grew to span two lines back to its start
+     *     line, which otherwise shows the ID badge/hover on two lines at once;
+     *   - keeps at most one ID badge per line.
+     *
+     * Returns true if it changed anything.
+     */
+    sweepIdDecorations() {
+        const model = this.editor.getModel();
+        if (!model) return false;
+
+        const lines = model.getValue().split(/\r?\n/);
+        const declarationContinuations = this._findDeclarationContinuationLines(lines);
+
+        // Gather current positions, ordered top-to-bottom so de-dup is deterministic.
+        const entries = [];
+        for (const [decId, inkId] of this.decorationToId) {
+            const range = model.getDecorationRange(decId);
+            if (!range || range.isEmpty()) continue;
+            entries.push({
+                startLine: range.startLineNumber,
+                endLine: range.endLineNumber,
+                inkId
+            });
+        }
+        entries.sort((a, b) => a.startLine - b.startLine);
+
+        const keep = []; // { line, inkId }
+        const seenLines = new Set();
+        let changed = this.decorationToId.size !== entries.length; // some ranges were lost/empty
+
+        for (const e of entries) {
+            const lineIndex = e.startLine - 1;
+            const lineText = lineIndex >= 0 && lineIndex < lines.length ? lines[lineIndex] : '';
+            if (!this._isLineEligibleForId(lineText) || declarationContinuations.has(lineIndex)) {
+                changed = true; // ID drifted onto a structural line - drop it
+                continue;
+            }
+            if (seenLines.has(e.startLine)) {
+                changed = true; // duplicate badge on this line - drop the extra
+                continue;
+            }
+            seenLines.add(e.startLine);
+            if (e.endLine !== e.startLine) changed = true; // was spanning - collapse it
+            keep.push({ line: e.startLine, inkId: e.inkId });
+        }
+
+        if (!changed) return false;
+
+        const newDecorations = keep.map(k => {
+            const isDialogue = this.dialogueLines.has(k.line);
+            const hasAudio = isDialogue && !!this.audioStatusMap[k.inkId];
+            return {
+                range: this._singleLineRange(model, k.line),
+                options: this._getDecorationOptions(k.inkId, hasAudio)
+            };
+        });
+
+        this.decorationToId.clear();
+        const decorationIds = this.decorationCollection.set(newDecorations);
+        for (let i = 0; i < decorationIds.length; i++) {
+            this.decorationToId.set(decorationIds[i], keep[i].inkId);
+        }
+        return true;
     }
 
     /**
@@ -316,8 +420,37 @@ export class IdPreservationManager {
         if (!trimmed) return false;
         if (trimmed.startsWith('=')) return false;  // knots (== name), stitches (= name), functions
         if (trimmed.startsWith('~')) return false;  // ink logic lines
+        // Pure structural flow lines: diverts (-> knot, -> END, ->->), and
+        // threads (<- thread). A line that merely *ends* with a divert
+        // ("Hello -> knot") starts with its text, so it stays eligible.
+        if (trimmed.startsWith('->') || trimmed.startsWith('<-')) return false;
+        // Inline logic / conditionals with no leading static text, e.g.
+        // "{testVar: -> knot1}", "{ condition:", or a lone closing "}". Such a
+        // line has no localisable leading chunk, so it must not carry an ID.
+        // (A content line like "Score: {value}" starts with its text and stays
+        // eligible.)
+        if (trimmed.startsWith('{') || trimmed.startsWith('}')) return false;
         if (/^(VAR|CONST|LIST|EXTERNAL|INCLUDE)\s/i.test(trimmed)) return false;
         return true;
+    }
+
+    /**
+     * Build a minimal, single-line, non-empty decoration range for a line.
+     *
+     * We deliberately pin the range near the start of the line (columns 1-2)
+     * rather than spanning the whole line text. A whole-line-text range whose
+     * end sits at end-of-line gets dragged onto the next line when the line is
+     * split (Enter pressed mid-line), leaving one decoration spanning two lines
+     * - which renders the ID badge/hover on BOTH lines. A minimal range at the
+     * start stays put, while `isWholeLine: true` still paints the glyph across
+     * the whole line. The range stays non-empty so it isn't mistaken for a
+     * deleted-line decoration (see reconstructContent / addId).
+     * @param {monaco.editor.ITextModel} model
+     * @param {number} line 1-based line number
+     */
+    _singleLineRange(model, line) {
+        const endCol = Math.min(2, model.getLineMaxColumn(line));
+        return new this.monaco.Range(line, 1, line, endCol);
     }
 
     /**
