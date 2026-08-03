@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-08-03
+
 ### Added
 - **Word Wrap** toggle in the Edit menu (`Alt+Z`), on by default for the editor. The choice is remembered between sessions.
 - **Show IDs** toggle in the View menu: reveals the normally-hidden `#id:` tags inline so they can be inspected and hand-fixed. Session-only (not remembered), off by default; saving or switching files folds the IDs back to hidden.
