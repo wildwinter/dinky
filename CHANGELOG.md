@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+- Updated the bundled Dink compiler to 0.3.1, which brings two changes. Snippets with identical text in the same block no longer share a `SnippetID`: four identical `*crying*` barks in one shuffle used to collide, which merged unrelated snippets. Projects whose structure file already contains duplicates are healed on the next compile. The compiler also gained command-line overrides for its Google TTS settings, including `--noTts` to turn generation off for a single run.
+
 ## [0.5.0] - 2026-08-21
 
 - Updated to catch new behaviour from Dink - Structured scene JSON (`-dink-structure.json`) now includes a `Characters` list on each scene: the distinct speaking CharacterIDs across the knot and all its stitches, in order of first appearance. The minimal runtime file is unchanged.
