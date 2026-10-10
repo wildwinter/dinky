@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-10-10
+
 - Plastic SCM fix: `cm status` output is now parsed in the format `cm` actually prints. This comes from simple-vc-lib 0.5.2, updated both in Dinky itself and in the bundled Dink compiler, which moves to 0.3.3.
 
 ## [0.5.2] - 2026-10-10
