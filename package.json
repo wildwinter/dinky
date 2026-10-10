@@ -2,7 +2,7 @@
     "name": "dinky",
     "productName": "Dinky",
     "version": "0.5.2",
-    "dinkVersion": "0.3.2",
+    "dinkVersion": "0.3.3",
     "inkjsVersion": "2.3.2",
     "main": "dist-electron/main.js",
     "scripts": {
@@ -18,7 +18,7 @@
         "publish-mac": "npm run clean && npm run build && node scripts/check-compiler-binaries.mjs mac && dotenv -e .env.local -o -- electron-builder --mac --publish always",
         "publish-win": "npm run clean && npm run build && node scripts/check-compiler-binaries.mjs win && dotenv -e .env.local -o -- electron-builder --win --x64 --publish always",
         "publish": "npm run clean && npm run build && node scripts/check-compiler-binaries.mjs && dotenv -e .env.local -o -- electron-builder --mac --publish always && dotenv -e .env.local -o -- electron-builder --win --x64 --publish always && npm run finalize-release",
-    "finalize-release": "node scripts/finalize-release.mjs",
+        "finalize-release": "node scripts/finalize-release.mjs",
         "version": "node scripts/update-changelog.mjs",
         "release:patch": "npm version patch && git push --follow-tags && npm run publish",
         "release:minor": "npm version minor && git push --follow-tags && npm run publish",
@@ -108,7 +108,7 @@
     "license": "MIT",
     "description": "Ink-script editor",
     "dependencies": {
-        "@wildwinter/simple-vc-lib": "^0.5.1",
+        "@wildwinter/simple-vc-lib": "^0.5.2",
         "electron-updater": "^6.8.3",
         "inkjs": "^2.3.2",
         "jsonc-parser": "^3.3.1",
