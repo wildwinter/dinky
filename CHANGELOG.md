@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-10
+
 - Plastic SCM fix: a file that is already checked out now saves again without needing a second checkout. This comes from simple-vc-lib 0.5.1, updated both in Dinky itself and in the bundled Dink compiler, which moves to 0.3.2.
 
 ## [0.5.1] - 2026-10-06
