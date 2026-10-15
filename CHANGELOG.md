@@ -9,6 +9,9 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+### Fixed
+- Inline conditionals that carry dialogue, such as `{specialism==Geopolitics:Some text.}`, count as localisable again. Dinky treated them as structural, so it stripped the ID the compiler had assigned and, in older builds, appended IDs after the closing brace. A tag there is not part of the conditional's content, so Ink-Localiser could not find it and minted a fresh ID on every compile, which is how affected lines accumulated dozens of duplicate tags. IDs are now injected inside the brace, where the compiler puts them.
+
 ## [0.5.3] - 2026-10-10
 
 - Plastic SCM fix: `cm status` output is now parsed in the format `cm` actually prints. This comes from simple-vc-lib 0.5.2, updated both in Dinky itself and in the bundled Dink compiler, which moves to 0.3.3.

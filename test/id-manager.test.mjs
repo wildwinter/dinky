@@ -9,6 +9,8 @@ const eligible = (line) =>
     IdPreservationManager.prototype._isLineEligibleForId.call(null, line);
 const continuations = (lines) =>
     IdPreservationManager.prototype._findDeclarationContinuationLines.call(null, lines);
+const extractIds = (content) =>
+    IdPreservationManager.prototype.extractIds.call(null, content);
 
 // This gate is what decides whether an #id: may live on a line. Both the
 // save-time reconstructContent() cleanup and the live stabilisation sweep use
@@ -106,6 +108,57 @@ describe('IdPreservationManager._playAudioForId', () => {
         mgr.getAudioPathForId = null;
         await mgr._playAudioForId('line_ab12');
         assert.equal(mgr.played, '/audio/tts/line_ab12.wav');
+    });
+});
+
+// Inline conditionals that carry real dialogue, e.g.
+// "{specialism==Geopolitics:Some text.}", ARE localisable: Ink-Localiser treats
+// them as one text chunk and tags them inside the brace. Dinky must agree, and
+// must inject inside the brace too. A tag placed after the brace is not part of
+// the conditional's content, so the localiser cannot find it and mints a fresh
+// ID on every compile, which is how one file ended up with 34 IDs per line.
+describe('inline conditionals that carry text', () => {
+    const inject = (line, id) =>
+        IdPreservationManager.prototype.injectIdIntoLine.call(null, line, id);
+
+    it('treats a conditional carrying dialogue as ID-eligible', () => {
+        assert.isTrue(eligible('{specialism==Geopolitics:Could we be looking at a fuel source?}'));
+        assert.isTrue(eligible('\t\t{specialism==Space:An artificial object.}'));
+    });
+
+    it('still rejects conditionals with no localisable text', () => {
+        assert.isFalse(eligible('{specialism==Ritual: }'));      // empty
+        assert.isFalse(eligible('{testVar: -> knot1}'));          // divert only
+        assert.isFalse(eligible('{ condition:'));                 // block opener
+        assert.isFalse(eligible('}'));
+        assert.isFalse(eligible('{cond: yes|no}'));               // if/else, two chunks
+        assert.isFalse(eligible('{cond:Score {n} points}'));      // nested braces
+    });
+
+    it('injects the tag INSIDE the closing brace', () => {
+        assert.equal(
+            inject('{specialism==Space:An artificial object.}', 'ev_1234'),
+            '{specialism==Space:An artificial object. #id:ev_1234}');
+    });
+
+    it('preserves leading indentation when injecting', () => {
+        assert.equal(
+            inject('\t\t{specialism==Space:Text.}', 'ev_1234'),
+            '\t\t{specialism==Space:Text. #id:ev_1234}');
+    });
+
+    it('round-trips: an injected tag extracts back to the original line', () => {
+        const original = '\t\t{specialism==Geopolitics:Some dialogue here.}';
+        const tagged = inject(original, 'ev_1234');
+        const { cleanContent, extractedIds } = extractIds(tagged);
+        assert.equal(extractedIds.length, 1);
+        assert.equal(extractedIds[0].id, 'ev_1234');
+        assert.equal(cleanContent, original);
+    });
+
+    it('leaves ordinary lines and choices injecting where they always did', () => {
+        assert.equal(inject('FRED: Hello.', 'ev_1234'), 'FRED: Hello. #id:ev_1234');
+        assert.equal(inject('* [Take the road]', 'ev_1234'), '* [Take the road #id:ev_1234]');
     });
 });
 

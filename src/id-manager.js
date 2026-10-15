@@ -1,3 +1,19 @@
+// Returns the text inside a single-line inline conditional that carries real
+// static text, e.g. "{specialism==Geopolitics:Some dialogue.}" -> "Some
+// dialogue.". Returns null for anything the localiser can't treat as one text
+// chunk: a block opener ("{ cond:"), a pure-logic conditional
+// ("{testVar: -> knot1}"), an empty one ("{specialism==Ritual: }"), an
+// if/else form ("{cond: yes|no}"), or nested braces ("{cond:Score {n}}").
+function inlineConditionalText(trimmed) {
+    const match = trimmed.match(/^\{[^{}:]+:([^{}]*)\}$/);
+    if (!match) return null;
+    const inner = match[1].trim();
+    if (!inner) return null;
+    if (inner.includes('|')) return null;
+    if (/^(->|<-|~)/.test(inner)) return null;
+    return inner;
+}
+
 export class IdPreservationManager {
     constructor(editor, monaco) {
         this.editor = editor;
@@ -424,9 +440,14 @@ export class IdPreservationManager {
         // threads (<- thread). A line that merely *ends* with a divert
         // ("Hello -> knot") starts with its text, so it stays eligible.
         if (trimmed.startsWith('->') || trimmed.startsWith('<-')) return false;
-        // Inline logic / conditionals with no leading static text, e.g.
-        // "{testVar: -> knot1}", "{ condition:", or a lone closing "}". Such a
-        // line has no localisable leading chunk, so it must not carry an ID.
+        // A single-line inline conditional carrying real text, such as
+        // "{specialism==Geopolitics:Some dialogue.}", IS localisable: the
+        // localiser sees one text chunk and tags it inside the brace. Keep it
+        // eligible, or Dinky strips an ID the localiser just assigned and the
+        // next compile mints a new one.
+        if (inlineConditionalText(trimmed) !== null) return true;
+        // Other inline logic / conditionals have no localisable text chunk,
+        // e.g. "{testVar: -> knot1}", "{ condition:", or a lone closing "}".
         // (A content line like "Score: {value}" starts with its text and stays
         // eligible.)
         if (trimmed.startsWith('{') || trimmed.startsWith('}')) return false;
@@ -576,6 +597,14 @@ export class IdPreservationManager {
                 // Insert inside brackets, at the end of text inside
                 // If text is `* [Option]`, we want `* [Option #id:...]`
 
+                insertIndex = closeIdx;
+            }
+        } else if (inlineConditionalText(trimmedLine) !== null) {
+            // Inside the closing brace, so the tag belongs to the conditional's
+            // text. Placed after the brace it isn't part of that content, the
+            // localiser can't find it, and every compile mints a fresh ID.
+            const closeIdx = contentPart.lastIndexOf('}');
+            if (closeIdx !== -1) {
                 insertIndex = closeIdx;
             }
         }
