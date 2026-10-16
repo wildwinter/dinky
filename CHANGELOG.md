@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-10-16
+
 ### Fixed
 - PDF export no longer fails with "'Rectangle' must not be null here" on larger scripts. The bundled Dink compiler and viewer move to 0.3.4, where the separator that could not be formatted on a page boundary is fixed. Whether a script exported previously depended on where its pages happened to break.
 
