@@ -9,6 +9,9 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+### Changed
+- Ink is now compiled with "count all visits" switched on, the same as `inklecate -c`, both in the test window and in the bundled Dink compiler, which moves to 0.3.5. Visit counts are recorded for every knot and stitch rather than only those the script itself reads, so game code can ask for the visit count of any of them.
+
 ## [0.5.5] - 2026-10-16
 
 ### Fixed

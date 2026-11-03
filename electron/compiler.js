@@ -115,13 +115,14 @@ function createCompilerOptions(filePath, errorHandler, fileHandler) {
         return new inkjs.CompilerOptions(
             filePath, // sourceFilename
             [],       // pluginNames
-            false,    // countAllVisits
+            true,     // countAllVisits: matches DinkCompiler, which compiles as inklecate -c
             errorHandler,
             fileHandler
         )
     } else {
         return {
             sourceFilename: filePath,
+            countAllVisits: true,
             fileHandler,
             errorHandler
         }
