@@ -184,3 +184,93 @@ describe('IdPreservationManager._findDeclarationContinuationLines', () => {
         assert.equal(cont.size, 0);
     });
 });
+
+// IDs left on lines with nothing localisable: a bare "-" left when Enter splits
+// "- FIXER: Hi" after the dash, and "- FixStage1:" case labels in a switch.
+// The tagger never tags these (no text), so the editor must not keep IDs there.
+describe('IDs stranded on markers and case labels', () => {
+    const proto = IdPreservationManager.prototype;
+    // A stand-in `this` for the methods that call sibling helpers.
+    const self = {
+        _isLineEligibleForId: proto._isLineEligibleForId,
+        _findDeclarationContinuationLines: proto._findDeclarationContinuationLines,
+        _findConditionalCaseLines: proto._findConditionalCaseLines,
+    };
+    const caseLines = (lines) => proto._findConditionalCaseLines.call(null, lines);
+    const plan = (lines, entries) => proto._planIdSweep.call(self, lines, entries);
+    const at = (line, inkId) => ({ startLine: line, endLine: line, inkId });
+
+    it('rejects bare choice and gather markers', () => {
+        assert.isFalse(eligible('-'));
+        assert.isFalse(eligible('    - '));
+        assert.isFalse(eligible('*'));
+        assert.isFalse(eligible('+ +'));
+        assert.isFalse(eligible('- (opts)'));
+        assert.isFalse(eligible('- -> END'));
+        assert.isFalse(eligible('* -> knot'));
+    });
+
+    it('still accepts markers carrying text', () => {
+        assert.isTrue(eligible('- FIXER: Hello.'));
+        assert.isTrue(eligible('- (greet) Hello.'));
+        assert.isTrue(eligible('* * Nested choice'));
+    });
+
+    // The block Ian reported, as the editor holds it (IDs stripped out).
+    const block = [
+        '{fixer_puzzle_state:',                 // 0
+        '     - FixComplete:',                  // 1
+        '        -> END',                       // 2
+        '     - FixStage3:',                    // 3
+        '        {once:',                       // 4
+        '            -',                        // 5
+        "                FIXER: We'll have it sorted in a jiffy.", // 6
+        '                -> END',               // 7
+        '        }',                            // 8
+        '    - FixStage1:',                     // 9
+        '        {once:',                       // 10
+        '            - Hello:',                 // 11 sequence branch: text
+        '                -> END',               // 12
+        '        }',                            // 13
+        '    - else:',                          // 14
+        '        Fallback.',                    // 15
+        '}',                                    // 16
+        '- Afterwards:',                        // 17 outside any block: text
+    ];
+
+    it('finds switch case labels but not sequence branches or plain gathers', () => {
+        assert.deepEqual([...caseLines(block)].sort((a, b) => a - b), [1, 3, 9, 14]);
+    });
+
+    it('drops IDs on case labels and bare markers when the text below has its own', () => {
+        const { keep, changed } = plan(block, [
+            at(4, 'stage3_label'),   // "- FixStage3:"
+            at(6, 'dash_H8CK'),      // bare "-"
+            at(7, 'text_5OPI'),      // FIXER line, already tagged
+            at(10, 'stage1_label'),  // "- FixStage1:"
+            at(12, 'hello_ABCD'),    // "- Hello:" in {once:}, real text
+        ]);
+        assert.isTrue(changed);
+        assert.deepEqual(keep, [
+            { line: 7, inkId: 'text_5OPI' },
+            { line: 12, inkId: 'hello_ABCD' },
+        ]);
+    });
+
+    it('moves an ID off a bare "-" onto the untagged text Enter pushed below', () => {
+        const { keep } = plan(block, [at(6, 'orig_H8CK')]);
+        assert.deepEqual(keep, [{ line: 7, inkId: 'orig_H8CK' }]);
+    });
+
+    it('does not move an ID off a case label', () => {
+        const lines = ['{x:', '- 1:', 'One.', '}'];
+        const { keep } = plan(lines, [at(2, 'label_AAAA')]);
+        assert.deepEqual(keep, []);
+    });
+
+    it('leaves a clean layout unchanged', () => {
+        const { keep, changed } = plan(block, [at(7, 'text_5OPI'), at(16, 'fb_ZZZZ')]);
+        assert.isFalse(changed);
+        assert.lengthOf(keep, 2);
+    });
+});

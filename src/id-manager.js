@@ -14,6 +14,21 @@ function inlineConditionalText(trimmed) {
     return inner;
 }
 
+// For a line opening with choice / gather / branch markers ("*", "+", "-",
+// repeated and spaced, optionally followed by a "(label)"), returns what comes
+// after them, trimmed. Returns null when the line doesn't open with a marker.
+// "->" is a divert, not a gather marker.
+function stripFlowMarkers(trimmed) {
+    const match = trimmed.match(/^(?:(?:[*+]|-(?!>))\s*)+(?:\(\s*\w+\s*\)\s*)?/);
+    if (!match) return null;
+    return trimmed.substring(match[0].length).trim();
+}
+
+// Sequence blocks ("{once:", "{stopping:" ...) hold content in their "-"
+// branches; any other multi-line block is a conditional or switch, whose
+// "- value:" lines are case labels.
+const SEQUENCE_BLOCK = /^\{\s*(?:stopping|cycle|shuffle|once)(?:\s+(?:stopping|cycle|once))?\s*:/;
+
 export class IdPreservationManager {
     constructor(editor, monaco) {
         this.editor = editor;
@@ -369,9 +384,8 @@ export class IdPreservationManager {
         if (!model) return false;
 
         const lines = model.getValue().split(/\r?\n/);
-        const declarationContinuations = this._findDeclarationContinuationLines(lines);
 
-        // Gather current positions, ordered top-to-bottom so de-dup is deterministic.
+        // Gather current positions.
         const entries = [];
         for (const [decId, inkId] of this.decorationToId) {
             const range = model.getDecorationRange(decId);
@@ -382,29 +396,9 @@ export class IdPreservationManager {
                 inkId
             });
         }
-        entries.sort((a, b) => a.startLine - b.startLine);
 
-        const keep = []; // { line, inkId }
-        const seenLines = new Set();
-        let changed = this.decorationToId.size !== entries.length; // some ranges were lost/empty
-
-        for (const e of entries) {
-            const lineIndex = e.startLine - 1;
-            const lineText = lineIndex >= 0 && lineIndex < lines.length ? lines[lineIndex] : '';
-            if (!this._isLineEligibleForId(lineText) || declarationContinuations.has(lineIndex)) {
-                changed = true; // ID drifted onto a structural line - drop it
-                continue;
-            }
-            if (seenLines.has(e.startLine)) {
-                changed = true; // duplicate badge on this line - drop the extra
-                continue;
-            }
-            seenLines.add(e.startLine);
-            if (e.endLine !== e.startLine) changed = true; // was spanning - collapse it
-            keep.push({ line: e.startLine, inkId: e.inkId });
-        }
-
-        if (!changed) return false;
+        const { keep, changed } = this._planIdSweep(lines, entries);
+        if (!changed && entries.length === this.decorationToId.size) return false;
 
         const newDecorations = keep.map(k => {
             const isDialogue = this.dialogueLines.has(k.line);
@@ -424,6 +418,68 @@ export class IdPreservationManager {
     }
 
     /**
+     * Pure planning step for sweepIdDecorations: given the editor lines and
+     * the IDs' current positions ({ startLine, endLine, inkId }, 1-based),
+     * decide which IDs stay and on which line. Returns { keep, changed },
+     * keep being [{ line, inkId }] top to bottom.
+     *
+     * An ID on a line that can't carry one is dropped, except in one case:
+     * a bare marker line ("-", "*", "+") directly above an eligible line that
+     * has no ID of its own. That is what Enter leaves after splitting
+     * "- FRED: Hi" just after the dash, and the ID belongs with the text that
+     * moved down. Without this the ID is lost and a fresh one is minted, so
+     * the line's recorded audio and translations are orphaned.
+     */
+    _planIdSweep(lines, entries) {
+        const declarationContinuations = this._findDeclarationContinuationLines(lines);
+        const caseLabels = this._findConditionalCaseLines(lines);
+        const canCarry = (line) => {
+            const idx = line - 1;
+            if (idx < 0 || idx >= lines.length) return false;
+            return this._isLineEligibleForId(lines[idx])
+                && !declarationContinuations.has(idx)
+                && !caseLabels.has(idx);
+        };
+        const isBareMarker = (line) => {
+            const idx = line - 1;
+            if (idx < 0 || idx >= lines.length) return false;
+            const commentIdx = lines[idx].indexOf('//');
+            const code = (commentIdx === -1 ? lines[idx] : lines[idx].substring(0, commentIdx)).trim();
+            return stripFlowMarkers(code) === '';
+        };
+
+        const sorted = [...entries].sort((a, b) => a.startLine - b.startLine);
+        const occupied = new Set(sorted.filter(e => canCarry(e.startLine)).map(e => e.startLine));
+
+        const keep = [];
+        const seenLines = new Set();
+        let changed = false;
+
+        for (const e of sorted) {
+            let line = e.startLine;
+            if (e.endLine !== e.startLine) changed = true; // was spanning - collapse it
+            if (!canCarry(line)) {
+                changed = true;
+                const below = line + 1;
+                if (isBareMarker(line) && canCarry(below) && !occupied.has(below)) {
+                    line = below; // follow the text that Enter moved down
+                    occupied.add(below);
+                } else {
+                    continue; // drifted onto a structural line - drop it
+                }
+            }
+            if (seenLines.has(line)) {
+                changed = true; // duplicate badge on this line - drop the extra
+                continue;
+            }
+            seenLines.add(line);
+            keep.push({ line, inkId: e.inkId });
+        }
+        keep.sort((a, b) => a.line - b.line);
+        return { keep, changed };
+    }
+
+    /**
      * Returns true if the line is eligible to carry an #id: tag.
      * Structural Ink lines (knots, stitches, functions, logic, declarations)
      * must not carry IDs or the compiler will reject them.
@@ -440,6 +496,15 @@ export class IdPreservationManager {
         // threads (<- thread). A line that merely *ends* with a divert
         // ("Hello -> knot") starts with its text, so it stays eligible.
         if (trimmed.startsWith('->') || trimmed.startsWith('<-')) return false;
+        // A choice, gather or branch marker with nothing localisable after it:
+        // a bare "-" (often left behind when Enter splits "- FRED: Hi" after
+        // the dash), "*", "+ (label)", or "- -> END". The tagger only tags
+        // text, so it never puts an ID here; one that lands here has drifted.
+        const afterMarker = stripFlowMarkers(trimmed);
+        if (afterMarker !== null) {
+            if (!afterMarker) return false;
+            if (afterMarker.startsWith('->') || afterMarker.startsWith('<-')) return false;
+        }
         // A single-line inline conditional carrying real text, such as
         // "{specialism==Geopolitics:Some dialogue.}", IS localisable: the
         // localiser sees one text chunk and tags it inside the brace. Keep it
@@ -515,14 +580,57 @@ export class IdPreservationManager {
     }
 
     /**
+     * Returns a Set of 0-based line indices that are case labels of a
+     * multi-line conditional or switch block, such as "- FixStage1:" or
+     * "- else:" with nothing after the colon. They carry no text, so the
+     * tagger never tags them, but an ID can drift onto one while editing.
+     *
+     * Only blocks that aren't sequences count: in "{once:" a "- Hello:" line
+     * is real dialogue.
+     */
+    _findConditionalCaseLines(lines) {
+        const result = new Set();
+        const stack = []; // 'cond' | 'sequence' | 'other' per open brace
+
+        for (let i = 0; i < lines.length; i++) {
+            const commentIdx = lines[i].indexOf('//');
+            const codePart = commentIdx === -1 ? lines[i] : lines[i].substring(0, commentIdx);
+            const trimmed = codePart.trim();
+            if (!trimmed) continue;
+
+            if (stack[stack.length - 1] === 'cond' && /^-(?!>)\s*[^:{}]*:$/.test(trimmed)) {
+                result.add(i);
+                continue;
+            }
+
+            const opens = (trimmed.match(/\{/g) || []).length;
+            const closes = (trimmed.match(/\}/g) || []).length;
+            if (opens > closes) {
+                let kind = 'other';
+                if (trimmed.startsWith('{')) kind = SEQUENCE_BLOCK.test(trimmed) ? 'sequence' : 'cond';
+                for (let n = 0; n < opens - closes; n++) stack.push(kind);
+            } else {
+                for (let n = 0; n < closes - opens && stack.length; n++) stack.pop();
+            }
+        }
+        return result;
+    }
+
+    /**
      * Reconstruct the content by injecting IDs back into the text.
      */
     reconstructContent(currentContent) {
         const model = this.editor.getModel();
         if (!model) return currentContent;
 
+        // Heal the live decorations first (drop drifted IDs, let an ID follow
+        // its text off a bare "-" line), so what is written matches what the
+        // editor shows.
+        if (currentContent === model.getValue()) this.sweepIdDecorations();
+
         const lines = currentContent.split(/\r?\n/);
         const declarationContinuations = this._findDeclarationContinuationLines(lines);
+        const caseLabels = this._findConditionalCaseLines(lines);
         const resultLines = [...lines];
         const decorationsToRemove = [];
 
@@ -549,7 +657,9 @@ export class IdPreservationManager {
                 // a knot header, declaration, logic line, OR a continuation
                 // of a multi-line declaration like LIST), drop the decoration
                 // so the ID is stripped from the file on save.
-                if (!this._isLineEligibleForId(resultLines[lineIndex]) || declarationContinuations.has(lineIndex)) {
+                if (!this._isLineEligibleForId(resultLines[lineIndex])
+                    || declarationContinuations.has(lineIndex)
+                    || caseLabels.has(lineIndex)) {
                     decorationsToRemove.push(decId);
                     continue;
                 }

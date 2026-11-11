@@ -1250,8 +1250,9 @@ function loadFileToEditor(file, element, forceRefresh = false) {
 
     // Leaving this file - if IDs were shown inline for repair, fold them back
     // into decorations first so the switch-away reconstruct below sees the
-    // normal representation (and the checkbox resets).
-    forceExitShowIds();
+    // normal representation. Show IDs is a view mode, so it comes back on for
+    // the file we switch to.
+    const reshowIds = suspendShowIds();
 
     window.electronAPI.updateWindowTitle({ fileName: file.relativePath });
 
@@ -1283,8 +1284,10 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     // Swap the model
     editor.setModel(newModel);
 
-    // Apply decorations to track the IDs
+    // Apply decorations to track the IDs, then drop any stranded on lines
+    // that can't carry one, so they show as gone now and go on the next save.
     idManager.setupDecorations(extractedIds);
+    idManager.sweepIdDecorations();
 
     // Refresh audio glyph colors (async, non-blocking)
     refreshAudioGlyphs();
@@ -1303,6 +1306,8 @@ function loadFileToEditor(file, element, forceRefresh = false) {
     highlightWritingStatusTags(newModel);
 
     isUpdatingContent = false;
+
+    if (reshowIds) enterShowIds();
 
     // Defer non-critical operations to keep UI responsive immediately after model swap
     // Use requestIdleCallback for background checks that don't block interaction
@@ -1541,6 +1546,7 @@ async function autoTag() {
     if (!rootInkPath || !currentFilePath) return;
     if (isAutoTagging) return;
     if (hasInkCompileErrors) return; // Don't tag while Ink has compile errors
+    if (idsVisible) return; // IDs are inline text, managed by hand, while shown
 
     isAutoTagging = true;
     try {
@@ -1611,9 +1617,13 @@ function enterShowIds() {
     // their decorations, so what we reveal is already the cleaned-up set - i.e.
     // exactly what a save would write.
     const withIds = idManager.reconstructContent(editor.getValue());
+    // setValue resets the cursor and scroll; keep them, since a save or file
+    // switch now folds the IDs away and back without the user asking.
+    const viewState = editor.saveViewState();
     isUpdatingContent = true;
     editor.setValue(withIds);
     isUpdatingContent = false;
+    if (viewState) editor.restoreViewState(viewState);
     idManager.clear(); // IDs are inline text now, not decorations
     idsVisible = true;
 }
@@ -1622,9 +1632,11 @@ function exitShowIds() {
     if (!idsVisible) return;
     // Re-extract the (possibly hand-edited) inline IDs back into decorations.
     const { cleanContent, extractedIds } = idManager.extractIds(editor.getValue());
+    const viewState = editor.saveViewState();
     isUpdatingContent = true;
     editor.setValue(cleanContent);
     isUpdatingContent = false;
+    if (viewState) editor.restoreViewState(viewState);
     idManager.setupDecorations(extractedIds);
     idsVisible = false;
     // Restore the clean in-memory baseline so dirty tracking stays consistent.
@@ -1634,9 +1646,17 @@ function exitShowIds() {
     refreshAudioGlyphs();
 }
 
-// Fold Show IDs back into the normal hidden-ID representation before machinery
-// that assumes clean editor content runs (save, file switch), and keep the
-// View-menu checkbox in sync.
+// Fold the inline IDs back into decorations for a moment, without turning the
+// mode off (the caller shows them again afterwards). Returns whether they were
+// showing.
+function suspendShowIds() {
+    if (!idsVisible) return false;
+    exitShowIds();
+    return true;
+}
+
+// Turn Show IDs off from the renderer side, keeping the View-menu checkbox in
+// sync.
 function forceExitShowIds() {
     if (!idsVisible) return;
     exitShowIds();
@@ -1903,7 +1923,14 @@ window.electronAPI.onThemeUpdated((theme) => {
 let _saveInFlight = null;
 async function saveAllFiles() {
     if (_saveInFlight) return _saveInFlight;
-    _saveInFlight = _doSaveAllFiles().finally(() => { _saveInFlight = null; });
+    // Saving runs on the clean, hidden-ID representation. If Show IDs is on,
+    // fold the IDs away for the save and show them again afterwards, rather
+    // than switching the mode off under the user.
+    const reshowIds = suspendShowIds();
+    _saveInFlight = _doSaveAllFiles().finally(() => {
+        _saveInFlight = null;
+        if (reshowIds) enterShowIds();
+    });
     return _saveInFlight;
 }
 
