@@ -9,6 +9,9 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+### Changed
+- The bundled Dink compiler and viewer move to 0.3.6. Changing a character's TTS voice now regenerates that character's Google TTS lines on the next build, rather than needing `replaceExisting`, which remakes every line. Clips made before the upgrade, and scratch recordings, are left alone until their text changes.
+
 ### Fixed
 - Line IDs no longer stick to lines with nothing to localise. Pressing Enter just after the `-` of a line such as `- FIXER: Hello.` used to leave the ID on the bare `-` while the text below got a new one; the ID now moves down with the text, so its audio and translations stay attached. IDs already stranded on a bare `-`, `*` or `+`, or on a case label like `- FixStage1:` in a multi-line conditional, disappear when the file is opened and are removed from the file on the next save.
 - "Show IDs" now stays on through saves, compiles, test runs and switching files. It used to switch itself off whenever anything saved. The cursor and scroll position are also kept when IDs are shown or hidden.
