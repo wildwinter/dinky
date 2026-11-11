@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-11-11
+
 ### Changed
 - The bundled Dink compiler and viewer move to 0.3.6. Changing a character's TTS voice now regenerates that character's Google TTS lines on the next build, rather than needing `replaceExisting`, which remakes every line. Clips made before the upgrade, and scratch recordings, are left alone until their text changes.
 
