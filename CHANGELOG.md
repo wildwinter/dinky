@@ -9,6 +9,10 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+### Fixed
+- A line ID can no longer end up on two lines. When a line was copied with its ID (with Show IDs on, in another editor, or by copying a file), both lines shared one ID, and the compiler kept only one of them: the other line vanished from the recording script, the localisation sheet and the game's strings, and the survivor appeared at the other line's place in the script. Dinky now gives the copy a fresh ID. The original keeps its own, so its audio and translations stay attached. Duplicates already in a project are cleared across every file the next time you save, and in the open file as you edit.
+- Pasting text that carries `#id:` tags no longer leaves them visible in the editor. A pasted line keeps its ID when it has been moved, and gets a fresh one when the ID is still in use elsewhere.
+
 ## [0.5.7] - 2026-11-11
 
 ### Changed

@@ -14,6 +14,7 @@ import { ValidationEngine } from './validation-engine';
 import { escapeRegExp, levenshtein, debounce } from './utils/string-utilities';
 import { classifyCommentAtLine, findLineCommentStart } from './comment-classifier';
 import { initSidebarResizer } from './sidebar-resizer';
+import { findDuplicateIds, replaceIdInLine } from './duplicate-ids';
 
 // Add platform-specific CSS class
 if (window.electronAPI.platform === 'win32') {
@@ -1561,6 +1562,11 @@ async function autoTag() {
         if (edits && edits.length > 0) {
             edits.forEach(edit => {
                 console.log('[AutoTag] Edit for:', edit.file, 'Current:', currentFilePath);
+                // A duplicate ID being replaced (edit.oldId) is normally a
+                // decoration, which addId swaps below. If it is still literal
+                // text on the line, take that out too, or the save would write
+                // both tags and the old one would win on reload.
+                if (edit.oldId) removeLiteralIdFromLine(edit.line, edit.oldId);
                 // Register the new ID.
                 // edit.line is 1-based.
                 // edit.newId is the ID string (e.g. "prefix_1234")
@@ -1573,6 +1579,20 @@ async function autoTag() {
     } finally {
         isAutoTagging = false;
     }
+}
+
+// Removes a literal "#id:<id>" tag from a line of the editor buffer, if there.
+function removeLiteralIdFromLine(lineNumber, id) {
+    const model = editor.getModel();
+    if (!model || lineNumber < 1 || lineNumber > model.getLineCount()) return;
+    const text = model.getLineContent(lineNumber);
+    const re = new RegExp('\\s?#id:' + escapeRegExp(id) + '\\b');
+    const m = re.exec(text);
+    if (!m) return;
+    model.pushEditOperations([], [{
+        range: new monaco.Range(lineNumber, m.index + 1, lineNumber, m.index + 1 + m[0].length),
+        text: ''
+    }], () => null);
 }
 
 const debouncedCheck = debounce(checkSyntax, 1000);
@@ -1670,6 +1690,57 @@ window.electronAPI.onSetShowIds((enabled) => {
 
 // Track dirty line ranges for incremental spellchecking
 let spellCheckDirtyLines = new Set();
+
+// Pasted text can carry literal "#id:" tags (copied while Show IDs was on, or
+// from another editor). Fold them into hidden ID decorations, as loading a file
+// does, so they don't sit visibly in the buffer. A pasted ID already used
+// elsewhere in the project means the line was copied, not moved: drop it so the
+// copy gets a fresh ID and the original keeps its own. A cut-and-paste move
+// keeps its ID.
+editor.onDidPaste((e) => {
+    if (idsVisible || !currentFilePath) return;
+    const model = editor.getModel();
+    if (!model) return;
+    const first = e.range.startLineNumber;
+    const last = Math.min(e.range.endLineNumber, model.getLineCount());
+
+    const tagRe = /\s?#id:([a-zA-Z0-9_-]+_[a-zA-Z0-9]{4})\b/g;
+    const pasted = [];
+    for (let line = first; line <= last; line++) {
+        const text = model.getLineContent(line);
+        const matches = [...text.matchAll(tagRe)];
+        if (matches.length) pasted.push({ line, text, matches });
+    }
+    if (!pasted.length) return;
+
+    // IDs in use outside the pasted lines: every other file, plus the rest of
+    // this one (its own IDs are decorations, so rebuild the text to see them).
+    const others = {};
+    for (const [p, f] of loadedInkFiles) {
+        if (p !== currentFilePath) others[p] = f.content;
+    }
+    const inUse = findDuplicateIds(others).allIds;
+    const rebuilt = idManager.reconstructContent(editor.getValue()).split(/\r?\n/);
+    const rest = rebuilt.map((text, i) => (i + 1 >= first && i + 1 <= last) ? '' : text).join('\n');
+    for (const id of findDuplicateIds({ [currentFilePath]: rest }).allIds) inUse.add(id);
+
+    const keep = [];
+    const edits = [];
+    for (const { line, text, matches } of pasted) {
+        const id = matches[0][1];
+        // Keep it only if nothing else uses it and the line has no ID already.
+        if (!inUse.has(id) && !idManager.getIdForLine(line)) {
+            keep.push({ line, id });
+            inUse.add(id); // a second pasted copy of the same line loses it
+        }
+        edits.push({
+            range: new monaco.Range(line, 1, line, text.length + 1),
+            text: text.replace(tagRe, '')
+        });
+    }
+    model.pushEditOperations([], edits, () => null);
+    for (const { line, id } of keep) idManager.addId(line, id);
+});
 
 editor.onDidChangeModelContent((e) => {
     if (isUpdatingContent) return;
@@ -1984,8 +2055,9 @@ async function _doSaveAllFiles() {
                     if (lineIdx >= 0 && lineIdx < lines.length) {
                         const originalLine = lines[lineIdx];
 
-                        // Inject ID
-                        const newLine = idManager.injectIdIntoLine(originalLine, edit.newId);
+                        // Inject ID, or swap it in for a duplicated one
+                        const newLine = (edit.oldId && replaceIdInLine(originalLine, edit.oldId, edit.newId))
+                            || idManager.injectIdIntoLine(originalLine, edit.newId);
                         lines[lineIdx] = newLine;
 
 

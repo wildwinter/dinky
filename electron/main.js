@@ -7,7 +7,7 @@ import { loadSettings, getRecentProjects, removeFromRecentProjects, getWindowSta
 import { buildMenu } from './menu'
 import { compileInk, parseInk } from './compiler'
 import { openTestWindow } from './test-runner'
-import { generateIdsForUntagged } from './tagger'
+import { generateIdsForUntagged, resolveDuplicateIds } from './tagger'
 import { loadProject, loadAdhocInkProject, switchToInkRoot, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject, getCurrentInkRoot, loadRootInk, getInkRootRev } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
 import './project-settings' // Import to register IPC handlers
@@ -394,8 +394,12 @@ if (!gotTheLock) {
         // Extract filename without .ink for ID prefix, keeping only alphanumerics and hyphens
         const filePrefix = path.basename(filePath, '.ink').replace(/[^a-zA-Z0-9-]/g, '');
 
-        // Generate IDs for untagged lines
-        const edits = generateIdsForUntagged(parsedStory, filePrefix);
+        // Lines in this file whose ID is used elsewhere in the project get a
+        // fresh one (edits carry oldId, so callers replace rather than add).
+        const { edits: dupeEdits, reservedIds } = resolveDuplicateIds(filePath, content, projectFiles);
+
+        // Generate IDs for untagged lines, avoiding every ID in the project
+        const edits = generateIdsForUntagged(parsedStory, filePrefix, reservedIds);
 
         // Filter edits to only include those for the current file
         const filteredEdits = edits.filter(edit => {
@@ -404,7 +408,7 @@ if (!gotTheLock) {
             return path.normalize(edit.file) === path.normalize(filePath);
         });
 
-        return filteredEdits;
+        return [...dupeEdits, ...filteredEdits];
     })
 
     // Save files handling. Returns per-file outcome so the renderer can:

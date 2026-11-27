@@ -1,4 +1,5 @@
 import path from 'path';
+import { findDuplicateIds } from '../src/duplicate-ids.js';
 
 const TAG_LOC = "id:";
 
@@ -12,6 +13,21 @@ function generateRandomCode(length = 4) {
         result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
+}
+
+/**
+ * A fresh ID for the prefix, not in `taken`, which it is then added to.
+ * Returns "" if none could be found (limited attempts, to prevent infinite loops).
+ */
+function mintUniqueId(prefix, taken) {
+    for (let i = 0; i < 100; i++) {
+        const candidate = prefix + generateRandomCode();
+        if (!taken.has(candidate)) {
+            taken.add(candidate);
+            return candidate;
+        }
+    }
+    return "";
 }
 
 /**
@@ -35,9 +51,11 @@ function getLocPrefix(ancestry, filePrefix = "") {
  * @param {Object} parsedStory - The root object returned by compiler.Parse()
  * @param {string} filePrefix - Optional prefix for the generated IDs
  */
-function generateIdsForUntagged(parsedStory, filePrefix = "") {
+function generateIdsForUntagged(parsedStory, filePrefix = "", reservedIds = null) {
     const validTextObjects = [];
-    const existingIds = new Set();
+    // IDs in use anywhere in the project, not just in this parse (which only
+    // reaches the current file and what it includes), so new IDs never collide.
+    const existingIds = new Set(reservedIds || []);
     const linesToReplace = [];
 
     // Recursively find all candidate Text nodes and track their ancestry
@@ -202,15 +220,7 @@ function generateIdsForUntagged(parsedStory, filePrefix = "") {
         const prefix = getLocPrefix(item.ancestry, currentFilePrefix);
         let newId = "";
 
-        // Try generating a unique ID (limit attempts to prevent infinite loops)
-        for (let i = 0; i < 100; i++) {
-            const candidate = prefix + generateRandomCode();
-            if (!existingIds.has(candidate)) {
-                newId = candidate;
-                existingIds.add(newId); // Reserve this ID
-                break;
-            }
-        }
+        newId = mintUniqueId(prefix, existingIds);
 
         if (!newId) {
             console.error(`Failed to generate unique ID for line: ${item.text}`);
@@ -326,6 +336,40 @@ function findTagInSiblings(refNode, container) {
     return null;
 }
 
+/**
+ * Gives a fresh ID to every line in `filePath` whose ID is also used on
+ * another line in the project, except the one line chosen to keep it (see
+ * findDuplicateIds). Run per file, this clears duplicates lazily across the
+ * whole project: each file drops only its own extra copies, and since the
+ * choice depends only on the text, files never disagree about the keeper.
+ *
+ * @param {string} filePath - the file being tagged
+ * @param {string} content - its text, with #id: tags
+ * @param {Object<string,string>} projectFiles - every project file's text
+ * @returns {{ edits: Array<{file, line, oldId, newId}>, reservedIds: Set<string> }}
+ *   edits are 1-based by line; reservedIds holds every ID in the project,
+ *   including the new ones, for the tagger to avoid.
+ */
+function resolveDuplicateIds(filePath, content, projectFiles = {}) {
+    const files = {};
+    const target = path.normalize(filePath);
+    for (const [p, text] of Object.entries(projectFiles)) {
+        if (path.normalize(p) !== target) files[p] = text;
+    }
+    files[filePath] = content;
+
+    const { losers, allIds } = findDuplicateIds(files);
+    const edits = [];
+    for (const loser of losers) {
+        if (path.normalize(loser.file) !== target) continue;
+        const newId = mintUniqueId(loser.prefix, allIds);
+        if (!newId) continue;
+        edits.push({ file: filePath, line: loser.line, oldId: loser.id, newId });
+    }
+    return { edits, reservedIds: allIds };
+}
+
 export {
-    generateIdsForUntagged
+    generateIdsForUntagged,
+    resolveDuplicateIds
 }
