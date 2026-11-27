@@ -45,9 +45,20 @@ async function openConfiguredOutput(win, configKey, label, suffix) {
         return true;
     }
 
-    await openOutputFile(project, suffix);
+    // Compile first, so the file always matches the current script: the
+    // renderer saves and compiles, then asks for the file to be opened only if
+    // the build succeeded (open-output-file below).
+    safeSend(win, 'compile-then-open', suffix);
     return true;
 }
+
+// The outputs the Open items may open once a compile has succeeded.
+const OPENABLE_OUTPUTS = new Set(['-recording.xlsx', '-loc.xlsx', '-stats.xlsx']);
+
+ipcMain.handle('open-output-file', async (event, suffix) => {
+    if (!OPENABLE_OUTPUTS.has(suffix)) return;
+    await openOutputFile(getCurrentProject(), suffix);
+});
 
 async function openOutputFile(project, suffix) {
     if (!project || !project.content) return;

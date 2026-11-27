@@ -1090,7 +1090,7 @@ async function openCompileModal() {
     } catch (error) {
         compileOutput.textContent = `Error saving files: ${error.message}\n`;
         btnCloseCompile.disabled = false;
-        return;
+        return false;
     }
 
     // Start compilation
@@ -1102,6 +1102,7 @@ async function openCompileModal() {
         btnCloseCompile.disabled = false;
         compileOutputContainer.scrollTop = compileOutputContainer.scrollHeight;
     }
+    return !!(result && result.success && result.exitCode === 0);
 }
 
 function closeCompileModal() {
@@ -1122,6 +1123,23 @@ compileModalOverlay.addEventListener('keydown', (e) => {
 
 window.electronAPI.onShowCompileModal(() => {
     openCompileModal();
+});
+
+// Project > Open Recording Script / Localization / Statistics. Compile first so
+// the file can't be left over from an older build; open it only if the build
+// succeeded, otherwise the Compile window stays up showing what went wrong.
+let compilingToOpen = false;
+window.electronAPI.onCompileThenOpen(async (suffix) => {
+    if (compilingToOpen) return;
+    compilingToOpen = true;
+    try {
+        if (await openCompileModal()) {
+            closeCompileModal();
+            await window.electronAPI.openOutputFile(suffix);
+        }
+    } finally {
+        compilingToOpen = false;
+    }
 });
 
 window.electronAPI.onCompileOutput(({ type, data }) => {

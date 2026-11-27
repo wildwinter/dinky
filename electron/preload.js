@@ -103,6 +103,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onCompileOutput: (callback) => ipcRenderer.on('compile-output', (_event, value) => callback(value)),
     onCompileComplete: (callback) => ipcRenderer.on('compile-complete', (_event, value) => callback(value)),
     onShowCompileModal: (callback) => ipcRenderer.on('show-compile-modal', (_event) => callback()),
+    // Project > Open Recording Script / Localization / Statistics: compile, then open
+    onCompileThenOpen: (callback) => ipcRenderer.on('compile-then-open', (_event, suffix) => callback(suffix)),
+    openOutputFile: (suffix) => ipcRenderer.invoke('open-output-file', suffix),
 
     // Export API
     exportHTML: (destFolder) => ipcRenderer.invoke('export-html', destFolder),

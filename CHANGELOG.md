@@ -9,6 +9,9 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+### Changed
+- Project > Open Recording Script, Open Localization Spreadsheet and Open Statistics now save and compile first, and open the file only if the build succeeds. Before, they opened whatever the last build had left in the output folder, which could be out of date if you hadn't compiled since your last edit, or if the last compile had failed. If the build fails, the Compile window stays open showing what went wrong.
+
 ### Added
 - Edit > Refresh Out-of-Date IDs. A line moved from another knot, stitch or file keeps its old ID, so its audio stays attached, but the ID no longer says where the line is. This gives every such line in the current file a new ID that matches where it now sits, saves the file, and then renames the lines' audio files in every audio-status folder (subfolders included) and moves their re-record flags to the new IDs. It asks first, and lists the changes. Translations already made for these lines use the old IDs and won't carry over.
 
