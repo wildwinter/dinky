@@ -9,6 +9,8 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+## [0.5.8] - 2026-11-27
+
 ### Changed
 - The bundled Dink compiler and viewer move to 0.3.7. A build now fails, naming every file and line, if one line ID is used on more than one line, rather than silently dropping all but one of those lines. Knot and stitch tags that follow a `//` comment line are no longer lost, and a stray tag line now gives a warning. A false "two chunks of text" error between included files is fixed.
 - Version-control support moves to simple-vc-lib 0.6.0. Under Perforce, saving a file someone else has exclusively checked out now reports it as locked, rather than appearing to succeed.
