@@ -9,6 +9,9 @@ Entries before 0.2.2 are not documented here - see the [git history](https://git
 
 ## [Unreleased]
 
+### Fixed
+- The start screen no longer offers "Select Dink Compiler Path...". The Dink compiler has been bundled with Dinky for some time, and the button no longer did anything, but it made it look as though the compiler was missing.
+
 ## [0.5.8] - 2026-11-27
 
 ### Changed

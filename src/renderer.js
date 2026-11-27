@@ -555,10 +555,6 @@ document.getElementById('btn-new-project').addEventListener('click', () => {
     window.electronAPI.newProject();
 });
 
-document.getElementById('btn-select-compiler-path').addEventListener('click', async () => {
-    await window.electronAPI.selectCompiler();
-});
-
 document.getElementById('btn-set-ink-root').addEventListener('click', () => {
     window.electronAPI.openInkRoot();
 });
