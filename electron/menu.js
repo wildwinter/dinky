@@ -244,6 +244,13 @@ async function buildMenu(win) {
                 { label: 'Replace In Files', accelerator: 'CmdOrCtrl+Shift+H', click: () => { openSearchWindow(); } },
                 { type: 'separator' },
                 { label: 'Jump to ID', accelerator: 'CmdOrCtrl+J', click: (menuItem, browserWindow) => { safeSend(browserWindow, 'menu-find-id'); } },
+                {
+                    // Lines moved from another knot, stitch or file keep their old
+                    // IDs; this gives the current file's ones new IDs that match.
+                    label: 'Refresh Out-of-Date IDs...',
+                    enabled: !!currentProject,
+                    click: (menuItem, browserWindow) => { safeSend(browserWindow, 'menu-refresh-ids'); }
+                },
                 { type: 'separator' },
                 {
                     label: 'Word Wrap',

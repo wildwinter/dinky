@@ -14,7 +14,7 @@ import { ValidationEngine } from './validation-engine';
 import { escapeRegExp, levenshtein, debounce } from './utils/string-utilities';
 import { classifyCommentAtLine, findLineCommentStart } from './comment-classifier';
 import { initSidebarResizer } from './sidebar-resizer';
-import { findDuplicateIds, replaceIdInLine } from './duplicate-ids';
+import { findDuplicateIds, findStaleIds, mintUniqueId, replaceIdInLine } from './duplicate-ids';
 
 // Add platform-specific CSS class
 if (window.electronAPI.platform === 'win32') {
@@ -1028,6 +1028,46 @@ window.electronAPI.onMenuFindId(() => {
     findIdModal.open();
 });
 
+// Edit > Refresh Out-of-Date IDs: a line moved from another knot, stitch or
+// file keeps its old ID (so its audio stays attached), which then no longer
+// says where the line is. This gives the current file's out-of-date lines new
+// IDs, saves, and then renames their audio and re-record flags to match.
+let refreshingIds = false;
+window.electronAPI.onMenuRefreshIds(async () => {
+    if (!currentFilePath || refreshingIds) return;
+    refreshingIds = true;
+    const reshowIds = suspendShowIds();
+    try {
+        const fileName = loadedInkFiles.get(currentFilePath)?.relativePath || currentFilePath;
+        const text = idManager.reconstructContent(editor.getValue());
+        const stale = findStaleIds(currentFilePath, text);
+
+        // New IDs must be unique across the whole project.
+        const files = {};
+        for (const [p, f] of loadedInkFiles) files[p] = p === currentFilePath ? text : f.content;
+        const taken = findDuplicateIds(files).allIds;
+        const renames = [];
+        for (const occ of stale) {
+            const newId = mintUniqueId(occ.prefix, taken);
+            if (newId) renames.push({ line: occ.line, oldId: occ.id, newId });
+        }
+
+        if (!await window.electronAPI.confirmRefreshIds(fileName, renames.map(({ oldId, newId }) => ({ oldId, newId })))) return;
+
+        for (const { line, newId } of renames) idManager.addId(line, newId);
+        await saveAllFiles();
+        // Keep the audio as it is unless the file really saved with its new IDs.
+        if (!lastSavedPaths.has(currentFilePath)) return;
+        await window.electronAPI.applyRefreshIdAssets(renames.map(({ oldId, newId }) => ({ oldId, newId })));
+        autoTag();
+    } catch (e) {
+        window.electronAPI.log('Refresh out-of-date IDs failed:', e.toString());
+    } finally {
+        if (reshowIds) enterShowIds();
+        refreshingIds = false;
+    }
+});
+
 // Compile Modal
 const compileModalOverlay = document.getElementById('modal-compile-overlay');
 const compileOutput = document.getElementById('compile-output');
@@ -1992,6 +2032,8 @@ window.electronAPI.onThemeUpdated((theme) => {
 // than starting a second concurrent pass. Two interleaved saveAllFiles runs can
 // corrupt originalContent tracking and double-apply tagger edits.
 let _saveInFlight = null;
+// Paths the most recent save actually wrote to disk.
+let lastSavedPaths = new Set();
 async function saveAllFiles() {
     if (_saveInFlight) return _saveInFlight;
     // Saving runs on the clean, hidden-ID representation. If Show IDs is on,
@@ -2093,6 +2135,7 @@ async function _doSaveAllFiles() {
     // to disk, so we don't mark refused/errored files as clean.
     const result = await window.electronAPI.saveFiles(filesToSave);
     const savedPaths = new Set(result?.savedPaths || []);
+    lastSavedPaths = savedPaths;
     const savedContentByPath = new Map(filesToSave.map(f => [f.path, f.content]));
 
     // Update originalContent only for files that actually saved.

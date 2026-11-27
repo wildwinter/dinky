@@ -136,3 +136,31 @@ export function replaceIdInLine(lineText, oldId, newId) {
     if (at === -1) return null;
     return lineText.substring(0, at) + '#id:' + newId + lineText.substring(at + tag.length);
 }
+
+/**
+ * Lines in one file whose ID doesn't match where the line now sits, i.e. the
+ * line was moved from another knot, stitch or file and kept its old ID.
+ * @returns {Array<{file, line, id, prefix}>} prefix is what a fresh ID needs.
+ */
+export function findStaleIds(filePath, text) {
+    return scanIds(filePath, text).filter(occ => !belongsHere(occ));
+}
+
+const ID_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+/**
+ * A fresh ID for the prefix that isn't in `taken`, which it is then added to.
+ * Returns "" if none could be found (limited attempts, to prevent infinite loops).
+ */
+export function mintUniqueId(prefix, taken) {
+    for (let i = 0; i < 100; i++) {
+        let code = '';
+        for (let c = 0; c < 4; c++) code += ID_CHARS.charAt(Math.floor(Math.random() * ID_CHARS.length));
+        const candidate = prefix + code;
+        if (!taken.has(candidate)) {
+            taken.add(candidate);
+            return candidate;
+        }
+    }
+    return '';
+}

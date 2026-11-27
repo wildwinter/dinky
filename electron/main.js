@@ -14,6 +14,7 @@ import './project-settings' // Import to register IPC handlers
 import './characters-ipc' // Import to register IPC handlers
 import './audio-lookup' // Import to register IPC handlers
 import './rerecord-ipc' // Import to register IPC handlers
+import './id-refresh' // Import to register IPC handlers
 import { safeSend, setupThemeListener } from './utils'
 import { vcWriteText } from './vc'
 import { safeReadText, safeReadJSON } from './safe-read'

@@ -59,6 +59,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onCompilationError: (callback) => ipcRenderer.on('compilation-error', (_event, message) => callback(message)),
     requestTestRestart: () => ipcRenderer.send('request-test-restart'),
     onMenuFindId: (callback) => ipcRenderer.on('menu-find-id', (_event) => callback()),
+    // Edit > Refresh Out-of-Date IDs
+    onMenuRefreshIds: (callback) => ipcRenderer.on('menu-refresh-ids', (_event) => callback()),
+    confirmRefreshIds: (fileName, renames) => ipcRenderer.invoke('refresh-ids-confirm', fileName, renames),
+    applyRefreshIdAssets: (renames) => ipcRenderer.invoke('refresh-ids-apply-assets', renames),
     onMenuFind: (callback) => ipcRenderer.on('menu-find', (_event) => callback()),
     onMenuReplace: (callback) => ipcRenderer.on('menu-replace', (_event) => callback()),
     onMenuFindInFiles: (callback) => ipcRenderer.on('menu-find-in-files', (_event) => callback()),

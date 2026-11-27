@@ -1,34 +1,7 @@
 import path from 'path';
-import { findDuplicateIds } from '../src/duplicate-ids.js';
+import { findDuplicateIds, mintUniqueId } from '../src/duplicate-ids.js';
 
 const TAG_LOC = "id:";
-
-/**
- * Generates a random 4-character alphanumeric ID (A-Z, 0-9).
- */
-function generateRandomCode(length = 4) {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let result = "";
-    for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-}
-
-/**
- * A fresh ID for the prefix, not in `taken`, which it is then added to.
- * Returns "" if none could be found (limited attempts, to prevent infinite loops).
- */
-function mintUniqueId(prefix, taken) {
-    for (let i = 0; i < 100; i++) {
-        const candidate = prefix + generateRandomCode();
-        if (!taken.has(candidate)) {
-            taken.add(candidate);
-            return candidate;
-        }
-    }
-    return "";
-}
 
 /**
  * Constructs the prefix based on the object's ancestry (Knots and Stitches) and optional file prefix.
