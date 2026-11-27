@@ -8,6 +8,7 @@ import { buildMenu } from './menu'
 import { compileInk, parseInk } from './compiler'
 import { openTestWindow } from './test-runner'
 import { generateIdsForUntagged, resolveDuplicateIds } from './tagger'
+import { planSave } from './save-plan'
 import { loadProject, loadAdhocInkProject, switchToInkRoot, createNewProject, createNewInclude, openNewIncludeUI, openInkRootUI, createInkRoot, removeInclude, chooseExistingInclude, renameInclude, renameInkRoot, createNewInkRoot, openNewInkRootUI, setMenuRebuildCallback, getCurrentProject, getCurrentInkRoot, loadRootInk, getInkRootRev } from './project-manager'
 import { initSearch, openSearchWindow } from './search'
 import './project-settings' // Import to register IPC handlers
@@ -420,8 +421,65 @@ if (!gotTheLock) {
         const savedPaths = [];
         const errors = [];      // [{ path, message }]
         const refused = [];     // [{ path, reason }]
+        const reload = [];      // [{ path, content }] changed on disk, to take into Dinky
+        const kept = [];        // paths left unsaved after a conflict, still dirty
+        const win = BrowserWindow.fromWebContents(event.sender);
 
-        for (const { path: filePath, content } of files) {
+        for (const { path: filePath, content, base } of files) {
+            // Only write files Dinky has changed, and never quietly overwrite a
+            // file changed on disk since Dinky read it (a version-control
+            // update, another editor) with Dinky's older copy.
+            if (typeof content === 'string') {
+                let disk = null;
+                try {
+                    disk = await fs.readFile(filePath, 'utf-8');
+                } catch {
+                    // Missing on disk: planSave treats that as changed there.
+                }
+                const plan = planSave(content, base, disk);
+                if (plan === 'skip') {
+                    // Unchanged on both sides: nothing to write, and it counts
+                    // as saved (the disk already holds this text).
+                    savedPaths.push(filePath);
+                    continue;
+                }
+                if (plan === 'reload') {
+                    reload.push({ path: filePath, content: disk });
+                    continue;
+                }
+                if (plan === 'conflict') {
+                    const name = path.basename(filePath);
+                    const deleted = disk === null;
+                    const { response } = await dialog.showMessageBox(win, {
+                        type: 'warning',
+                        // Same indices either way: 0 keeps Dinky's copy, the last cancels.
+                        buttons: deleted
+                            ? ['Save It Again', 'Cancel']
+                            : ['Keep My Version', 'Use the Version on Disk', 'Cancel'],
+                        defaultId: deleted ? 1 : 2,
+                        cancelId: deleted ? 1 : 2,
+                        message: disk === null
+                            ? `${name} has been deleted outside Dinky since you opened it.`
+                            : `${name} has been changed outside Dinky since you opened it.`,
+                        detail: disk === null
+                            ? `You have changes to it in Dinky. Save It Again writes Dinky's copy back; Cancel leaves it deleted and unsaved in Dinky.`
+                            : `This can happen after a version-control update or an edit in another editor. ` +
+                              `You also have changes to it in Dinky.\n\n` +
+                              `Keep My Version writes Dinky's copy over the one on disk. ` +
+                              `Use the Version on Disk loads it into Dinky and discards your changes to this file. ` +
+                              `Cancel leaves both as they are, and the file unsaved.`
+                    });
+                    if (!deleted && response === 1) {
+                        reload.push({ path: filePath, content: disk });
+                        continue;
+                    }
+                    if (response !== 0) {
+                        kept.push(filePath);
+                        continue;
+                    }
+                }
+            }
+
             // Safety net: refuse to write content that looks like the legacy
             // "// Error reading file: ENOENT…" placeholder from an old codepath.
             // If we ever see this in memory it means the load failed and the
@@ -476,7 +534,7 @@ if (!gotTheLock) {
             );
         }
 
-        return { savedPaths, errors, refused };
+        return { savedPaths, errors, refused, reload, kept };
     });
 
     // Re-traverse INCLUDE statements from disk and notify the renderer.

@@ -95,6 +95,18 @@ export class ModelPool {
      * Remove a model from the pool
      * @param {string} filePath
      */
+    /**
+     * Take a model out of the pool without disposing it (the caller disposes
+     * it once the editor no longer shows it). Returns the model, if any.
+     * @param {string} filePath
+     */
+    detachModel(filePath) {
+        const model = this.modelPool.get(filePath);
+        this.modelPool.delete(filePath);
+        this.pooledModelOrder = this.pooledModelOrder.filter(p => p !== filePath);
+        return model;
+    }
+
     removeModel(filePath) {
         const model = this.modelPool.get(filePath);
         if (model) {

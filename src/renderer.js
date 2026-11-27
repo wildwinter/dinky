@@ -676,6 +676,7 @@ window.electronAPI.onRootInkLoaded(async (files, rev) => {
 
     files.forEach((file, index) => {
         file.originalContent = file.content;
+        file.diskText = file.content; // as read from disk: the save compares against it
         loadedInkFiles.set(file.absolutePath, file);
 
         if (index === 0) {
@@ -776,6 +777,7 @@ window.electronAPI.onInkFilesRefreshed((files, rev) => {
         if (loadedInkFiles.has(file.absolutePath)) return;
 
         file.originalContent = file.content;
+        file.diskText = file.content; // as read from disk: the save compares against it
         loadedInkFiles.set(file.absolutePath, file);
 
         const li = document.createElement('li');
@@ -2045,6 +2047,26 @@ window.electronAPI.onThemeUpdated((theme) => {
     }
 });
 
+// Replaces Dinky's copy of a file with the text now on disk, as on first load.
+function reloadFileFromDisk(filePath, diskContent) {
+    const file = loadedInkFiles.get(filePath);
+    if (!file) return;
+    file.content = diskContent;
+    file.originalContent = diskContent;
+    file.diskText = diskContent;
+    // The pooled editor model still holds the old text; take it out so the
+    // file is rebuilt from the new content. If it's on screen, swap first and
+    // dispose it after, so the editor never shows a disposed model.
+    const oldModel = modelPool.detachModel(filePath);
+    if (filePath === currentFilePath) {
+        const element = filePath === rootInkPath ? document.getElementById('ink-root-file-item') : file.listItem;
+        if (element) loadFileToEditor(file, element, true);
+    }
+    if (oldModel && editor.getModel() !== oldModel) oldModel.dispose();
+    if (file.listItem) file.listItem.textContent = file.relativePath;
+    console.log('[Save] Took in the version on disk of', filePath);
+}
+
 // Save Logic
 // Re-entrancy guard: if a save is already in flight, return that promise rather
 // than starting a second concurrent pass. Two interleaved saveAllFiles runs can
@@ -2146,7 +2168,9 @@ async function _doSaveAllFiles() {
             file.content = content;
         }
 
-        filesToSave.push({ path: filePath, content });
+        // base: the text Dinky last read or wrote, so the save can tell what
+        // Dinky changed from what changed on disk meanwhile.
+        filesToSave.push({ path: filePath, content, base: file.diskText });
     }
 
     // Invoke IPC to save files. Result tells us which files actually made it
@@ -2155,6 +2179,15 @@ async function _doSaveAllFiles() {
     const savedPaths = new Set(result?.savedPaths || []);
     lastSavedPaths = savedPaths;
     const savedContentByPath = new Map(filesToSave.map(f => [f.path, f.content]));
+    for (const p of savedPaths) {
+        const file = loadedInkFiles.get(p);
+        if (file) file.diskText = savedContentByPath.get(p);
+    }
+    // Files changed on disk (a version-control update, another editor) that
+    // Dinky hadn't changed, or whose disk version the user chose: take them in.
+    for (const { path: p, content: diskContent } of result?.reload || []) {
+        reloadFileFromDisk(p, diskContent);
+    }
 
     // Update originalContent only for files that actually saved.
     //
